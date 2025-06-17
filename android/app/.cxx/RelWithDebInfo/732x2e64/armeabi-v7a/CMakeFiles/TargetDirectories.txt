@@ -1,0 +1,2 @@
+D:/internclass/neosaverfinal/neosaver/android/app/.cxx/RelWithDebInfo/732x2e64/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/internclass/neosaverfinal/neosaver/android/app/.cxx/RelWithDebInfo/732x2e64/armeabi-v7a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550311065998",
+    "project_id": "neosaver-f06e9",
+    "storage_bucket": "neosaver-f06e9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550311065998:android:eac422c4c88b15aa8bccdf",
+        "android_client_info": {
+          "package_name": "com.example.neosaver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4Ktf1DDkFlYYinXeBRLlW2etfLFLCZVQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

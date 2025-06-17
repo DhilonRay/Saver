@@ -1,0 +1,42 @@
+name: neosaver
+description: "A new Flutter project."
+
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.3
+
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+
+  google_maps_flutter: ^2.2.0
+  geolocator: ^10.1.0
+  cupertino_icons: ^1.0.8
+  firebase_core: ^2.30.0
+  firebase_auth: ^4.17.4
+  cloud_firestore: ^4.15.4
+  firebase_messaging: ^14.7.4
+  intl: ^0.18.1
+  google_places_flutter: ^2.0.5
+  http: ^0.13.5
+  google_maps_webservice: ^0.0.20-nullsafety.5
+  geocoding: ^2.1.0
+  url_launcher: ^6.3.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+
+  flutter_lints: ^5.0.0
+
+
+
+
+flutter:
+
+  uses-material-design: true
