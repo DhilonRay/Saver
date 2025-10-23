@@ -20,6 +20,7 @@ class LoginController extends GetxController {
   var selectedTabIndex = 0.obs; // 0 for Email, 1 for Phone
   var isPasswordVisible = false.obs;
   var isPhonePasswordVisible = false.obs;
+  var selectedCountryCode = '+880'.obs; // Default to Bangladesh
 
   @override
   void onInit() {
@@ -189,6 +190,12 @@ class LoginController extends GetxController {
 
   void togglePhonePasswordVisibility() {
     isPhonePasswordVisible.value = !isPhonePasswordVisible.value;
+  }
+
+  void onCountryCodeChanged(String? countryCode) {
+    if (countryCode != null) {
+      selectedCountryCode.value = countryCode;
+    }
   }
 
   void showForgotPasswordDialog() {
