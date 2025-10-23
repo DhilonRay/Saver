@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:country_code_picker/country_code_picker.dart';
 import 'login_screen_controller.dart';
 
 class LoginPage extends StatelessWidget {
@@ -437,13 +438,13 @@ class LoginPage extends StatelessWidget {
   Widget _buildEnhancedTextField({
     required TextEditingController controller,
     required String hintText,
-    required IconData icon,
     required Color primaryColor,
     required Color backgroundColor,
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     bool isPasswordField = false,
     LoginController? loginController,
+    Widget? customPrefix,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -477,10 +478,10 @@ class LoginPage extends StatelessWidget {
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
-          prefixIcon: Container(
+          prefixIcon: customPrefix ?? Container(
             padding: const EdgeInsets.all(12),
             child: Icon(
-              icon,
+              Icons.phone_outlined, // Default icon for phone
               color: primaryColor,
               size: 20,
             ),
@@ -640,10 +641,17 @@ class LoginPage extends StatelessWidget {
         _buildEnhancedTextField(
           controller: controller.emailController,
           hintText: 'Email Address',
-          icon: Icons.email_outlined,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
           keyboardType: TextInputType.emailAddress,
+          customPrefix: Container(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.email_outlined,
+              color: primaryBlue,
+              size: 20,
+            ),
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -651,12 +659,19 @@ class LoginPage extends StatelessWidget {
         Obx(() => _buildEnhancedTextField(
           controller: controller.passwordController,
           hintText: 'Password',
-          icon: Icons.lock_outline,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
           obscureText: !controller.isPasswordVisible.value,
           isPasswordField: true,
           loginController: controller,
+          customPrefix: Container(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.lock_outline,
+              color: primaryBlue,
+              size: 20,
+            ),
+          ),
         )),
         const SizedBox(height: 12),
 
@@ -691,10 +706,46 @@ class LoginPage extends StatelessWidget {
         _buildEnhancedTextField(
           controller: controller.phoneController,
           hintText: 'Phone Number',
-          icon: Icons.phone_outlined,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
           keyboardType: TextInputType.phone,
+          customPrefix: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CountryCodePicker(
+                  onChanged: (countryCode) {
+                    controller.onCountryCodeChanged(countryCode.dialCode);
+                  },
+                  initialSelection: 'BD',
+                  favorite: const ['+880', '+1', '+44', '+86'],
+                  showCountryOnly: false,
+                  showOnlyCountryWhenClosed: false,
+                  alignLeft: false,
+                  textStyle: TextStyle(
+                    color: primaryBlue,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  dialogTextStyle: TextStyle(
+                    color: primaryBlue,
+                    fontSize: 14,
+                  ),
+                  searchStyle: TextStyle(
+                    color: primaryBlue,
+                    fontSize: 14,
+                  ),
+                ),
+                Container(
+                  height: 20,
+                  width: 1,
+                  color: primaryBlue.withOpacity(0.3),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -702,12 +753,19 @@ class LoginPage extends StatelessWidget {
         Obx(() => _buildEnhancedTextField(
           controller: controller.phonePasswordController,
           hintText: 'Password',
-          icon: Icons.lock_outline,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
           obscureText: !controller.isPhonePasswordVisible.value,
           isPasswordField: true,
           loginController: controller,
+          customPrefix: Container(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.lock_outline,
+              color: primaryBlue,
+              size: 20,
+            ),
+          ),
         )),
         const SizedBox(height: 12),
 

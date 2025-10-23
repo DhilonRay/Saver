@@ -20,6 +20,7 @@ class SignUpController extends GetxController {
   var isLoading = false.obs;
   var isPasswordVisible = false.obs;
   var isConfirmPasswordVisible = false.obs;
+  var selectedCountryCode = '+880'.obs; // Default to Bangladesh
 
   @override
   void onInit() {
@@ -189,6 +190,12 @@ class SignUpController extends GetxController {
 
   void toggleConfirmPasswordVisibility() {
     isConfirmPasswordVisible.value = !isConfirmPasswordVisible.value;
+  }
+
+  void onCountryCodeChanged(String? countryCode) {
+    if (countryCode != null) {
+      selectedCountryCode.value = countryCode;
+    }
   }
 
   void goToLogin() {
