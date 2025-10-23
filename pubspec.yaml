@@ -13,7 +13,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-
+  get: ^4.6.6
   google_maps_flutter: ^2.2.0
   geolocator: ^10.1.0
   cupertino_icons: ^1.0.8
