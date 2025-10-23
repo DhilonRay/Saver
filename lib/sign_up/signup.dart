@@ -24,6 +24,18 @@ class SignUpPage extends StatelessWidget {
         const Color textSecondary = Color(0xFF718096);
 
         return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios,
+                color: primaryBlue,
+                size: 24,
+              ),
+              onPressed: () => Get.back(),
+            ),
+          ),
           body: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -40,6 +52,18 @@ class SignUpPage extends StatelessWidget {
                   children: [
                     const SizedBox(height: 20),
                     _buildHeader(primaryBlue, darkBlue, textSecondary),
+                    const SizedBox(height: 24),
+                    // Role Selection Section
+                    _buildRoleSelection(
+                      controller,
+                      primaryBlue,
+                      secondaryBlue,
+                      accentBlue,
+                      lightBlue,
+                      cardBackground,
+                      textPrimary,
+                      textSecondary,
+                    ),
                     const SizedBox(height: 24),
                     _buildSignUpCard(
                       controller,
@@ -349,6 +373,8 @@ class SignUpPage extends StatelessWidget {
                 size: 20,
               ),
             ),
+            passwordVisibilityState: controller.isPasswordVisible,
+            onVisibilityToggle: controller.togglePasswordVisibility,
           )),
           const SizedBox(height: 16),
 
@@ -368,65 +394,9 @@ class SignUpPage extends StatelessWidget {
                 size: 20,
               ),
             ),
+            passwordVisibilityState: controller.isConfirmPasswordVisible,
+            onVisibilityToggle: controller.toggleConfirmPasswordVisibility,
           )),
-          const SizedBox(height: 20),
-
-          // Role Selection
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: lightBlue,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: primaryBlue.withOpacity(0.1),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  "Register as:",
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Obx(() => DropdownButton<String>(
-                    value: controller.selectedRole.value,
-                    isExpanded: true,
-                    underline: Container(),
-                    icon: Icon(
-                      Icons.arrow_drop_down,
-                      color: primaryBlue,
-                    ),
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'user',
-                        child: Text('Patient/User'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'driver',
-                        child: Text('Ambulance Partner'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        controller.updateSelectedRole(value);
-                      }
-                    },
-                  )),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 24),
 
           // Register Button
@@ -485,6 +455,162 @@ class SignUpPage extends StatelessWidget {
     );
   }
 
+  Widget _buildRoleSelection(
+    SignUpController controller,
+    Color primaryBlue,
+    Color secondaryBlue,
+    Color accentBlue,
+    Color lightBlue,
+    Color cardBackground,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: primaryBlue.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: primaryBlue.withOpacity(0.06),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose Your Role *',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: textPrimary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Obx(() => Row(
+            children: [
+              // User Role Option
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => controller.selectedRole.value = 'user',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: controller.selectedRole.value == 'user'
+                          ? primaryBlue.withOpacity(0.1)
+                          : lightBlue.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: controller.selectedRole.value == 'user'
+                            ? primaryBlue
+                            : primaryBlue.withOpacity(0.2),
+                        width: controller.selectedRole.value == 'user' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          color: controller.selectedRole.value == 'user'
+                              ? primaryBlue
+                              : textSecondary,
+                          size: 28,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'User',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: controller.selectedRole.value == 'user'
+                                ? primaryBlue
+                                : textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Access healthcare services',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textSecondary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Partner Role Option
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => controller.selectedRole.value = 'partner',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: controller.selectedRole.value == 'partner'
+                          ? primaryBlue.withOpacity(0.1)
+                          : lightBlue.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: controller.selectedRole.value == 'partner'
+                            ? primaryBlue
+                            : primaryBlue.withOpacity(0.2),
+                        width: controller.selectedRole.value == 'partner' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.local_shipping,
+                          color: controller.selectedRole.value == 'partner'
+                              ? primaryBlue
+                              : textSecondary,
+                          size: 28,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ambulance',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: controller.selectedRole.value == 'partner'
+                                ? primaryBlue
+                                : textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Provide ambulance services',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textSecondary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEnhancedTextField({
     required TextEditingController controller,
     required String hintText,
@@ -495,6 +621,8 @@ class SignUpPage extends StatelessWidget {
     int maxLines = 1,
     bool isPasswordField = false,
     Widget? customPrefix,
+    RxBool? passwordVisibilityState,
+    VoidCallback? onVisibilityToggle,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -543,12 +671,12 @@ class SignUpPage extends StatelessWidget {
                     final controller = Get.find<SignUpController>();
                     return Obx(() => IconButton(
                       icon: Icon(
-                        controller.isPasswordVisible.value
+                        (passwordVisibilityState ?? controller.isPasswordVisible).value
                             ? Icons.visibility_off
                             : Icons.visibility,
                         color: primaryColor,
                       ),
-                      onPressed: controller.togglePasswordVisibility,
+                      onPressed: onVisibilityToggle ?? controller.togglePasswordVisibility,
                     ));
                   },
                 )
@@ -605,25 +733,7 @@ class SignUpPage extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Text(
-          '© 2025 NeoSaver. All rights reserved.',
-          style: TextStyle(
-            color: textSecondary.withOpacity(0.7),
-            fontSize: 10,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Your health data is protected with enterprise-grade security',
-          style: TextStyle(
-            color: textSecondary.withOpacity(0.5),
-            fontSize: 9,
-            fontWeight: FontWeight.w400,
-          ),
-          textAlign: TextAlign.center,
-        ),
+      
       ],
     );
   }
