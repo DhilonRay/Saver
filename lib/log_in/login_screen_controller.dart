@@ -3,8 +3,10 @@ import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../home/home.dart';
 import '../sign_up/signup.dart';
+import '../forgot_page/forgot_page.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
@@ -134,18 +136,33 @@ class LoginController extends GetxController {
       return;
     }
 
-    // For phone login, we'll use email format: phone@domain.com
-    // You can modify this logic based on your backend requirements
-    final emailFormat = '$phone@neonaver.com';
-
     isLoading.value = true;
 
     try {
       await Firebase.initializeApp();
-      final auth = FirebaseAuth.instance;
 
+      // Find user by phone number in Firestore
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phone', isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        throw 'No account found with this phone number. Please sign up first.';
+      }
+
+      final userData = querySnapshot.docs.first.data();
+      final email = userData['email'] as String?;
+
+      if (email == null || email.isEmpty) {
+        throw 'Account setup incomplete. Please contact support.';
+      }
+
+      // Sign in with email and password
+      final auth = FirebaseAuth.instance;
       final userCredential = await auth.signInWithEmailAndPassword(
-        email: emailFormat,
+        email: email,
         password: password,
       );
 
@@ -199,12 +216,6 @@ class LoginController extends GetxController {
   }
 
   void showForgotPasswordDialog() {
-    Get.defaultDialog(
-      title: 'Reset Password',
-      content: const Text('Password reset feature will be available soon. Please contact support for assistance.'),
-      textConfirm: 'OK',
-      confirmTextColor: Colors.white,
-      onConfirm: () => Get.back(),
-    );
+    Get.to(() => const ForgotPasswordPage());
   }
 }

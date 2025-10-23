@@ -83,7 +83,7 @@ class SignUpController extends GetxController {
       });
 
       // Navigate based on role
-      if (selectedRole.value == 'driver') {
+      if (selectedRole.value == 'partner') {
         Get.offAll(() => PartnerPage(uid: userCredential.user!.uid));
       } else {
         Get.snackbar(
@@ -95,7 +95,10 @@ class SignUpController extends GetxController {
           borderRadius: 10,
           margin: const EdgeInsets.all(10),
         );
-        Get.offAll(() => const LoginPage());
+        // Add a small delay to ensure proper cleanup before navigation
+        Future.delayed(const Duration(milliseconds: 100), () {
+          Get.offAll(() => const LoginPage());
+        });
       }
     } catch (e) {
       debugPrint('Registration error: $e');
@@ -114,6 +117,19 @@ class SignUpController extends GetxController {
   }
 
   bool _validateInputs() {
+    if (selectedRole.value.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please select your role (User or Ambulance)',
+        backgroundColor: Colors.red[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        borderRadius: 10,
+        margin: const EdgeInsets.all(10),
+      );
+      return false;
+    }
+
     if (nameController.text.trim().isEmpty ||
         phoneController.text.trim().isEmpty ||
         addressController.text.trim().isEmpty ||
@@ -199,6 +215,8 @@ class SignUpController extends GetxController {
   }
 
   void goToLogin() {
-    Get.offAll(() => const LoginPage());
+    Future.delayed(const Duration(milliseconds: 100), () {
+      Get.offAll(() => const LoginPage());
+    });
   }
 }
