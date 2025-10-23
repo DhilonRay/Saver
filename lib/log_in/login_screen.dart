@@ -24,7 +24,13 @@ class LoginPage extends StatelessWidget {
 
         return Scaffold(
           body: Container(
-           
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [backgroundStart, backgroundEnd],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
             child: SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
@@ -436,6 +442,8 @@ class LoginPage extends StatelessWidget {
     required Color backgroundColor,
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
+    bool isPasswordField = false,
+    LoginController? loginController,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -477,6 +485,23 @@ class LoginPage extends StatelessWidget {
               size: 20,
             ),
           ),
+          suffixIcon: isPasswordField && loginController != null
+              ? Obx(() => IconButton(
+                  icon: Icon(
+                    loginController.selectedTabIndex.value == 0
+                        ? (loginController.isPasswordVisible.value
+                            ? Icons.visibility_off
+                            : Icons.visibility)
+                        : (loginController.isPhonePasswordVisible.value
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                    color: primaryColor,
+                  ),
+                  onPressed: loginController.selectedTabIndex.value == 0
+                      ? loginController.togglePasswordVisibility
+                      : loginController.togglePhonePasswordVisibility,
+                ))
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -623,14 +648,16 @@ class LoginPage extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Password Field
-        _buildEnhancedTextField(
+        Obx(() => _buildEnhancedTextField(
           controller: controller.passwordController,
           hintText: 'Password',
           icon: Icons.lock_outline,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
-          obscureText: true,
-        ),
+          obscureText: !controller.isPasswordVisible.value,
+          isPasswordField: true,
+          loginController: controller,
+        )),
         const SizedBox(height: 12),
 
         // Forgot Password
@@ -672,14 +699,16 @@ class LoginPage extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Password Field
-        _buildEnhancedTextField(
+        Obx(() => _buildEnhancedTextField(
           controller: controller.phonePasswordController,
           hintText: 'Password',
           icon: Icons.lock_outline,
           primaryColor: primaryBlue,
           backgroundColor: lightBlue,
-          obscureText: true,
-        ),
+          obscureText: !controller.isPhonePasswordVisible.value,
+          isPasswordField: true,
+          loginController: controller,
+        )),
         const SizedBox(height: 12),
 
         // Forgot Password
