@@ -6,11 +6,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:neosaver/partners_orders_page.dart';
 import 'package:neosaver/user_order_page.dart';
-import 'aboutus.dart';
-import 'userid.dart';
-import 'login_screen.dart';
-import 'sos_chat_page.dart';
-import 'ambulance_services_page.dart';
+import '../aboutus.dart';
+import '../userid.dart';
+import '../log_in/login_screen.dart';
+import '../sos_chat_page.dart';
+import '../ambulance_services_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
