@@ -197,46 +197,109 @@ class LoginPage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          
-
-          // Email Field
-          _buildEnhancedTextField(
-            controller: controller.emailController,
-            hintText: 'Email Address',
-            icon: Icons.email_outlined,
-            primaryColor: primaryBlue,
-            backgroundColor: lightBlue,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-
-          // Password Field
-          _buildEnhancedTextField(
-            controller: controller.passwordController,
-            hintText: 'Password',
-            icon: Icons.lock_outline,
-            primaryColor: primaryBlue,
-            backgroundColor: lightBlue,
-            obscureText: true,
-          ),
-          const SizedBox(height: 12),
-
-          // Forgot Password
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: controller.showForgotPasswordDialog,
-              style: TextButton.styleFrom(
-                foregroundColor: accentBlue,
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              child: const Text('Forgot Password?'),
+          // Login Method Tabs
+          Container(
+            decoration: BoxDecoration(
+              color: lightBlue.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Obx(() => Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => controller.changeTab(0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: controller.selectedTabIndex.value == 0
+                            ? primaryBlue
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.email,
+                            size: 18,
+                            color: controller.selectedTabIndex.value == 0
+                                ? Colors.white
+                                : primaryBlue,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Email Login',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: controller.selectedTabIndex.value == 0
+                                  ? Colors.white
+                                  : primaryBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => controller.changeTab(1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: controller.selectedTabIndex.value == 1
+                            ? primaryBlue
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.phone,
+                            size: 18,
+                            color: controller.selectedTabIndex.value == 1
+                                ? Colors.white
+                                : primaryBlue,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Phone Login',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: controller.selectedTabIndex.value == 1
+                                  ? Colors.white
+                                  : primaryBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )),
           ),
-         
+          const SizedBox(height: 20),
+
+          // Tab Content
+          Obx(() => controller.selectedTabIndex.value == 0
+              ? _buildEmailLoginForm(
+                  controller,
+                  primaryBlue,
+                  lightBlue,
+                  accentBlue,
+                )
+              : _buildPhoneLoginForm(
+                  controller,
+                  primaryBlue,
+                  lightBlue,
+                  accentBlue,
+                )),
+          const SizedBox(height: 20),
 
           // Sign In Button
           Container(
@@ -274,9 +337,11 @@ class LoginPage extends StatelessWidget {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      'Sign In Securely',
-                      style: TextStyle(
+                  : Text(
+                      controller.selectedTabIndex.value == 0
+                          ? 'Sign In with Email'
+                          : 'Sign In with Phone',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.3,
@@ -436,6 +501,202 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  
+  Widget _buildFcmStatus(LoginController controller, Color primaryBlue, Color secondaryBlue) {
+    return Obx(() {
+      if (controller.isLoadingToken.value) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: primaryBlue.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: primaryBlue.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Initializing secure connection...',
+                style: TextStyle(
+                  color: primaryBlue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else if (controller.fcmToken.value.isNotEmpty) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5E8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.green.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.verified,
+                color: Colors.green[700],
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Device Connected & Secure',
+                style: TextStyle(
+                  color: Colors.green[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.orange.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber,
+                color: Colors.orange[700],
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Connection Issue - Please check network',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+  }
 
-}
+  Widget _buildEmailLoginForm(
+    LoginController controller,
+    Color primaryBlue,
+    Color lightBlue,
+    Color accentBlue,
+  ) {
+    return Column(
+      children: [
+        // Email Field
+        _buildEnhancedTextField(
+          controller: controller.emailController,
+          hintText: 'Email Address',
+          icon: Icons.email_outlined,
+          primaryColor: primaryBlue,
+          backgroundColor: lightBlue,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 16),
+
+        // Password Field
+        _buildEnhancedTextField(
+          controller: controller.passwordController,
+          hintText: 'Password',
+          icon: Icons.lock_outline,
+          primaryColor: primaryBlue,
+          backgroundColor: lightBlue,
+          obscureText: true,
+        ),
+        const SizedBox(height: 12),
+
+        // Forgot Password
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: controller.showForgotPasswordDialog,
+            style: TextButton.styleFrom(
+              foregroundColor: accentBlue,
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            child: const Text('Forgot Password?'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhoneLoginForm(
+    LoginController controller,
+    Color primaryBlue,
+    Color lightBlue,
+    Color accentBlue,
+  ) {
+    return Column(
+      children: [
+        // Phone Field
+        _buildEnhancedTextField(
+          controller: controller.phoneController,
+          hintText: 'Phone Number',
+          icon: Icons.phone_outlined,
+          primaryColor: primaryBlue,
+          backgroundColor: lightBlue,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 16),
+
+        // Password Field
+        _buildEnhancedTextField(
+          controller: controller.phonePasswordController,
+          hintText: 'Password',
+          icon: Icons.lock_outline,
+          primaryColor: primaryBlue,
+          backgroundColor: lightBlue,
+          obscureText: true,
+        ),
+        const SizedBox(height: 12),
+
+        // Forgot Password
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: controller.showForgotPasswordDialog,
+            style: TextButton.styleFrom(
+              foregroundColor: accentBlue,
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            child: const Text('Forgot Password?'),
+          ),
+        ),
+      ],
+    );
+  }}
