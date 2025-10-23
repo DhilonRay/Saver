@@ -4,7 +4,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_controller.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  HomePage({super.key});
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Enhanced medical-themed color palette
   static const Color primaryBlue = Color(0xFF1976D2);
@@ -20,68 +22,27 @@ class HomePage extends StatelessWidget {
       builder: (controller) {
         return Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.blue.shade50,
-                Colors.white,
-              ],
-            ),
+            
           ),
           child: Scaffold(
-            backgroundColor: Colors.transparent,
+            key: _scaffoldKey,
+            
             appBar: AppBar(
-              title: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: lightBlue,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.local_hospital,
-                      color: primaryBlue,
-                      size: 24,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'NeoSaver',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontSize: 20,
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: primaryBlue,
+              
               elevation: 0,
-              shadowColor: lightBlue,
-              actions: [
-                IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.notifications_outlined, color: Colors.white),
+              leading: IconButton(
+                icon: Icon(
+                  Icons.menu,
+                  color: primaryBlue,
+                  size: 28,
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.settings_outlined, color: Colors.white),
-                ),
-              ],
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
             ),
             drawer: Drawer(
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      primaryBlue,
-                      darkBlue,
-                    ],
-                  ),
+                  
                 ),
                 child: Column(
                   children: <Widget>[
@@ -92,12 +53,12 @@ class HomePage extends StatelessWidget {
                           Container(
                             padding: EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                             
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.shield,
-                              color: Colors.white,
+                              color: Colors.blueGrey,
                               size: 40,
                             ),
                           ),
@@ -106,7 +67,7 @@ class HomePage extends StatelessWidget {
                             'NeoSaver',
                             style: TextStyle(
                               fontSize: 24,
-                              color: Colors.white,
+                              color: Colors.blueGrey,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -114,7 +75,7 @@ class HomePage extends StatelessWidget {
                             'Every Second Matters',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.blueGrey.withOpacity(0.8),
                               fontWeight: FontWeight.w300,
                             ),
                           ),
@@ -122,72 +83,68 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                     Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(30),
-                            topRight: Radius.circular(30),
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          SizedBox(height: 20),
+                          _buildDrawerItem(
+                            icon: Icons.person_outline,
+                            title: 'User Profile',
+                            onTap: controller.navigateToUserId,
                           ),
-                        ),
-                        child: ListView(
-                          padding: EdgeInsets.zero,
-                          children: [
-                            SizedBox(height: 20),
-                            _buildDrawerItem(
-                              icon: Icons.person_outline,
-                              title: 'User Profile',
-                              onTap: controller.navigateToUserId,
-                            ),
-                            _buildDrawerItem(
-                              icon: Icons.assignment_ind_outlined,
-                              title: 'Partner Orders',
-                              onTap: controller.navigateToPartnersOrders,
-                            ),
-                            _buildDrawerItem(
-                              icon: Icons.assignment_outlined,
-                              title: 'Your Orders',
-                              onTap: controller.navigateToUserOrders,
-                            ),
-                            _buildDrawerItem(
-                              icon: Icons.info_outline,
-                              title: 'About Us',
-                              onTap: controller.navigateToAboutUs,
-                            ),
-                            Divider(height: 40, thickness: 1),
-                            _buildDrawerItem(
-                              icon: Icons.help_outline,
-                              title: 'Help & Support',
-                              onTap: () {},
-                            ),
-                            _buildDrawerItem(
-                              icon: Icons.feedback_outlined,
-                              title: 'Feedback',
-                              onTap: () {},
-                            ),
-                          ],
-                        ),
+                          _buildDrawerItem(
+                            icon: Icons.assignment_ind_outlined,
+                            title: 'Partner Orders',
+                            onTap: controller.navigateToPartnersOrders,
+                          ),
+                          _buildDrawerItem(
+                            icon: Icons.assignment_outlined,
+                            title: 'Your Orders',
+                            onTap: controller.navigateToUserOrders,
+                          ),
+                          _buildDrawerItem(
+                            icon: Icons.info_outline,
+                            title: 'About Us',
+                            onTap: controller.navigateToAboutUs,
+                          ),
+                          Divider(height: 40, thickness: 1),
+                          _buildDrawerItem(
+                            icon: Icons.help_outline,
+                            title: 'Help & Support',
+                            onTap: () {},
+                          ),
+                          _buildDrawerItem(
+                            icon: Icons.feedback_outlined,
+                            title: 'Feedback',
+                            onTap: () {},
+                          ),
+                        ],
                       ),
                     ),
                     Container(
                       padding: EdgeInsets.all(20),
-                      child: ElevatedButton.icon(
-                        onPressed: controller.signOut,
-                        icon: Icon(Icons.logout, color: primaryBlue),
-                        label: Text(
-                          'Sign Out',
-                          style: TextStyle(
-                            color: primaryBlue,
-                            fontWeight: FontWeight.w600,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: controller.signOut,
+                          icon: Icon(Icons.logout, color: primaryBlue, size: 24),
+                          label: Text(
+                            'Sign Out',
+                            style: TextStyle(
+                              color: primaryBlue,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 2,
+                            shadowColor: Colors.blue.shade100,
                           ),
-                          elevation: 0,
                         ),
                       ),
                     ),
@@ -610,36 +567,43 @@ class HomePage extends StatelessWidget {
     required String title,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: lightBlue,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: primaryBlue,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: Colors.blueGrey.shade800,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: Colors.grey.shade400,
-      ),
+    return InkWell(
       onTap: onTap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: lightBlue.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: primaryBlue,
+                size: 20,
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.blueGrey.shade800,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey.shade400,
+              size: 18,
+            ),
+          ],
+        ),
       ),
-      contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
 
@@ -661,11 +625,7 @@ class HomePage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  
                   child: Icon(
                     icon,
                     color: color,

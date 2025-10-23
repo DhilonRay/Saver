@@ -4,8 +4,8 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_webservice/places.dart' as places;
+import 'package:google_maps_webservice/directions.dart' as directions;
 import '../aboutus.dart';
 import '../userid.dart';
 import '../log_in/login_screen.dart';
@@ -20,6 +20,7 @@ class HomeController extends GetxController {
   
   // Google Places API client
   late places.GoogleMapsPlaces _places;
+  late directions.GoogleMapsDirections _directions;
 
   // Reactive variables
   var currentPosition = Rx<LatLng?>(null);
@@ -45,6 +46,7 @@ class HomeController extends GetxController {
     super.onInit();
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyA4Ktf1DDkFlYYinXeBRLlW2etfLFLCZVQ');
+    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyA4Ktf1DDkFlYYinXeBRLlW2etfLFLCZVQ');
     _getCurrentLocation();
   }
 
@@ -139,13 +141,46 @@ class HomeController extends GetxController {
         return;
       }
 
-      // Otherwise, geocode the address
-      List<Location> locations =
-          await locationFromAddress(destinationController.text);
-      if (locations.isNotEmpty) {
-        destinationPosition.value =
-            LatLng(locations[0].latitude, locations[0].longitude);
+      // Check for common locations first
+      String query = destinationController.text.toLowerCase().trim();
+      if (query == 'khulna') {
+        destinationPosition.value = LatLng(22.8456, 89.5403); // Khulna coordinates
         _addDestinationMarkerAndRoute();
+        return;
+      } else if (query == 'dhaka') {
+        destinationPosition.value = LatLng(23.8103, 90.4125); // Dhaka coordinates
+        _addDestinationMarkerAndRoute();
+        return;
+      }
+
+      // Otherwise, use autocomplete to find the place
+      places.PlacesAutocompleteResponse autoResponse = await _places.autocomplete(
+        destinationController.text,
+        language: 'en',
+      );
+
+      if (autoResponse.isOkay && autoResponse.predictions.isNotEmpty) {
+        // Get details for the first prediction
+        var prediction = autoResponse.predictions.first;
+        places.PlacesDetailsResponse detailResponse = await _places.getDetailsByPlaceId(
+          prediction.placeId!,
+          fields: ['name', 'formatted_address', 'geometry'],
+        );
+
+        if (detailResponse.isOkay && detailResponse.result.geometry != null) {
+          destinationPosition.value = LatLng(
+            detailResponse.result.geometry!.location.lat,
+            detailResponse.result.geometry!.location.lng,
+          );
+          _addDestinationMarkerAndRoute();
+        } else {
+          Get.snackbar(
+            'Error',
+            'Could not get details for the destination',
+            backgroundColor: Colors.red.shade100,
+            colorText: Colors.red.shade800,
+          );
+        }
       } else {
         Get.snackbar(
           'Error',
@@ -164,7 +199,7 @@ class HomeController extends GetxController {
     }
   }
 
-  void _addDestinationMarkerAndRoute() {
+  Future<void> _addDestinationMarkerAndRoute() async {
     // Clear existing destination marker
     markers.removeWhere((marker) => marker.markerId.value == 'destination');
     
@@ -178,33 +213,106 @@ class HomeController extends GetxController {
       ),
     );
 
-    // Update polylines reactively
-    polylines.clear();
-    polylines.add(
-      Polyline(
-        polylineId: const PolylineId('route'),
-        color: Colors.blue.shade300,
-        width: 3,
-        points: [
-          currentPosition.value!,
-          destinationPosition.value!,
-        ],
-      ),
-    );
+    // Get directions from Google
+    try {
+      final directionsResponse = await _directions.directions(
+        directions.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
+        directions.Location(lat: destinationPosition.value!.latitude, lng: destinationPosition.value!.longitude),
+        travelMode: directions.TravelMode.driving,
+      );
+
+      if (directionsResponse.isOkay) {
+        final route = directionsResponse.routes.first;
+        final polylinePoints = _decodePolyline(route.overviewPolyline.points);
+
+        // Update polylines reactively
+        polylines.clear();
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route'),
+            color: Colors.red,
+            width: 6,
+            zIndex: 1,
+            points: polylinePoints,
+          ),
+        );
+      } else {
+        // Fallback to straight line if directions fail
+        polylines.clear();
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route'),
+            color: Colors.red,
+            width: 6,
+            zIndex: 1,
+            points: [
+              currentPosition.value!,
+              destinationPosition.value!,
+            ],
+          ),
+        );
+        Get.snackbar(
+          'Route Warning',
+          'Using approximate route. Actual driving directions may vary.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+      }
+    } catch (e) {
+      // Fallback to straight line
+      polylines.clear();
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId('route'),
+          color: Colors.blue.shade300,
+          width: 3,
+          points: [
+            currentPosition.value!,
+            destinationPosition.value!,
+          ],
+        ),
+      );
+    }
 
     // Animate camera if controller is ready
     if (_controller.isCompleted) {
       _controller.future.then((controller) {
+        // Calculate bounds to show the entire route
+        double minLat = currentPosition.value!.latitude < destinationPosition.value!.latitude
+            ? currentPosition.value!.latitude
+            : destinationPosition.value!.latitude;
+        double maxLat = currentPosition.value!.latitude > destinationPosition.value!.latitude
+            ? currentPosition.value!.latitude
+            : destinationPosition.value!.latitude;
+        double minLng = currentPosition.value!.longitude < destinationPosition.value!.longitude
+            ? currentPosition.value!.longitude
+            : destinationPosition.value!.longitude;
+        double maxLng = currentPosition.value!.longitude > destinationPosition.value!.longitude
+            ? currentPosition.value!.longitude
+            : destinationPosition.value!.longitude;
+
+        LatLngBounds bounds = LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        );
+
         controller.animateCamera(
-          CameraUpdate.newLatLngZoom(destinationPosition.value!, 14),
+          CameraUpdate.newLatLngBounds(bounds, 50), // 50 padding
         );
       });
     }
+
+    Get.snackbar(
+      'Route Set',
+      'Route to destination has been set successfully',
+      backgroundColor: Colors.green.shade100,
+      colorText: Colors.green.shade800,
+    );
   }
 
   // Autocomplete methods
   void onDestinationTextChanged(String query) {
-    if (query.isEmpty) {
+    if (query.isEmpty || query.length < 3) {
       placeSuggestions.clear();
       return;
     }
@@ -222,15 +330,10 @@ class HomeController extends GetxController {
     try {
       isLoadingSuggestions.value = true;
 
-      // Use Google Places Autocomplete API for real suggestions
+      // Use Google Places Autocomplete API for suggestions
       places.PlacesAutocompleteResponse response = await _places.autocomplete(
         query,
-        location: currentPosition.value != null
-          ? places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude)
-          : null,
-        radius: 50000, // 50km radius
         language: 'en',
-        components: [places.Component('country', 'bd')], // Bangladesh only
       );
 
       if (response.isOkay && response.predictions.isNotEmpty) {
@@ -301,6 +404,40 @@ class HomeController extends GetxController {
     } catch (e) {
       print('Error getting place details: $e');
     }
+  }
+
+  List<LatLng> _decodePolyline(String encoded) {
+    List<LatLng> points = [];
+    int index = 0;
+    int len = encoded.length;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < len) {
+      int b;
+      int shift = 0;
+      int result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+    return points;
   }
 
   void signOut() async {

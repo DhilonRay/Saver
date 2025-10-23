@@ -101,7 +101,7 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        Get.offAll(() => const HomePage());
+        Get.offAll(() =>  HomePage());
       }
     } catch (e) {
       debugPrint('Email login failed: $e');
@@ -167,7 +167,7 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        Get.offAll(() => const HomePage());
+        Get.offAll(() =>  HomePage());
       }
     } catch (e) {
       debugPrint('Phone login failed: $e');
