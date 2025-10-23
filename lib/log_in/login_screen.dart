@@ -443,6 +443,8 @@ class LoginPage extends StatelessWidget {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     bool isPasswordField = false,
+    bool isEmailPasswordField = false, // New parameter to distinguish field types
+    bool isPhonePasswordField = false, // New parameter to distinguish field types
     LoginController? loginController,
     Widget? customPrefix,
   }) {
@@ -489,18 +491,22 @@ class LoginPage extends StatelessWidget {
           suffixIcon: isPasswordField && loginController != null
               ? Obx(() => IconButton(
                   icon: Icon(
-                    loginController.selectedTabIndex.value == 0
+                    isEmailPasswordField
                         ? (loginController.isPasswordVisible.value
                             ? Icons.visibility_off
                             : Icons.visibility)
-                        : (loginController.isPhonePasswordVisible.value
+                        : isPhonePasswordField
+                        ? (loginController.isPhonePasswordVisible.value
                             ? Icons.visibility_off
-                            : Icons.visibility),
+                            : Icons.visibility)
+                        : Icons.visibility, // fallback
                     color: primaryColor,
                   ),
-                  onPressed: loginController.selectedTabIndex.value == 0
+                  onPressed: isEmailPasswordField
                       ? loginController.togglePasswordVisibility
-                      : loginController.togglePhonePasswordVisibility,
+                      : isPhonePasswordField
+                      ? loginController.togglePhonePasswordVisibility
+                      : null,
                 ))
               : null,
           border: InputBorder.none,
@@ -525,108 +531,6 @@ class LoginPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildFcmStatus(LoginController controller, Color primaryBlue, Color secondaryBlue) {
-    return Obx(() {
-      if (controller.isLoadingToken.value) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: primaryBlue.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: primaryBlue.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Initializing secure connection...',
-                style: TextStyle(
-                  color: primaryBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        );
-      } else if (controller.fcmToken.value.isNotEmpty) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E8),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.green.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.verified,
-                color: Colors.green[700],
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Device Connected & Secure',
-                style: TextStyle(
-                  color: Colors.green[700],
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF3E0),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.orange.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.warning_amber,
-                color: Colors.orange[700],
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Connection Issue - Please check network',
-                style: TextStyle(
-                  color: Colors.orange[700],
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    });
   }
 
   Widget _buildEmailLoginForm(
@@ -663,6 +567,7 @@ class LoginPage extends StatelessWidget {
           backgroundColor: lightBlue,
           obscureText: !controller.isPasswordVisible.value,
           isPasswordField: true,
+          isEmailPasswordField: true, // This is the email password field
           loginController: controller,
           customPrefix: Container(
             padding: const EdgeInsets.all(12),
@@ -757,6 +662,7 @@ class LoginPage extends StatelessWidget {
           backgroundColor: lightBlue,
           obscureText: !controller.isPhonePasswordVisible.value,
           isPasswordField: true,
+          isPhonePasswordField: true, // This is the phone password field
           loginController: controller,
           customPrefix: Container(
             padding: const EdgeInsets.all(12),
