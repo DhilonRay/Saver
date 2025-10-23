@@ -18,6 +18,8 @@ class LoginController extends GetxController {
   var isLoadingToken = false.obs;
   var isLoading = false.obs;
   var selectedTabIndex = 0.obs; // 0 for Email, 1 for Phone
+  var isPasswordVisible = false.obs;
+  var isPhonePasswordVisible = false.obs;
 
   @override
   void onInit() {
@@ -179,6 +181,14 @@ class LoginController extends GetxController {
 
   void goToSignUp() {
     Get.to(() => const SignUpPage());
+  }
+
+  void togglePasswordVisibility() {
+    isPasswordVisible.value = !isPasswordVisible.value;
+  }
+
+  void togglePhonePasswordVisibility() {
+    isPhonePasswordVisible.value = !isPhonePasswordVisible.value;
   }
 
   void showForgotPasswordDialog() {
