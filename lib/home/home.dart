@@ -156,54 +156,7 @@ class HomePage extends StatelessWidget {
               children: [
                 // Full screen map as background
                 Obx(() {
-                  if (controller.isLoadingLocation.value) {
-                    return Container(
-                      color: Colors.white,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blue.shade100,
-                                    blurRadius: 20,
-                                    spreadRadius: 5,
-                                  ),
-                                ],
-                              ),
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  primaryBlue
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: 24),
-                            Text(
-                              'Loading your location...',
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade700,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Please wait while we set up the map',
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade500,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
+                 
 
                   if (controller.currentPosition.value == null) {
                     return Container(
@@ -212,37 +165,9 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: lightBlue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.location_off,
-                                size: 48,
-                                color: secondaryBlue,
-                              ),
-                            ),
-                            SizedBox(height: 24),
-                            Text(
-                              'Location Access Required',
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade800,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Please enable location services to use the map',
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade600,
-                                fontSize: 16,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: 24),
+                            
+                           
+                       
                            
                           ],
                         ),
@@ -288,10 +213,9 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                          SizedBox(height: 8),
-                            // Search input
+                        
                             Padding(
-                              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                              padding: EdgeInsets.all(16),
                               child: TextField(
                                 controller: controller.destinationController,
                                 style: TextStyle(
@@ -338,13 +262,13 @@ class HomePage extends StatelessWidget {
                               ),
                             ),
 
-                            // Autocomplete suggestions - Modern design
+                            // Autocomplete suggestions - show only when user has typed something
                             Obx(() {
-                              final query = controller.destinationController.text;
-                              final showHistory = query.isEmpty && !controller.hasStartedTyping.value && controller.searchHistory.isNotEmpty;
-                              final showSuggestions = controller.placeSuggestions.isNotEmpty || controller.isLoadingSuggestions.value;
+                              final query = controller.destinationQuery.value.trim();
+                              // Do not show suggestions when the input is empty
+                              final showSuggestions = query.isNotEmpty && (controller.placeSuggestions.isNotEmpty || controller.isLoadingSuggestions.value);
 
-                              if (!showHistory && !showSuggestions) {
+                              if (!showSuggestions) {
                                 return SizedBox.shrink();
                               }
 
@@ -383,226 +307,90 @@ class HomePage extends StatelessWidget {
                                               ),
                                             ),
                                           ),
-                                          SizedBox(width: 16),
-                                          Text(
-                                            'Searching locations...',
-                                            style: TextStyle(
-                                              color: Colors.blueGrey.shade600,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
+                                       
                                         ],
                                       ),
                                     )
-                                  : showHistory
-                                    ? Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // History header
-                                          Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  : ListView.builder(
+                                      shrinkWrap: true,
+                                      padding: EdgeInsets.zero,
+                                      physics: ClampingScrollPhysics(), // Prevent scroll conflicts
+                                      itemCount: controller.placeSuggestions.length > 5
+                                          ? 5 // Limit to 5 suggestions to prevent overflow
+                                          : controller.placeSuggestions.length,
+                                      itemBuilder: (context, index) {
+                                        final place = controller.placeSuggestions[index];
+                                        return InkWell(
+                                          onTap: () => controller.selectPlace(place),
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                                             decoration: BoxDecoration(
-                                              border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+                                              border: index < (controller.placeSuggestions.length > 5 ? 4 : controller.placeSuggestions.length - 1)
+                                                ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
+                                                : null,
                                             ),
                                             child: Row(
                                               children: [
-                                                Icon(Icons.history, color: primaryBlue, size: 20),
-                                                SizedBox(width: 12),
-                                                Text(
-                                                  'Recent Searches',
-                                                  style: TextStyle(
-                                                    color: Colors.blueGrey.shade800,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
+                                                Container(
+                                                  padding: EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color: lightBlue,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.location_on_outlined,
+                                                    size: 20,
+                                                    color: primaryBlue,
                                                   ),
                                                 ),
-                                                Spacer(),
-                                                InkWell(
-                                                  onTap: controller.clearSearchHistory,
-                                                  child: Text(
-                                                    'Clear',
-                                                    style: TextStyle(
-                                                      color: primaryBlue,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
+                                                SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        place['name']?.toString() ?? 'Unknown Place',
+                                                        style: TextStyle(
+                                                          color: Colors.blueGrey.shade800,
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      if (place['formattedAddress'] != null && (place['formattedAddress'] as String?)?.isNotEmpty == true)
+                                                        Padding(
+                                                          padding: EdgeInsets.only(top: 2),
+                                                          child: Text(
+                                                            place['formattedAddress']?.toString() ?? '',
+                                                            style: TextStyle(
+                                                              color: Colors.blueGrey.shade500,
+                                                              fontSize: 12,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                    ],
                                                   ),
+                                                ),
+                                                Icon(
+                                                  Icons.chevron_right,
+                                                  color: Colors.grey.shade400,
+                                                  size: 20,
                                                 ),
                                               ],
                                             ),
                                           ),
-                                          // History items
-                                          ListView.builder(
-                                            shrinkWrap: true,
-                                            padding: EdgeInsets.zero,
-                                            physics: ClampingScrollPhysics(),
-                                            itemCount: controller.searchHistory.length > 5 ? 5 : controller.searchHistory.length,
-                                            itemBuilder: (context, index) {
-                                              final historyItem = controller.searchHistory[index];
-                                              return InkWell(
-                                                onTap: () => controller.selectHistoryItem(historyItem),
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: Container(
-                                                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                                                  decoration: BoxDecoration(
-                                                    border: index < (controller.searchHistory.length > 5 ? 4 : controller.searchHistory.length - 1)
-                                                      ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
-                                                      : null,
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      Container(
-                                                        padding: EdgeInsets.all(8),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.grey.shade100,
-                                                          borderRadius: BorderRadius.circular(8),
-                                                        ),
-                                                        child: Icon(
-                                                          Icons.history,
-                                                          size: 18,
-                                                          color: Colors.grey.shade600,
-                                                        ),
-                                                      ),
-                                                      SizedBox(width: 16),
-                                                      Expanded(
-                                                        child: Text(
-                                                          historyItem,
-                                                          style: TextStyle(
-                                                            color: Colors.blueGrey.shade800,
-                                                            fontSize: 16,
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      InkWell(
-                                                        onTap: () => controller.removeFromSearchHistory(historyItem),
-                                                        child: Icon(
-                                                          Icons.close,
-                                                          color: Colors.grey.shade400,
-                                                          size: 18,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      )
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        padding: EdgeInsets.zero,
-                                        physics: ClampingScrollPhysics(), // Prevent scroll conflicts
-                                        itemCount: controller.placeSuggestions.length > 5
-                                            ? 5 // Limit to 5 suggestions to prevent overflow
-                                            : controller.placeSuggestions.length,
-                                        itemBuilder: (context, index) {
-                                          final place = controller.placeSuggestions[index];
-                                          return InkWell(
-                                            onTap: () => controller.selectPlace(place),
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: Container(
-                                              padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                                              decoration: BoxDecoration(
-                                                border: index < (controller.placeSuggestions.length > 5 ? 4 : controller.placeSuggestions.length - 1)
-                                                  ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
-                                                  : null,
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    padding: EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: lightBlue,
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    child: Icon(
-                                                      Icons.location_on_outlined,
-                                                      size: 20,
-                                                      color: primaryBlue,
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 16),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Text(
-                                                          place['name']?.toString() ?? 'Unknown Place',
-                                                          style: TextStyle(
-                                                            color: Colors.blueGrey.shade800,
-                                                            fontSize: 16,
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                        if (place['formattedAddress'] != null && (place['formattedAddress'] as String?)?.isNotEmpty == true)
-                                                          Padding(
-                                                            padding: EdgeInsets.only(top: 2),
-                                                            child: Text(
-                                                              place['formattedAddress']?.toString() ?? '',
-                                                              style: TextStyle(
-                                                                color: Colors.blueGrey.shade500,
-                                                                fontSize: 12,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    color: Colors.grey.shade400,
-                                                    size: 20,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                        );
+                                      },
+                                    ),
                               );
                             }),
 
-                            // Action buttons
-                            Padding(
-                              padding: EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: controller.setDestinationMarker,
-                                      icon: Icon(Icons.directions, color: Colors.white, size: 20),
-                                      label: Text(
-                                        'Set Route',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: primaryBlue,
-                                        padding: EdgeInsets.symmetric(vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8.0),
-                                        ),
-                                        elevation: 0,
-                                        shadowColor: lightBlue,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            
                           ],
                         ),
                       ),
