@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +10,7 @@ import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
 import '../about/about.dart';
 import '../user_id/userid.dart';
-import '../log_in/login_screen.dart';
+import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
 import '../ambulance_service/ambulance_services_page.dart';
 import '../partner_orders/partners_orders_page.dart';
@@ -17,6 +19,10 @@ import '../user_order/user_order_page.dart';
 class HomeController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
+  
+  // Custom marker icons
+  BitmapDescriptor currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor destinationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
   
   // Google Places API client
   late places.GoogleMapsPlaces _places;
@@ -31,9 +37,14 @@ class HomeController extends GetxController {
   var mapError = ''.obs;
   
   // Autocomplete variables
-  var placeSuggestions = <places.PlacesSearchResult>[].obs;
+  var placeSuggestions = <Map<String, dynamic>>[].obs;
   var isLoadingSuggestions = false.obs;
   Timer? _debounceTimer;
+
+  // Search history variables
+  var searchHistory = <String>[].obs;
+  static const int _maxHistoryItems = 10;
+  var hasStartedTyping = false.obs; // Track if user has started typing in current session
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -47,6 +58,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // _loadCustomIcons(); // Disabled to prevent crash
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
@@ -104,7 +116,7 @@ class HomeController extends GetxController {
           markerId: MarkerId('currentLocation'),
           position: currentPosition.value!,
           infoWindow: InfoWindow(title: 'Your Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: currentLocationIcon,
         ),
       );
 
@@ -119,7 +131,7 @@ class HomeController extends GetxController {
           markerId: MarkerId('currentLocation'),
           position: currentPosition.value!,
           infoWindow: InfoWindow(title: 'Default Location (Dhaka)'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: currentLocationIcon,
         ),
       );
       isLoadingLocation.value = false;
@@ -230,38 +242,97 @@ class HomeController extends GetxController {
   }
 
   Future<void> _addDestinationMarkerAndRoute() async {
+    // Check if positions are available
+    if (currentPosition.value == null || destinationPosition.value == null) {
+      Get.snackbar(
+        'Error',
+        'Location information is not available. Please try again.',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+      return;
+    }
+
     // Clear existing destination marker
     markers.removeWhere((marker) => marker.markerId.value == 'destination');
-    
+
     // Add destination marker
     markers.add(
       Marker(
         markerId: const MarkerId('destination'),
         position: destinationPosition.value!,
         infoWindow: InfoWindow(title: 'Destination'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        icon: destinationIcon,
       ),
     );
 
     // Get directions from Google
-    try {    
+    try {
       final directionsResponse = await _directions.directions(
         directions.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
         directions.Location(lat: destinationPosition.value!.latitude, lng: destinationPosition.value!.longitude),
         travelMode: directions.TravelMode.driving,
       );
 
-      if (directionsResponse.isOkay) {
+      if (directionsResponse.isOkay && directionsResponse.routes.isNotEmpty) {
         final route = directionsResponse.routes.first;
-        final polylinePoints = _decodePolyline(route.overviewPolyline.points);
 
-        // Calculate route information
+        // Safely decode polyline
+        List<LatLng> polylinePoints = [];
+        try {
+          // Cast to dynamic to handle potential null issues in API response
+          final dynamic routeData = route;
+          final dynamic overviewPolyline = routeData.overviewPolyline;
+          if (overviewPolyline != null) {
+            final dynamic points = overviewPolyline.points;
+            if (points != null && points.isNotEmpty) {
+              polylinePoints = _decodePolyline(points);
+            }
+          }
+        } catch (e) {
+          // If polyline decoding fails, continue without route line
+          polylinePoints = [];
+        }
+
+        // Calculate route information safely
         String routeInfo = 'Route calculated successfully';
-        if (route.legs.isNotEmpty) {
-          final leg = route.legs.first;
-          String distance = leg.distance.text;
-          String duration = leg.duration.text;
-          routeInfo = 'Route: $distance, about $duration';
+        try {
+          // Cast to dynamic to handle potential null issues in API response
+          final dynamic routeData = route;
+          final dynamic legs = routeData.legs;
+          if (legs != null && legs.isNotEmpty) {
+            final dynamic leg = legs.first;
+            String distance = 'Unknown distance';
+            String duration = 'Unknown duration';
+
+            try {
+              final dynamic distanceObj = leg.distance;
+              if (distanceObj != null) {
+                final dynamic distanceText = distanceObj.text;
+                if (distanceText != null) {
+                  distance = distanceText.toString();
+                }
+              }
+            } catch (e) {
+              // distance might be null or have issues
+            }
+
+            try {
+              final dynamic durationObj = leg.duration;
+              if (durationObj != null) {
+                final dynamic durationText = durationObj.text;
+                if (durationText != null) {
+                  duration = durationText.toString();
+                }
+              }
+            } catch (e) {
+              // duration might be null or have issues
+            }
+
+            routeInfo = 'Route: $distance, about $duration';
+          }
+        } catch (e) {
+          routeInfo = 'Route calculated successfully';
         }
 
         // Show route information with distance and time
@@ -274,17 +345,39 @@ class HomeController extends GetxController {
           icon: Icon(Icons.directions, color: Colors.blue.shade800),
         );
 
-        // Update polylines reactively
+        // Update polylines reactively. If the directions response did not
+        // contain a usable polyline, fall back to a straight-line polyline
+        // between the current position and the destination so the user sees
+        // a visual route.
         polylines.clear();
-        polylines.add(
-          Polyline(
-            polylineId: const PolylineId('route'),
-            color: Colors.blue.shade700, // Use a consistent blue color for routes
-            width: 6,
-            zIndex: 1,
-            points: polylinePoints,
-          ),
-        );
+        if (polylinePoints.isNotEmpty) {
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId('route'),
+              color: Colors.blue.shade700, // Use a consistent blue color for routes
+              width: 6,
+              zIndex: 1,
+              points: polylinePoints,
+            ),
+          );
+        } else {
+          // Fallback straight line route when Google didn't provide an overview_polyline
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId('route'),
+              color: Colors.orange.shade700,
+              width: 6,
+              zIndex: 1,
+              points: [currentPosition.value!, destinationPosition.value!],
+            ),
+          );
+          Get.snackbar(
+            'Route Warning',
+            'Using approximate straight-line route because detailed directions were not available.',
+            backgroundColor: Colors.orange.shade100,
+            colorText: Colors.orange.shade800,
+          );
+        }
 
         // Add start marker if not already present
         if (!markers.any((marker) => marker.markerId.value == 'start')) {
@@ -293,7 +386,7 @@ class HomeController extends GetxController {
               markerId: const MarkerId('start'),
               position: currentPosition.value!,
               infoWindow: InfoWindow(title: 'Your Location'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+              icon: currentLocationIcon,
             ),
           );
         }
@@ -335,32 +428,42 @@ class HomeController extends GetxController {
       );
     }
 
-    // Animate camera if controller is ready
+    // Animate camera if controller is ready. Use a safe await with timeout
+    // and catch any platform exceptions to avoid app crashes when the map
+    // channel is not available (emulator/device hiccup).
     if (_controller.isCompleted) {
-      _controller.future.then((controller) {
+      try {
+        final mapController = await _controller.future.timeout(const Duration(seconds: 5));
+
         // Calculate bounds to show the entire route
-        double minLat = currentPosition.value!.latitude < destinationPosition.value!.latitude
-            ? currentPosition.value!.latitude
-            : destinationPosition.value!.latitude;
-        double maxLat = currentPosition.value!.latitude > destinationPosition.value!.latitude
-            ? currentPosition.value!.latitude
-            : destinationPosition.value!.latitude;
-        double minLng = currentPosition.value!.longitude < destinationPosition.value!.longitude
-            ? currentPosition.value!.longitude
-            : destinationPosition.value!.longitude;
-        double maxLng = currentPosition.value!.longitude > destinationPosition.value!.longitude
-            ? currentPosition.value!.longitude
-            : destinationPosition.value!.longitude;
-
-        LatLngBounds bounds = LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
-        );
-
-        controller.animateCamera(
-          CameraUpdate.newLatLngBounds(bounds, 50), // 50 padding
-        );
-      });
+        // Animate camera to fit both current location and destination.
+        try {
+          // Always ensure southwest is the min lat/lng and northeast is the max lat/lng
+          final double minLat = currentPosition.value!.latitude < destinationPosition.value!.latitude
+              ? currentPosition.value!.latitude
+              : destinationPosition.value!.latitude;
+          final double maxLat = currentPosition.value!.latitude > destinationPosition.value!.latitude
+              ? currentPosition.value!.latitude
+              : destinationPosition.value!.latitude;
+          final double minLng = currentPosition.value!.longitude < destinationPosition.value!.longitude
+              ? currentPosition.value!.longitude
+              : destinationPosition.value!.longitude;
+          final double maxLng = currentPosition.value!.longitude > destinationPosition.value!.longitude
+              ? currentPosition.value!.longitude
+              : destinationPosition.value!.longitude;
+          final bounds = LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          );
+          await mapController.animateCamera(
+            CameraUpdate.newLatLngBounds(bounds, 80), // 80px padding
+          );
+        } catch (e) {
+          debugPrint('animateCamera (fit bounds) failed: $e');
+        }
+      } catch (e) {
+        debugPrint('Could not obtain map controller or animate camera: $e');
+      }
     }
 
     Get.snackbar(
@@ -373,7 +476,20 @@ class HomeController extends GetxController {
 
   // Autocomplete methods
   void onDestinationTextChanged(String query) {
-    if (query.isEmpty || query.length < 3) {
+    if (query.isEmpty) {
+      // Reset typing flag when input becomes empty
+      hasStartedTyping.value = false;
+      placeSuggestions.clear();
+      return;
+    }
+
+    // Mark that user has started typing
+    if (!hasStartedTyping.value) {
+      hasStartedTyping.value = true;
+    }
+
+    if (query.length < 3) {
+      // Don't show suggestions for very short queries
       placeSuggestions.clear();
       return;
     }
@@ -399,16 +515,14 @@ class HomeController extends GetxController {
       );
 
       if (response.isOkay && response.predictions.isNotEmpty) {
-        // Convert predictions to simple format for display
+        // Convert predictions to simple map format for display
         placeSuggestions.value = response.predictions.take(6).map((prediction) {
-          return places.PlacesSearchResult(
-            placeId: prediction.placeId ?? '',
-            name: prediction.description ?? 'Unknown Place',
-            formattedAddress: prediction.description ?? '',
-            geometry: null,
-            types: prediction.types,
-            reference: prediction.reference ?? '',
-          );
+          return {
+            'placeId': prediction.placeId ?? '',
+            'name': prediction.description ?? 'Unknown Place',
+            'formattedAddress': prediction.description ?? '',
+            'reference': prediction.reference ?? '',
+          };
         }).toList();
       } else {
         placeSuggestions.clear();
@@ -421,9 +535,10 @@ class HomeController extends GetxController {
     }
   }
 
-  void selectPlace(places.PlacesSearchResult place) {
-    
-    if (place.placeId.isEmpty) {
+  void selectPlace(Map<String, dynamic> place) {
+
+    final placeId = place['placeId'] as String? ?? '';
+    if (placeId.isEmpty) {
       Get.snackbar(
         'Error',
         'Invalid destination selected',
@@ -432,53 +547,153 @@ class HomeController extends GetxController {
       );
       return;
     }
-    
-    destinationController.text = place.name;
+
+    final placeName = place['name'] as String? ?? 'Unknown Place';
+    destinationController.text = placeName;
     placeSuggestions.clear();
 
+    // Reset typing flag since user selected a place
+    hasStartedTyping.value = false;
+
+    // Add to search history
+    addToSearchHistory(placeName);
+
     // Store the selected place name for fallback
-    _selectedPlaceName = place.name;
+    _selectedPlaceName = placeName;
 
     // Get place details to get coordinates
-    getPlaceDetails(place.placeId);
+    getPlaceDetails(placeId);
+  }
+
+  // Search History Methods
+  void addToSearchHistory(String query) {
+    if (query.isEmpty) return;
+
+    // Remove if already exists to avoid duplicates
+    searchHistory.remove(query);
+
+    // Add to beginning of list
+    searchHistory.insert(0, query);
+
+    // Keep only max items
+    if (searchHistory.length > _maxHistoryItems) {
+      searchHistory.removeRange(_maxHistoryItems, searchHistory.length);
+    }
+  }
+
+  void removeFromSearchHistory(String query) {
+    searchHistory.remove(query);
+  }
+
+  void clearSearchHistory() {
+    searchHistory.clear();
+  }
+
+  void selectHistoryItem(String historyItem) {
+    destinationController.text = historyItem;
+    // Reset typing flag since user selected from history
+    hasStartedTyping.value = false;
   }
 
   Future<void> getPlaceDetails(String placeId) async {
-    
+    // Attempt to get place details by placeId first. If the google_maps_webservice
+    // library fails parsing the response (type cast/null exceptions), fall back
+    // to the Geocoding REST API which parses more permissively here.
     try {
+      debugPrint('getPlaceDetails: calling Places.getDetailsByPlaceId for $placeId');
       places.PlacesDetailsResponse response = await _places.getDetailsByPlaceId(
         placeId,
         fields: ['name', 'formatted_address', 'geometry'],
       );
 
-      
-
       if (response.isOkay && response.result.geometry != null) {
-        LatLng position = LatLng(
-          response.result.geometry!.location.lat,
-          response.result.geometry!.location.lng,
-        );
+        try {
+          final lat = response.result.geometry!.location.lat;
+          final lng = response.result.geometry!.location.lng;
+          LatLng position = LatLng(lat, lng);
+          destinationPosition.value = position;
 
-        
-        destinationPosition.value = position;
+          debugPrint('getPlaceDetails: got geometry from Places API: $lat,$lng');
 
-        // Add destination marker and route
-        _addDestinationMarkerAndRoute();
+          // Add destination marker and route
+          _addDestinationMarkerAndRoute();
+          return;
+        } catch (e, st) {
+          // Log and fall through to fallback below
+          debugPrint('getPlaceDetails: parsing geometry failed: $e');
+          debugPrint('$st');
+        }
       } else {
-        
-        Get.snackbar(
-          'Destination Not Found',
-          'Could not get details for "${_selectedPlaceName ?? "selected destination"}". Try using "Set Route" button or enter a different destination.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: Duration(seconds: 5),
-        );
+        debugPrint('getPlaceDetails: Places result had no geometry or not OK (status: ${response.status})');
       }
+    } catch (e, st) {
+      // If calling getDetailsByPlaceId throws (for example a type cast from
+      // null -> String inside the library), we'll try the REST geocoding
+      // fallback below. Log the stack trace for diagnosis.
+      debugPrint('getPlaceDetails: getDetailsByPlaceId threw: $e');
+      debugPrint('$st');
+    }
+
+    // --- Fallback: Use Google Geocoding REST API with the selected place name ---
+  final String addressForGeocoding = _selectedPlaceName ?? destinationController.text;
+  if (addressForGeocoding.trim().isEmpty) {
+      Get.snackbar(
+        'Destination Not Found',
+        'Could not get details for the selected destination. Try entering a different destination.',
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+        duration: Duration(seconds: 5),
+      );
+      return;
+    }
+
+    try {
+      debugPrint('getPlaceDetails: falling back to Geocoding for "$addressForGeocoding"');
+      final apiKey = _places.apiKey ?? ''; // reuse the key from places client
+      final uri = Uri.parse('https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(addressForGeocoding)}&key=$apiKey');
+      final httpClient = HttpClient();
+      final request = await httpClient.getUrl(uri);
+      final response = await request.close();
+      final respBody = await response.transform(utf8.decoder).join();
+      httpClient.close();
+
+      final Map<String, dynamic> json = jsonDecode(respBody) as Map<String, dynamic>;
+      final status = (json['status'] as String?) ?? '';
+      if (status == 'OK' && (json['results'] is List) && (json['results'] as List).isNotEmpty) {
+        final first = (json['results'] as List).first as Map<String, dynamic>;
+        final geometry = first['geometry'] as Map<String, dynamic>?;
+        final location = geometry?['location'] as Map<String, dynamic>?;
+        final lat = location?['lat'];
+        final lng = location?['lng'];
+        debugPrint('Geocoding result: lat=$lat, lng=$lng, address=${first['formatted_address'] ?? ''}');
+        if (lat != null && lng != null) {
+          destinationPosition.value = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+          Get.snackbar(
+            'Geocoding',
+            'Resolved: lat=$lat, lng=$lng',
+            backgroundColor: Colors.blue.shade50,
+            colorText: Colors.blue.shade900,
+            duration: Duration(seconds: 4),
+          );
+          _addDestinationMarkerAndRoute();
+          return;
+        }
+      }
+
+      // If we reach here, fallback failed
+      debugPrint('getPlaceDetails: Geocoding fallback returned no results or no location');
+      Get.snackbar(
+        'Destination Not Found',
+        'Could not get details for "${_selectedPlaceName ?? addressForGeocoding}". Try using the "Set Route" button or enter a different destination.',
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+        duration: Duration(seconds: 5),
+      );
     } catch (e) {
-      
+      debugPrint('getPlaceDetails: Geocoding fallback failed: $e');
       Get.snackbar(
         'Error',
-        'Failed to get destination details: $e',
+        'Failed to get destination details. Check your network or try another destination.',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -570,8 +785,12 @@ class HomeController extends GetxController {
     Get.to(() => const SOSChatPage());
   }
 
-  void retryLocation() {
-    _getCurrentLocation();
+  void clearMarkers() {
+    markers.clear();
+    polylines.clear();
+    destinationPosition.value = null;
+    destinationController.clear();
+    placeSuggestions.clear();
   }
 
   void onMapCreated(GoogleMapController controller) {

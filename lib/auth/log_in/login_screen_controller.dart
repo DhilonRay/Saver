@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../home/home.dart';
+import '../../home/home.dart';
 import '../sign_up/signup.dart';
 import '../forgot_page/forgot_page.dart';
 
