@@ -165,10 +165,23 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            
-                           
-                       
-                           
+                            SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Locating you...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.blueGrey.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -440,6 +453,7 @@ class HomePage extends StatelessWidget {
                     ],
                   ),
                 ),
+             
               ],
             ),
           ),

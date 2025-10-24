@@ -34,6 +34,7 @@ class HomeController extends GetxController {
   var markers = <Marker>{}.obs;
   var polylines = <Polyline>{}.obs;
   var isLoadingLocation = true.obs;
+  var isInitialLoading = true.obs;
   var mapError = ''.obs;
   
   // Autocomplete variables
@@ -124,6 +125,8 @@ class HomeController extends GetxController {
       );
 
       isLoadingLocation.value = false;
+      // initial loading finished
+      isInitialLoading.value = false;
     } catch (e) {
       
       // Use default position if location fails
@@ -138,6 +141,8 @@ class HomeController extends GetxController {
         ),
       );
       isLoadingLocation.value = false;
+      // initial loading finished (even on error)
+      isInitialLoading.value = false;
     }
   }
 

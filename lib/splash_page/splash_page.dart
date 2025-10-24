@@ -14,7 +14,7 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-    _controller.navigateAfterSplash(context);
+    _controller.navigateAfterSplash();
   }
 
   @override
