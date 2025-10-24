@@ -75,7 +75,7 @@ class HomePage extends StatelessWidget {
                             'Every Second Matters',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.blueGrey.withOpacity(0.8),
+                              color: Colors.blueGrey.withValues(alpha: 0.8),
                               fontWeight: FontWeight.w300,
                             ),
                           ),
@@ -158,16 +158,7 @@ class HomePage extends StatelessWidget {
                 Obx(() {
                   if (controller.isLoadingLocation.value) {
                     return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.blue.shade50,
-                            Colors.white,
-                          ],
-                        ),
-                      ),
+                      color: Colors.white,
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -216,16 +207,7 @@ class HomePage extends StatelessWidget {
 
                   if (controller.currentPosition.value == null) {
                     return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.blue.shade50,
-                            Colors.white,
-                          ],
-                        ),
-                      ),
+                      color: Colors.white,
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -301,14 +283,14 @@ class HomePage extends StatelessWidget {
                    
                       // Destination input container
                       Container(
-                        margin: EdgeInsets.all(50),
+                        margin: EdgeInsets.all(16),
 
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               blurRadius: 20,
                               offset: Offset(0, 8),
                             ),
@@ -384,7 +366,7 @@ class HomePage extends StatelessWidget {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
+                                      color: Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 8,
                                       offset: Offset(0, 2),
                                     ),
@@ -515,14 +497,14 @@ class HomePage extends StatelessWidget {
 
                       // Emergency action buttons at bottom
                       Container(
-                        margin: EdgeInsets.all(50),
+                        margin: EdgeInsets.all(16),
                         padding: EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               blurRadius: 20,
                               offset: Offset(0, 8),
                             ),
@@ -576,7 +558,7 @@ class HomePage extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: lightBlue.withOpacity(0.3),
+                color: lightBlue.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -620,17 +602,14 @@ class HomePage extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            padding: EdgeInsets.symmetric( horizontal: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 24,
-                  ),
+                Icon(
+                  icon,
+                  color: color,
+                  size: 24,
                 ),
                 SizedBox(height: 4),
                 Text(

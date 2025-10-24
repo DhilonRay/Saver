@@ -6,13 +6,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
-import '../aboutus.dart';
-import '../userid.dart';
+import '../about/about.dart';
+import '../user_id/userid.dart';
 import '../log_in/login_screen.dart';
-import '../sos_chat_page.dart';
-import '../ambulance_services_page.dart';
-import '../partners_orders_page.dart';
-import '../user_order_page.dart';
+import '../chat_page/sos_chat_page.dart';
+import '../ambulance_service/ambulance_services_page.dart';
+import '../partner_orders/partners_orders_page.dart';
+import '../user_order/user_order_page.dart';
 
 class HomeController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -40,13 +40,16 @@ class HomeController extends GetxController {
 
   // Controllers
   final TextEditingController destinationController = TextEditingController();
+  
+  // Store selected place name for fallback
+  String? _selectedPlaceName;
 
   @override
   void onInit() {
     super.onInit();
     // Initialize Google Places API client
-    _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyA4Ktf1DDkFlYYinXeBRLlW2etfLFLCZVQ');
-    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyA4Ktf1DDkFlYYinXeBRLlW2etfLFLCZVQ');
+    _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _getCurrentLocation();
   }
 
@@ -107,7 +110,7 @@ class HomeController extends GetxController {
 
       isLoadingLocation.value = false;
     } catch (e) {
-      print('Error getting current location: $e');
+      
       // Use default position if location fails
       currentPosition.value = defaultPosition;
       markers.clear();
@@ -141,15 +144,40 @@ class HomeController extends GetxController {
         return;
       }
 
-      // Check for common locations first
+      // Check for common locations and hospital searches
       String query = destinationController.text.toLowerCase().trim();
-      if (query == 'khulna') {
-        destinationPosition.value = LatLng(22.8456, 89.5403); // Khulna coordinates
-        _addDestinationMarkerAndRoute();
-        return;
-      } else if (query == 'dhaka') {
-        destinationPosition.value = LatLng(23.8103, 90.4125); // Dhaka coordinates
-        _addDestinationMarkerAndRoute();
+      
+      // Handle Khulna searches
+      if (query.contains('khulna')) {
+        if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+          // Search for hospitals in Khulna
+          destinationController.text = 'hospitals in Khulna';
+        } else {
+          destinationPosition.value = LatLng(22.8456, 89.5403); // Khulna coordinates
+          _addDestinationMarkerAndRoute();
+          return;
+        }
+      }
+      
+      // Handle Dhaka searches
+      if (query.contains('dhaka')) {
+        if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+          // Search for hospitals in Dhaka
+          destinationController.text = 'hospitals in Dhaka';
+        } else {
+          destinationPosition.value = LatLng(23.8103, 90.4125); // Dhaka coordinates
+          _addDestinationMarkerAndRoute();
+          return;
+        }
+      }
+
+      // For hospital searches, make the query more specific
+      if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+        // Keep the query as is for Google Places to find hospitals
+      }
+
+      // Try fallback hospitals if it's a hospital search in Khulna/Dhaka
+      if (_tryFallbackHospitals(query)) {
         return;
       }
 
@@ -157,6 +185,8 @@ class HomeController extends GetxController {
       places.PlacesAutocompleteResponse autoResponse = await _places.autocomplete(
         destinationController.text,
         language: 'en',
+        components: [places.Component(places.Component.country, 'bd')], // Restrict to Bangladesh
+        types: [], // Allow all types but prioritize hospitals
       );
 
       if (autoResponse.isOkay && autoResponse.predictions.isNotEmpty) {
@@ -214,7 +244,7 @@ class HomeController extends GetxController {
     );
 
     // Get directions from Google
-    try {
+    try {    
       final directionsResponse = await _directions.directions(
         directions.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
         directions.Location(lat: destinationPosition.value!.latitude, lng: destinationPosition.value!.longitude),
@@ -225,17 +255,48 @@ class HomeController extends GetxController {
         final route = directionsResponse.routes.first;
         final polylinePoints = _decodePolyline(route.overviewPolyline.points);
 
+        // Calculate route information
+        String routeInfo = 'Route calculated successfully';
+        if (route.legs.isNotEmpty) {
+          final leg = route.legs.first;
+          String distance = leg.distance.text;
+          String duration = leg.duration.text;
+          routeInfo = 'Route: $distance, about $duration';
+        }
+
+        // Show route information with distance and time
+        Get.snackbar(
+          'Navigation Ready',
+          routeInfo,
+          backgroundColor: Colors.blue.shade100,
+          colorText: Colors.blue.shade800,
+          duration: Duration(seconds: 4),
+          icon: Icon(Icons.directions, color: Colors.blue.shade800),
+        );
+
         // Update polylines reactively
         polylines.clear();
         polylines.add(
           Polyline(
             polylineId: const PolylineId('route'),
-            color: Colors.red,
+            color: Colors.blue.shade700, // Use a consistent blue color for routes
             width: 6,
             zIndex: 1,
             points: polylinePoints,
           ),
         );
+
+        // Add start marker if not already present
+        if (!markers.any((marker) => marker.markerId.value == 'start')) {
+          markers.add(
+            Marker(
+              markerId: const MarkerId('start'),
+              position: currentPosition.value!,
+              infoWindow: InfoWindow(title: 'Your Location'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            ),
+          );
+        }
       } else {
         // Fallback to straight line if directions fail
         polylines.clear();
@@ -334,6 +395,7 @@ class HomeController extends GetxController {
       places.PlacesAutocompleteResponse response = await _places.autocomplete(
         query,
         language: 'en',
+        components: [places.Component(places.Component.country, 'bd')], // Restrict to Bangladesh
       );
 
       if (response.isOkay && response.predictions.isNotEmpty) {
@@ -342,9 +404,9 @@ class HomeController extends GetxController {
           return places.PlacesSearchResult(
             placeId: prediction.placeId ?? '',
             name: prediction.description ?? 'Unknown Place',
-            formattedAddress: '',
+            formattedAddress: prediction.description ?? '',
             geometry: null,
-            types: [],
+            types: prediction.types,
             reference: prediction.reference ?? '',
           );
         }).toList();
@@ -353,26 +415,43 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       placeSuggestions.clear();
-      print('Error searching places: $e');
+      
     } finally {
       isLoadingSuggestions.value = false;
     }
   }
 
   void selectPlace(places.PlacesSearchResult place) {
+    
+    if (place.placeId.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Invalid destination selected',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+      return;
+    }
+    
     destinationController.text = place.name;
     placeSuggestions.clear();
+
+    // Store the selected place name for fallback
+    _selectedPlaceName = place.name;
 
     // Get place details to get coordinates
     getPlaceDetails(place.placeId);
   }
 
   Future<void> getPlaceDetails(String placeId) async {
+    
     try {
       places.PlacesDetailsResponse response = await _places.getDetailsByPlaceId(
         placeId,
         fields: ['name', 'formatted_address', 'geometry'],
       );
+
+      
 
       if (response.isOkay && response.result.geometry != null) {
         LatLng position = LatLng(
@@ -380,30 +459,52 @@ class HomeController extends GetxController {
           response.result.geometry!.location.lng,
         );
 
+        
         destinationPosition.value = position;
 
-        // Add destination marker
-        markers.removeWhere((marker) => marker.markerId.value == 'destination');
-        markers.add(
-          Marker(
-            markerId: const MarkerId('destination'),
-            position: position,
-            infoWindow: InfoWindow(title: response.result.name),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          ),
-        );
-
-        // Animate camera to destination
-        final GoogleMapController controller = await _controller.future;
-        controller.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(target: position, zoom: 16),
-          ),
+        // Add destination marker and route
+        _addDestinationMarkerAndRoute();
+      } else {
+        
+        Get.snackbar(
+          'Destination Not Found',
+          'Could not get details for "${_selectedPlaceName ?? "selected destination"}". Try using "Set Route" button or enter a different destination.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: Duration(seconds: 5),
         );
       }
     } catch (e) {
-      print('Error getting place details: $e');
+      
+      Get.snackbar(
+        'Error',
+        'Failed to get destination details: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
     }
+  }
+
+  bool _tryFallbackHospitals(String query) {
+    // Fallback hospitals in Khulna
+    if (query.contains('khulna') && (query.contains('medical') || query.contains('hospital'))) {
+      // Khulna Medical College Hospital
+      destinationPosition.value = LatLng(22.8200, 89.5510);
+      destinationController.text = 'Khulna Medical College Hospital';
+      _addDestinationMarkerAndRoute();
+      return true;
+    }
+    
+    // Fallback hospitals in Dhaka
+    if (query.contains('dhaka') && (query.contains('medical') || query.contains('hospital'))) {
+      // Dhaka Medical College Hospital
+      destinationPosition.value = LatLng(23.7250, 90.4000);
+      destinationController.text = 'Dhaka Medical College Hospital';
+      _addDestinationMarkerAndRoute();
+      return true;
+    }
+    
+    return false;
   }
 
   List<LatLng> _decodePolyline(String encoded) {

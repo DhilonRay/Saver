@@ -80,7 +80,8 @@ class _UserIdPageState extends State<UserIdPage> {
 
         await _updateLocation(uid);
       } catch (e) {
-        print('Error fetching user data: $e');
+        // TODO: Handle user data fetch errors appropriately
+        // For now, continue without user data to avoid crashes
       }
     }
   }
@@ -140,9 +141,10 @@ class _UserIdPageState extends State<UserIdPage> {
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
-      print('Location updated successfully!');
+      
     } catch (e) {
-      print('Error updating location: $e');
+      // TODO: Handle location update errors (permission denied, network issues, etc.)
+      // For now, silently fail to avoid disrupting user experience
     }
   }
 
@@ -278,7 +280,7 @@ class _UserIdPageState extends State<UserIdPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withValues(alpha: 0.2),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 3),

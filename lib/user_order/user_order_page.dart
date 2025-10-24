@@ -24,7 +24,7 @@ class UserOrdersPage extends StatelessWidget {
       ),
       backgroundColor: colorScheme.surface,
       body: userId == null
-          ? Center(child: Text('Please log in to see your orders.', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7))))
+          ? Center(child: Text('Please log in to see your orders.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))))
           : StreamBuilder<QuerySnapshot>(
               stream: _firestore
                   .collection('orders')
@@ -41,7 +41,7 @@ class UserOrdersPage extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('You haven\'t placed any orders yet.', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7))));
+                  return Center(child: Text('You haven\'t placed any orders yet.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))));
                 }
 
                 return ListView.builder(
@@ -67,11 +67,11 @@ class UserOrdersPage extends StatelessWidget {
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withOpacity(0.8), 
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8), 
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               spreadRadius: 1,
                               blurRadius: 5,
                               offset: const Offset(0, 3),
@@ -93,7 +93,7 @@ class UserOrdersPage extends StatelessWidget {
                                     if (createdAt != null)
                                       Text(
                                         'Placed on: ${DateFormat('MMM d, h:mm a').format(createdAt.toLocal())}',
-                                        style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                                        style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                       ),
                                     if (orderStatus != null)
                                       Text('Status: $orderStatus', style: TextStyle(color: _getStatusColor(orderStatus, colorScheme), fontWeight: FontWeight.w400)),
@@ -108,11 +108,11 @@ class UserOrdersPage extends StatelessWidget {
                                     children: [
                                       Icon(Icons.handshake_outlined, color: colorScheme.secondary, size: 20), // Partner icon
                                       const SizedBox(height: 2),
-                                      Text('Partner: ${partnerId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 10)),
+                                      Text('Partner: ${partnerId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10)),
                                     ],
                                   ),
                                 ),
-                              Icon(Icons.chevron_right_outlined, color: colorScheme.onSurface.withOpacity(0.4)),
+                              Icon(Icons.chevron_right_outlined, color: colorScheme.onSurface.withValues(alpha: 0.4)),
                             ],
                           ),
                         ),
@@ -134,7 +134,7 @@ class UserOrdersPage extends StatelessWidget {
       case 'accepted': 
         return Colors.green.shade700;
       default:
-        return colorScheme.onSurface.withOpacity(0.6);
+        return colorScheme.onSurface.withValues(alpha: 0.6);
     }
   }
 }
@@ -190,7 +190,7 @@ class OrderDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withOpacity(0.6),
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(issueDetails, style: TextStyle(color: colorScheme.onSurface)),
@@ -221,7 +221,7 @@ class OrderDetailScreen extends StatelessWidget {
             children: [
               Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
               const SizedBox(height: 4),
-              Text(value ?? 'N/A', style: TextStyle(color: color ?? colorScheme.onSurface.withOpacity(0.7))),
+              Text(value ?? 'N/A', style: TextStyle(color: color ?? colorScheme.onSurface.withValues(alpha: 0.7))),
             ],
           ),
         ),
@@ -249,7 +249,7 @@ class OrderDetailScreen extends StatelessWidget {
       case 'accepted': 
         return Colors.green.shade700;
       default:
-        return colorScheme.onSurface.withOpacity(0.6);
+        return colorScheme.onSurface.withValues(alpha: 0.6);
     }
   }
 }
