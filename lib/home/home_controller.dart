@@ -41,6 +41,9 @@ class HomeController extends GetxController {
   var isLoadingSuggestions = false.obs;
   Timer? _debounceTimer;
 
+  // Reactive query string mirroring the TextEditingController
+  var destinationQuery = ''.obs;
+
   // Search history variables
   var searchHistory = <String>[].obs;
   static const int _maxHistoryItems = 10;
@@ -163,7 +166,8 @@ class HomeController extends GetxController {
       if (query.contains('khulna')) {
         if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
           // Search for hospitals in Khulna
-          destinationController.text = 'hospitals in Khulna';
+        destinationController.text = 'hospitals in Khulna';
+        destinationQuery.value = 'hospitals in Khulna';
         } else {
           destinationPosition.value = LatLng(22.8456, 89.5403); // Khulna coordinates
           _addDestinationMarkerAndRoute();
@@ -175,7 +179,8 @@ class HomeController extends GetxController {
       if (query.contains('dhaka')) {
         if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
           // Search for hospitals in Dhaka
-          destinationController.text = 'hospitals in Dhaka';
+        destinationController.text = 'hospitals in Dhaka';
+        destinationQuery.value = 'hospitals in Dhaka';
         } else {
           destinationPosition.value = LatLng(23.8103, 90.4125); // Dhaka coordinates
           _addDestinationMarkerAndRoute();
@@ -466,16 +471,13 @@ class HomeController extends GetxController {
       }
     }
 
-    Get.snackbar(
-      'Route Set',
-      'Route to destination has been set successfully',
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-    );
+   
   }
 
   // Autocomplete methods
   void onDestinationTextChanged(String query) {
+    // Keep reactive query in sync for UI observers
+    destinationQuery.value = query;
     if (query.isEmpty) {
       // Reset typing flag when input becomes empty
       hasStartedTyping.value = false;
@@ -549,7 +551,8 @@ class HomeController extends GetxController {
     }
 
     final placeName = place['name'] as String? ?? 'Unknown Place';
-    destinationController.text = placeName;
+  destinationController.text = placeName;
+  destinationQuery.value = placeName;
     placeSuggestions.clear();
 
     // Reset typing flag since user selected a place
@@ -591,6 +594,7 @@ class HomeController extends GetxController {
 
   void selectHistoryItem(String historyItem) {
     destinationController.text = historyItem;
+    destinationQuery.value = historyItem;
     // Reset typing flag since user selected from history
     hasStartedTyping.value = false;
   }
@@ -705,7 +709,8 @@ class HomeController extends GetxController {
     if (query.contains('khulna') && (query.contains('medical') || query.contains('hospital'))) {
       // Khulna Medical College Hospital
       destinationPosition.value = LatLng(22.8200, 89.5510);
-      destinationController.text = 'Khulna Medical College Hospital';
+  destinationController.text = 'Khulna Medical College Hospital';
+  destinationQuery.value = 'Khulna Medical College Hospital';
       _addDestinationMarkerAndRoute();
       return true;
     }
@@ -714,7 +719,8 @@ class HomeController extends GetxController {
     if (query.contains('dhaka') && (query.contains('medical') || query.contains('hospital'))) {
       // Dhaka Medical College Hospital
       destinationPosition.value = LatLng(23.7250, 90.4000);
-      destinationController.text = 'Dhaka Medical College Hospital';
+  destinationController.text = 'Dhaka Medical College Hospital';
+  destinationQuery.value = 'Dhaka Medical College Hospital';
       _addDestinationMarkerAndRoute();
       return true;
     }
