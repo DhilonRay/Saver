@@ -1,0 +1,131 @@
+import 'package:get/get.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class PartnerOrdersController extends GetxController {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  final RxString partnerId = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    partnerId.value = _auth.currentUser?.uid ?? '';
+  }
+
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({'orderStatus': newStatus});
+
+      Get.snackbar(
+        'Success',
+        'Order status updated to $newStatus',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to update order status: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      return userDoc.data();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Stream<QuerySnapshot> getOrdersStream() {
+    if (partnerId.value.isEmpty) return const Stream.empty();
+
+    return _firestore
+        .collection('orders')
+        .where('partnerId', isEqualTo: partnerId.value)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  void showOrderDetails(BuildContext context, String? userId, String? userName, String? companyName, String? orderStatus) async {
+    if (userId == null) {
+      Get.snackbar(
+        'Error',
+        'User information not available.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final userData = await getUserData(userId);
+
+    String userNameInDialog = userName ?? 'User Info Not Available';
+    String userPhoneInDialog = userData?['phone'] as String? ?? 'Number not available';
+    String userLocationInDialog = 'Location not available';
+
+    if (userData != null) {
+      final latitude = userData['latitude'];
+      final longitude = userData['longitude'];
+
+      if (latitude != null && longitude != null) {
+        userLocationInDialog = 'Lat: ${latitude.toStringAsFixed(2)}, Lng: ${longitude.toStringAsFixed(2)}';
+      }
+    }
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Order Details'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('User: $userNameInDialog'),
+            Text('User ID: ${userId.substring(0, 8)}...'),
+            if (companyName != null) Text('Company: $companyName'),
+            Text(userLocationInDialog),
+            Text('Phone: $userPhoneInDialog'),
+            if (orderStatus != null) Text('Status: $orderStatus'),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Close'),
+            onPressed: () => Get.back(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color getStatusColor(String? status, ColorScheme colorScheme) {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return Colors.orange.shade700;
+      case 'processing':
+        return colorScheme.secondary;
+      case 'shipped':
+        return Colors.blue.shade700;
+      case 'delivered':
+        return Colors.green.shade700;
+      case 'cancelled':
+        return Colors.red.shade700;
+      case 'accepted':
+        return Colors.green.shade700;
+      default:
+        return colorScheme.onSurface.withValues(alpha: 0.6);
+    }
+  }
+}

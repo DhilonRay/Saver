@@ -1,49 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
+import 'package:get/get.dart';
+import 'partner_orders_controller.dart';
 
 class PartnersOrdersPage extends StatelessWidget {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  PartnersOrdersPage({super.key});
-
-  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
-    try {
-      await _firestore.collection('orders').doc(orderId).update({'orderStatus': newStatus});
-      
-    } catch (e) {
-      // TODO: Show error message to user
-      // For now, silently handle the error to avoid crashes
-    }
-  }
+  const PartnersOrdersPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final String? partnerId = _auth.currentUser?.uid;
-    final colorScheme = Theme.of(context).colorScheme;
+    return GetBuilder<PartnerOrdersController>(
+      init: PartnerOrdersController(),
+      builder: (controller) {
+        final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your Assigned Orders', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.teal.shade800,
-        elevation: 2,
-        iconTheme: IconThemeData(color: colorScheme.onPrimary),
-        titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
-      ),
-      backgroundColor: colorScheme.surface,
-      body: partnerId == null
-          ? Center(child: Text('Please log in as a partner to see your orders.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))))
-          : StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('orders')
-                  .where('partnerId', isEqualTo: partnerId)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Your Assigned Orders', style: TextStyle(fontWeight: FontWeight.w600)),
+            backgroundColor: Colors.teal.shade800,
+            elevation: 2,
+            iconTheme: IconThemeData(color: colorScheme.onPrimary),
+            titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
+          ),
+          backgroundColor: colorScheme.surface,
+          body: Obx(() {
+            if (controller.partnerId.value.isEmpty) {
+              return Center(
+                child: Text(
+                  'Please log in as a partner to see your orders.',
+                  style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))
+                )
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: controller.getOrdersStream(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Something went wrong: ${snapshot.error}', style: TextStyle(color: colorScheme.error)));
+                  return Center(
+                    child: Text(
+                      'Something went wrong: ${snapshot.error}',
+                      style: TextStyle(color: colorScheme.error)
+                    )
+                  );
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -51,7 +50,12 @@ class PartnersOrdersPage extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('No orders received yet.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))));
+                  return Center(
+                    child: Text(
+                      'No orders received yet.',
+                      style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))
+                    )
+                  );
                 }
 
                 return ListView.builder(
@@ -64,18 +68,13 @@ class PartnersOrdersPage extends StatelessWidget {
                     final userId = orderData['userId'] as String?;
                     final orderStatus = orderData['orderStatus'] as String?;
                     final createdAt = (orderData['createdAt'] as Timestamp?)?.toDate();
-                    final companyName = orderData['companyName']; 
+                    final companyName = orderData['companyName'];
 
                     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      future: _firestore.collection('users').doc(userId).get(),
+                      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
                       builder: (context, userSnapshot) {
                         final userData = userSnapshot.data?.data();
                         final userName = userData?['name'] as String?;
-                        final userLatitude = userData?['latitude'];
-                        final userLongitude = userData?['longitude'];
-
-                        if (userLatitude != null && userLongitude != null) {
-                        }
 
                         return Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
@@ -104,17 +103,26 @@ class PartnersOrdersPage extends StatelessWidget {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(userName ?? 'New Order', style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
+                                          Text(
+                                            userName ?? 'New Order',
+                                            style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)
+                                          ),
                                           const SizedBox(height: 4),
                                           if (userId != null)
-                                            Text('User ID: ${userId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                                            Text(
+                                              'User ID: ${userId.substring(0, 8)}...',
+                                              style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)
+                                            ),
                                           if (createdAt != null)
                                             Text(
                                               'Time: ${DateFormat('MMM d, h:mm a').format(createdAt.toLocal())}',
                                               style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                             ),
                                           if (orderStatus != null)
-                                            Text('Status: $orderStatus', style: TextStyle(color: _getStatusColor(orderStatus, colorScheme), fontWeight: FontWeight.w400)),
+                                            Text(
+                                              'Status: $orderStatus',
+                                              style: TextStyle(color: controller.getStatusColor(orderStatus, colorScheme), fontWeight: FontWeight.w400)
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -126,7 +134,7 @@ class PartnersOrdersPage extends StatelessWidget {
                                   children: [
                                     if (orderStatus == 'pending')
                                       ElevatedButton.icon(
-                                        onPressed: () => _updateOrderStatus(orderId, 'accepted'),
+                                        onPressed: () => controller.updateOrderStatus(orderId, 'accepted'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.green.shade500,
                                           foregroundColor: Colors.white,
@@ -139,7 +147,7 @@ class PartnersOrdersPage extends StatelessWidget {
                                     const SizedBox(width: 8.0),
                                     if (orderStatus == 'pending')
                                       OutlinedButton.icon(
-                                        onPressed: () => _updateOrderStatus(orderId, 'cancelled'),
+                                        onPressed: () => controller.updateOrderStatus(orderId, 'cancelled'),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.red.shade500,
                                           side: BorderSide(color: Colors.red.shade500),
@@ -153,58 +161,7 @@ class PartnersOrdersPage extends StatelessWidget {
                                     IconButton(
                                       icon: const Icon(Icons.info_outline),
                                       color: colorScheme.secondary,
-                                      onPressed: () async {
-                                        if (userId != null) {
-                                          final userDoc = await _firestore.collection('users').doc(userId).get();
-                                          final userData = userDoc.data();
-
-                                          String userNameInDialog = userName ?? 'User Info Not Available';
-                                          String userPhoneInDialog = userData?['phone'] as String? ?? 'Number not available'; 
-                                          String userLocationInDialog = 'Location not available';
-
-                                          if (userData != null) {
-                                            final latitude = userData['latitude'];
-                                            final longitude = userData['longitude'];
-
-                                            if (latitude != null && longitude != null) {
-                                              userLocationInDialog = 'Lat: ${latitude.toStringAsFixed(2)}, Lng: ${longitude.toStringAsFixed(2)}';
-                                            }
-                                          }
-
-                                          showDialog(
-                                            context: context,
-                                            builder: (BuildContext dialogContext) {
-                                              return AlertDialog(
-                                                title: const Text('Order Details'),
-                                                content: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text('User: $userNameInDialog'),
-                                                    Text('User ID: ${userId.substring(0, 8)}...'),
-                                                    if (companyName != null) Text('Company: $companyName'),
-                                                    Text(userLocationInDialog),
-                                                    Text('Phone: $userPhoneInDialog'),
-                                                    if (orderStatus != null) Text('Status: $orderStatus'),
-                                                  ],
-                                                ),
-                                                actions: <Widget>[
-                                                  TextButton(
-                                                    child: const Text('Close'),
-                                                    onPressed: () {
-                                                      Navigator.of(dialogContext).pop();
-                                                    },
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('User information not available.')),
-                                          );
-                                        }
-                                      },
+                                      onPressed: () => controller.showOrderDetails(context, userId, userName, companyName, orderStatus),
                                     ),
                                   ],
                                 ),
@@ -217,26 +174,10 @@ class PartnersOrdersPage extends StatelessWidget {
                   },
                 );
               },
-            ),
+            );
+          }),
+        );
+      },
     );
-  }
-
-  Color _getStatusColor(String? status, ColorScheme colorScheme) {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return Colors.orange.shade700;
-      case 'processing':
-        return colorScheme.secondary;
-      case 'shipped':
-        return Colors.blue.shade700;
-      case 'delivered':
-        return Colors.green.shade700;
-      case 'cancelled':
-        return Colors.red.shade700;
-      case 'accepted':
-        return Colors.green.shade700;
-      default:
-        return colorScheme.onSurface.withValues(alpha: 0.6);
-    }
   }
 }
