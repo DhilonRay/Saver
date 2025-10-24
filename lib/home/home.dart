@@ -243,18 +243,7 @@ class HomePage extends StatelessWidget {
                               textAlign: TextAlign.center,
                             ),
                             SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: controller.retryLocation,
-                              icon: Icon(Icons.refresh, color: Colors.white),
-                              label: Text('Retry Location'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryBlue,
-                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
+                           
                           ],
                         ),
                       ),
@@ -268,8 +257,8 @@ class HomePage extends StatelessWidget {
                     ),
                     myLocationEnabled: true,
                     myLocationButtonEnabled: true,
-                    markers: controller.markers,
-                    polylines: controller.polylines,
+                    markers: controller.markers.toSet(),
+                    polylines: controller.polylines.toSet(),
                     onMapCreated: controller.onMapCreated,
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
@@ -351,12 +340,19 @@ class HomePage extends StatelessWidget {
 
                             // Autocomplete suggestions - Modern design
                             Obx(() {
-                              if (controller.placeSuggestions.isEmpty && !controller.isLoadingSuggestions.value) {
+                              final query = controller.destinationController.text;
+                              final showHistory = query.isEmpty && !controller.hasStartedTyping.value && controller.searchHistory.isNotEmpty;
+                              final showSuggestions = controller.placeSuggestions.isNotEmpty || controller.isLoadingSuggestions.value;
+
+                              if (!showHistory && !showSuggestions) {
                                 return SizedBox.shrink();
                               }
 
                               return Container(
                                 margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+                                constraints: BoxConstraints(
+                                  maxHeight: 300, // Limit height to prevent overflow
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12.0),
@@ -399,60 +395,180 @@ class HomePage extends StatelessWidget {
                                         ],
                                       ),
                                     )
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      padding: EdgeInsets.zero,
-                                      itemCount: controller.placeSuggestions.length,
-                                      itemBuilder: (context, index) {
-                                        final place = controller.placeSuggestions[index];
-                                        return InkWell(
-                                          onTap: () => controller.selectPlace(place),
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                  : showHistory
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // History header
+                                          Container(
+                                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                             decoration: BoxDecoration(
-                                              border: index < controller.placeSuggestions.length - 1
-                                                ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
-                                                : null,
+                                              border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
                                             ),
                                             child: Row(
                                               children: [
-                                                Container(
-                                                  padding: EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: lightBlue,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.location_on_outlined,
-                                                    size: 20,
-                                                    color: primaryBlue,
+                                                Icon(Icons.history, color: primaryBlue, size: 20),
+                                                SizedBox(width: 12),
+                                                Text(
+                                                  'Recent Searches',
+                                                  style: TextStyle(
+                                                    color: Colors.blueGrey.shade800,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
-                                                SizedBox(width: 16),
-                                                Expanded(
+                                                Spacer(),
+                                                InkWell(
+                                                  onTap: controller.clearSearchHistory,
                                                   child: Text(
-                                                    place.name,
+                                                    'Clear',
                                                     style: TextStyle(
-                                                      color: Colors.blueGrey.shade800,
-                                                      fontSize: 16,
+                                                      color: primaryBlue,
+                                                      fontSize: 12,
                                                       fontWeight: FontWeight.w500,
                                                     ),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
                                                   ),
-                                                ),
-                                                Icon(
-                                                  Icons.chevron_right,
-                                                  color: Colors.grey.shade400,
-                                                  size: 20,
                                                 ),
                                               ],
                                             ),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                          // History items
+                                          ListView.builder(
+                                            shrinkWrap: true,
+                                            padding: EdgeInsets.zero,
+                                            physics: ClampingScrollPhysics(),
+                                            itemCount: controller.searchHistory.length > 5 ? 5 : controller.searchHistory.length,
+                                            itemBuilder: (context, index) {
+                                              final historyItem = controller.searchHistory[index];
+                                              return InkWell(
+                                                onTap: () => controller.selectHistoryItem(historyItem),
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Container(
+                                                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                                                  decoration: BoxDecoration(
+                                                    border: index < (controller.searchHistory.length > 5 ? 4 : controller.searchHistory.length - 1)
+                                                      ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
+                                                      : null,
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        padding: EdgeInsets.all(8),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.grey.shade100,
+                                                          borderRadius: BorderRadius.circular(8),
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.history,
+                                                          size: 18,
+                                                          color: Colors.grey.shade600,
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: 16),
+                                                      Expanded(
+                                                        child: Text(
+                                                          historyItem,
+                                                          style: TextStyle(
+                                                            color: Colors.blueGrey.shade800,
+                                                            fontSize: 16,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      InkWell(
+                                                        onTap: () => controller.removeFromSearchHistory(historyItem),
+                                                        child: Icon(
+                                                          Icons.close,
+                                                          color: Colors.grey.shade400,
+                                                          size: 18,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        padding: EdgeInsets.zero,
+                                        physics: ClampingScrollPhysics(), // Prevent scroll conflicts
+                                        itemCount: controller.placeSuggestions.length > 5
+                                            ? 5 // Limit to 5 suggestions to prevent overflow
+                                            : controller.placeSuggestions.length,
+                                        itemBuilder: (context, index) {
+                                          final place = controller.placeSuggestions[index];
+                                          return InkWell(
+                                            onTap: () => controller.selectPlace(place),
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                                              decoration: BoxDecoration(
+                                                border: index < (controller.placeSuggestions.length > 5 ? 4 : controller.placeSuggestions.length - 1)
+                                                  ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
+                                                  : null,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: lightBlue,
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.location_on_outlined,
+                                                      size: 20,
+                                                      color: primaryBlue,
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          place['name']?.toString() ?? 'Unknown Place',
+                                                          style: TextStyle(
+                                                            color: Colors.blueGrey.shade800,
+                                                            fontSize: 16,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                        if (place['formattedAddress'] != null && (place['formattedAddress'] as String?)?.isNotEmpty == true)
+                                                          Padding(
+                                                            padding: EdgeInsets.only(top: 2),
+                                                            child: Text(
+                                                              place['formattedAddress']?.toString() ?? '',
+                                                              style: TextStyle(
+                                                                color: Colors.blueGrey.shade500,
+                                                                fontSize: 12,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Icon(
+                                                    Icons.chevron_right,
+                                                    color: Colors.grey.shade400,
+                                                    size: 20,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                               );
                             }),
 

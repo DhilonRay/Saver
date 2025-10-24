@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:neosaver/auth/log_in/login_screen.dart';
 import '../home/home.dart';
-import '../log_in/login_screen.dart';
+
 
 class SplashPageController {
   void navigateAfterSplash(BuildContext context) {
