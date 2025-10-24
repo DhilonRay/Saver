@@ -1,39 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; 
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'user_order_controller.dart';
 
 class UserOrdersPage extends StatelessWidget {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  UserOrdersPage({super.key});
+  const UserOrdersPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final String? userId = _auth.currentUser?.uid;
-    final colorScheme = Theme.of(context).colorScheme; 
+    return GetBuilder<UserOrderController>(
+      init: UserOrderController(),
+      builder: (controller) {
+        final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your Orders', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: colorScheme.primary,
-        elevation: 2,
-        iconTheme: IconThemeData(color: colorScheme.onPrimary),
-        titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
-      ),
-      backgroundColor: colorScheme.surface,
-      body: userId == null
-          ? Center(child: Text('Please log in to see your orders.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))))
-          : StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('orders')
-                  .where('userId', isEqualTo: userId)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Your Orders', style: TextStyle(fontWeight: FontWeight.w600)),
+            backgroundColor: colorScheme.primary,
+            elevation: 2,
+            iconTheme: IconThemeData(color: colorScheme.onPrimary),
+            titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.refresh, color: colorScheme.onPrimary),
+                onPressed: controller.refreshOrders,
+              ),
+            ],
+          ),
+          backgroundColor: colorScheme.surface,
+          body: Obx(() {
+            if (controller.isLoading.value) {
+              return Center(child: CircularProgressIndicator(color: colorScheme.primary));
+            }
+
+            if (controller.error.value.isNotEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      controller.error.value,
+                      style: TextStyle(color: colorScheme.error),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: controller.refreshOrders,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (controller.userId.isEmpty) {
+              return Center(
+                child: Text(
+                  'Please log in to see your orders.',
+                  style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))
+                )
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: controller.getOrdersStream(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Something went wrong: ${snapshot.error}', style: TextStyle(color: colorScheme.error)));
+                  return Center(
+                    child: Text(
+                      'Something went wrong: ${snapshot.error}',
+                      style: TextStyle(color: colorScheme.error)
+                    )
+                  );
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -41,7 +80,12 @@ class UserOrdersPage extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('You haven\'t placed any orders yet.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))));
+                  return Center(
+                    child: Text(
+                      'You haven\'t placed any orders yet.',
+                      style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))
+                    )
+                  );
                 }
 
                 return ListView.builder(
@@ -57,17 +101,12 @@ class UserOrdersPage extends StatelessWidget {
 
                     return GestureDetector(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OrderDetailScreen(orderData: orderData),
-                          ),
-                        );
+                        Get.to(() => OrderDetailScreen(orderData: orderData));
                       },
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8), 
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -82,21 +121,36 @@ class UserOrdersPage extends StatelessWidget {
                           padding: const EdgeInsets.all(16.0),
                           child: Row(
                             children: [
-                              Icon(Icons.notifications_outlined, color: colorScheme.primary, size: 32), 
+                              Icon(Icons.notifications_outlined, color: colorScheme.primary, size: 32),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(companyName, style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
+                                    Text(
+                                      companyName,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurface
+                                      )
+                                    ),
                                     const SizedBox(height: 4),
                                     if (createdAt != null)
                                       Text(
-                                        'Placed on: ${DateFormat('MMM d, h:mm a').format(createdAt.toLocal())}',
-                                        style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
+                                        'Placed on: ${controller.formatDate(Timestamp.fromDate(createdAt))}',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                          fontSize: 12
+                                        ),
                                       ),
                                     if (orderStatus != null)
-                                      Text('Status: $orderStatus', style: TextStyle(color: _getStatusColor(orderStatus, colorScheme), fontWeight: FontWeight.w400)),
+                                      Text(
+                                        'Status: $orderStatus',
+                                        style: TextStyle(
+                                          color: controller.getStatusColor(orderStatus),
+                                          fontWeight: FontWeight.w400
+                                        )
+                                      ),
                                   ],
                                 ),
                               ),
@@ -106,9 +160,15 @@ class UserOrdersPage extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Icon(Icons.handshake_outlined, color: colorScheme.secondary, size: 20), // Partner icon
+                                      Icon(Icons.handshake_outlined, color: colorScheme.secondary, size: 20),
                                       const SizedBox(height: 2),
-                                      Text('Partner: ${partnerId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 10)),
+                                      Text(
+                                        'Partner: ${controller.getShortPartnerId(partnerId)}',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                          fontSize: 10
+                                        )
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -121,21 +181,11 @@ class UserOrdersPage extends StatelessWidget {
                   },
                 );
               },
-            ),
+            );
+          }),
+        );
+      },
     );
-  }
-
-  Color _getStatusColor(String? status, ColorScheme colorScheme) {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return Colors.orange.shade700;
-      case 'cancelled':
-        return Colors.red.shade700;
-      case 'accepted': 
-        return Colors.green.shade700;
-      default:
-        return colorScheme.onSurface.withValues(alpha: 0.6);
-    }
   }
 }
 
@@ -146,6 +196,7 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<UserOrderController>();
     final companyName = orderData['companyName'] as String?;
     final orderStatus = orderData['orderStatus'] as String?;
     final createdAt = (orderData['createdAt'] as Timestamp?)?.toDate().toLocal();
@@ -157,7 +208,10 @@ class OrderDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(companyName ?? 'Order Details', style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onPrimary)),
+        title: Text(
+          companyName ?? 'Order Details',
+          style: TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onPrimary)
+        ),
         backgroundColor: colorScheme.primary,
         elevation: 2,
         iconTheme: IconThemeData(color: colorScheme.onPrimary),
@@ -170,10 +224,21 @@ class OrderDetailScreen extends StatelessWidget {
           children: [
             _buildDetailItem(context, 'Company Name', companyName ?? 'N/A', Icons.store_outlined),
             const SizedBox(height: 16),
-            _buildDetailItem(context, 'Status', orderStatus ?? 'Pending', Icons.assignment_turned_in_outlined, color: _getStatusColor(orderStatus, colorScheme)),
+            _buildDetailItem(
+              context,
+              'Status',
+              orderStatus ?? 'Pending',
+              Icons.assignment_turned_in_outlined,
+              color: controller.getStatusColor(orderStatus)
+            ),
             const SizedBox(height: 16),
             if (createdAt != null)
-              _buildDetailItem(context, 'Placed On', DateFormat('MMM d, h:mm a').format(createdAt), Icons.calendar_today_outlined),
+              _buildDetailItem(
+                context,
+                'Placed On',
+                DateFormat('MMM d, h:mm a').format(createdAt),
+                Icons.calendar_today_outlined
+              ),
             const SizedBox(height: 16),
             if (partnerId != null)
               _buildDetailItem(context, 'Partner ID', partnerId, Icons.handshake_outlined),
@@ -201,7 +266,6 @@ class OrderDetailScreen extends StatelessWidget {
             if (contactNumber != null)
               _buildDetailItem(context, 'Contact Number', contactNumber, Icons.phone_outlined),
             const SizedBox(height: 24),
-            
           ],
         ),
       ),
@@ -219,9 +283,15 @@ class OrderDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)
+              ),
               const SizedBox(height: 4),
-              Text(value ?? 'N/A', style: TextStyle(color: color ?? colorScheme.onSurface.withValues(alpha: 0.7))),
+              Text(
+                value ?? 'N/A',
+                style: TextStyle(color: color ?? colorScheme.onSurface.withValues(alpha: 0.7))
+              ),
             ],
           ),
         ),
@@ -235,21 +305,15 @@ class OrderDetailScreen extends StatelessWidget {
       children: [
         Icon(icon, color: colorScheme.primary),
         const SizedBox(width: 8),
-        Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface
+          )
+        ),
       ],
     );
-  }
-
-  Color _getStatusColor(String? status, ColorScheme colorScheme) {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return Colors.orange.shade700;
-      case 'cancelled':
-        return Colors.red.shade700;
-      case 'accepted': 
-        return Colors.green.shade700;
-      default:
-        return colorScheme.onSurface.withValues(alpha: 0.6);
-    }
   }
 }
