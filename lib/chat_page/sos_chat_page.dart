@@ -189,7 +189,7 @@ class ChatBubble extends StatelessWidget {
                   BoxShadow(
                     offset: Offset(0, 1),
                     blurRadius: 1,
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                   ),
                 ],
               ),

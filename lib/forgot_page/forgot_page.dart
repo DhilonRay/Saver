@@ -16,8 +16,6 @@ class ForgotPasswordPage extends StatelessWidget {
         const Color accentBlue = Color(0xFF1E88E5);
         const Color darkBlue = Color(0xFF0D47A1);
         const Color lightBlue = Color(0xFFE3F2FD);
-        const Color backgroundStart = Color(0xFFE8F5E8);
-        const Color backgroundEnd = Color(0xFFF3E5F5);
         const Color cardBackground = Color(0xFFFFFFFF);
         const Color textPrimary = Color(0xFF2D3748);
         const Color textSecondary = Color(0xFF718096);
@@ -90,18 +88,18 @@ class ForgotPasswordPage extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: primaryBlue.withOpacity(0.2),
+                color: primaryBlue.withValues(alpha: 0.2),
                 blurRadius: 25,
                 offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 blurRadius: 15,
                 offset: const Offset(0, -5),
               ),
             ],
             border: Border.all(
-              color: primaryBlue.withOpacity(0.1),
+              color: primaryBlue.withValues(alpha: 0.1),
               width: 2,
             ),
           ),
@@ -165,18 +163,18 @@ class ForgotPasswordPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: primaryBlue.withOpacity(0.08),
+            color: primaryBlue.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             blurRadius: 15,
             offset: const Offset(0, -2),
           ),
         ],
         border: Border.all(
-          color: primaryBlue.withOpacity(0.06),
+          color: primaryBlue.withValues(alpha: 0.06),
           width: 1,
         ),
       ),
@@ -189,7 +187,7 @@ class ForgotPasswordPage extends StatelessWidget {
               color: lightBlue,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: primaryBlue.withOpacity(0.1),
+                color: primaryBlue.withValues(alpha: 0.1),
                 width: 1.5,
               ),
             ),
@@ -273,7 +271,7 @@ class ForgotPasswordPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: primaryBlue.withOpacity(0.3),
+                  color: primaryBlue.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -357,7 +355,7 @@ class ForgotPasswordPage extends StatelessWidget {
         Text(
           '© 2025 NeoSaver. All rights reserved.',
           style: TextStyle(
-            color: textSecondary.withOpacity(0.7),
+            color: textSecondary.withValues(alpha: 0.7),
             fontSize: 10,
             fontWeight: FontWeight.w400,
           ),

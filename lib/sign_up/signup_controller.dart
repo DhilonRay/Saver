@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../partner.dart';
+import '../partner/partner.dart';
 import '../log_in/login_screen.dart';
 
 class SignUpController extends GetxController {

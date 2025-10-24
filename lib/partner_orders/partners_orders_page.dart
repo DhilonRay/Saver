@@ -12,11 +12,10 @@ class PartnersOrdersPage extends StatelessWidget {
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
       await _firestore.collection('orders').doc(orderId).update({'orderStatus': newStatus});
-      print('Order $orderId updated to $newStatus');
       
     } catch (e) {
-      print('Error updating order $orderId: $e');
-     
+      // TODO: Show error message to user
+      // For now, silently handle the error to avoid crashes
     }
   }
 
@@ -35,7 +34,7 @@ class PartnersOrdersPage extends StatelessWidget {
       ),
       backgroundColor: colorScheme.surface,
       body: partnerId == null
-          ? Center(child: Text('Please log in as a partner to see your orders.', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7))))
+          ? Center(child: Text('Please log in as a partner to see your orders.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))))
           : StreamBuilder<QuerySnapshot>(
               stream: _firestore
                   .collection('orders')
@@ -52,7 +51,7 @@ class PartnersOrdersPage extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('No orders received yet.', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7))));
+                  return Center(child: Text('No orders received yet.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))));
                 }
 
                 return ListView.builder(
@@ -81,11 +80,11 @@ class PartnersOrdersPage extends StatelessWidget {
                         return Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest.withOpacity(0.8),
+                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 spreadRadius: 1,
                                 blurRadius: 5,
                                 offset: const Offset(0, 3),
@@ -108,11 +107,11 @@ class PartnersOrdersPage extends StatelessWidget {
                                           Text(userName ?? 'New Order', style: TextStyle(fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
                                           const SizedBox(height: 4),
                                           if (userId != null)
-                                            Text('User ID: ${userId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12)),
+                                            Text('User ID: ${userId.substring(0, 8)}...', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                                           if (createdAt != null)
                                             Text(
                                               'Time: ${DateFormat('MMM d, h:mm a').format(createdAt.toLocal())}',
-                                              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 12),
+                                              style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                             ),
                                           if (orderStatus != null)
                                             Text('Status: $orderStatus', style: TextStyle(color: _getStatusColor(orderStatus, colorScheme), fontWeight: FontWeight.w400)),
@@ -237,7 +236,7 @@ class PartnersOrdersPage extends StatelessWidget {
       case 'accepted':
         return Colors.green.shade700;
       default:
-        return colorScheme.onSurface.withOpacity(0.6);
+        return colorScheme.onSurface.withValues(alpha: 0.6);
     }
   }
 }

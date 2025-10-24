@@ -2,8 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:neosaver/splash_page/splash_page.dart';
 
-import 'splash_page/splash_page.dart'; 
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const SplashPage(),
+      home:  SplashPage(),
     );
   }
 }
