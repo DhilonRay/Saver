@@ -454,6 +454,68 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
              
+                // Zoom controls positioned on the right side
+                Positioned(
+                  right: 16,
+                  bottom: 120, // Position above the emergency buttons
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Zoom In Button
+                      Container(
+                        width: 48,
+                        height: 48,
+                        margin: EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: controller.zoomIn,
+                          icon: Icon(
+                            Icons.add,
+                            color: primaryBlue,
+                            size: 24,
+                          ),
+                          tooltip: 'Zoom In',
+                        ),
+                      ),
+
+                      // Zoom Out Button
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: controller.zoomOut,
+                          icon: Icon(
+                            Icons.remove,
+                            color: primaryBlue,
+                            size: 24,
+                          ),
+                          tooltip: 'Zoom Out',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
