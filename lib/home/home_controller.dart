@@ -13,7 +13,6 @@ import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
-import '../ambulance_service/ambulance_services_page.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
 
@@ -49,6 +48,9 @@ class HomeController extends GetxController {
 
   // Reactive query string mirroring the TextEditingController
   var destinationQuery = ''.obs;
+
+  // Ambulance visibility control
+  var showAmbulances = false.obs;
 
   // Search history variables
   var searchHistory = <String>[].obs;
@@ -149,19 +151,27 @@ class HomeController extends GetxController {
 
       debugPrint('🚑 Total unique ambulance results: ${allAmbulanceResults.length}');
 
-      for (var result in allAmbulanceResults.take(3)) { // Limit to 3
-        final lat = result.geometry?.location.lat;
-        final lng = result.geometry?.location.lng;
-        if (lat != null && lng != null) {
-          debugPrint('🚑 Adding ambulance marker: ${result.name} at (${lat}, ${lng})');
-          markers.add(
-            Marker(
-              markerId: MarkerId('ambulance_${result.placeId}'),
-              position: LatLng(lat, lng),
-              infoWindow: InfoWindow(title: result.name),
-              icon: ambulanceIcon,
-            ),
-          );
+      // Only add ambulance markers if showAmbulances is true
+      if (showAmbulances.value) {
+        for (var result in allAmbulanceResults.take(3)) { // Limit to 3
+          final lat = result.geometry?.location.lat;
+          final lng = result.geometry?.location.lng;
+          if (lat != null && lng != null) {
+            debugPrint('🚑 Adding ambulance marker: ${result.name} at (${lat}, ${lng})');
+            markers.add(
+              Marker(
+                markerId: MarkerId('ambulance_${result.placeId}'),
+                position: LatLng(lat, lng),
+                infoWindow: InfoWindow(
+                  title: result.name,
+                  snippet: result.formattedAddress ?? 'Ambulance Service',
+                  onTap: () => _showAmbulanceDetails(result),
+                ),
+                icon: ambulanceIcon,
+                onTap: () => _showAmbulanceDetails(result),
+              ),
+            );
+          }
         }
       }
 
@@ -933,7 +943,124 @@ class HomeController extends GetxController {
   }
 
   void navigateToAmbulanceServices() {
-    Get.to(() => AmbulanceServicesPage());
+    // Toggle ambulance visibility instead of navigating to new page
+    showAmbulances.value = !showAmbulances.value;
+    _addNearbyMarkers(); // Reload markers with new ambulance visibility
+  }
+
+  void _showAmbulanceDetails(places.PlacesSearchResult result) {
+    // Show ambulance details in a bottom sheet
+    Get.bottomSheet(
+      Container(
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_hospital, color: Colors.red, size: 30),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    result.name,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            if (result.formattedAddress != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      result.formattedAddress!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+            ],
+            Row(
+              children: [
+                Icon(Icons.phone, color: Colors.grey, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Contact for booking',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement call functionality
+                      Get.snackbar(
+                        'Call Ambulance',
+                        'Calling ${result.name}...',
+                        backgroundColor: Colors.green.shade100,
+                        colorText: Colors.green.shade800,
+                      );
+                      Get.back(); // Close bottom sheet
+                    },
+                    icon: Icon(Icons.call),
+                    label: Text('Call Now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement directions functionality
+                      Get.snackbar(
+                        'Get Directions',
+                        'Opening directions to ${result.name}...',
+                        backgroundColor: Colors.blue.shade100,
+                        colorText: Colors.blue.shade800,
+                      );
+                      Get.back(); // Close bottom sheet
+                    },
+                    icon: Icon(Icons.directions),
+                    label: Text('Directions'),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+    );
   }
 
   void navigateToPartnersOrders() {
@@ -976,6 +1103,21 @@ class HomeController extends GetxController {
           CameraPosition(target: currentPosition.value!, zoom: 14),
         ),
       );
+    }
+  }
+
+  // Zoom methods
+  Future<void> zoomIn() async {
+    if (_controller.isCompleted) {
+      final GoogleMapController controller = await _controller.future;
+      controller.animateCamera(CameraUpdate.zoomIn());
+    }
+  }
+
+  Future<void> zoomOut() async {
+    if (_controller.isCompleted) {
+      final GoogleMapController controller = await _controller.future;
+      controller.animateCamera(CameraUpdate.zoomOut());
     }
   }
 }
