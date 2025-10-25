@@ -27,6 +27,7 @@ class HomeController extends GetxController {
   BitmapDescriptor personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
   BitmapDescriptor ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
   BitmapDescriptor hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor selectedHospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
   
   // Google Places API client
   late places.GoogleMapsPlaces _places;
@@ -68,7 +69,7 @@ class HomeController extends GetxController {
       return ambulanceIcon;
     }
 
-    // Check for hospital-related searches with more comprehensive keywords
+    // Check for hospital-related searches - use bigger icon for hospital destinations
     if (query.contains('hospital') ||
         query.contains('medical') ||
         query.contains('clinic') ||
@@ -81,10 +82,10 @@ class HomeController extends GetxController {
         query.contains('diagnostic') ||
         query.contains('laboratory') ||
         query.contains('pharmacy')) {
-      return hospitalIcon;
+      return selectedHospitalIcon; // Bigger icon for hospital destinations
     }
 
-    // Default destination icon for other locations
+    // Default destination icon for all other places
     return destinationIcon;
   }
 
@@ -92,6 +93,8 @@ class HomeController extends GetxController {
     if (currentPosition.value == null) return;
 
     try {
+      debugPrint('🔍 Searching for nearby hospitals and ambulances...');
+
       // Search for nearby hospitals
       final hospitalResponse = await _places.searchNearbyWithRadius(
         places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
@@ -100,6 +103,7 @@ class HomeController extends GetxController {
       );
 
       if (hospitalResponse.isOkay) {
+        debugPrint('🏥 Found ${hospitalResponse.results.length} hospitals');
         for (var result in hospitalResponse.results.take(5)) { // Limit to 5
           final lat = result.geometry?.location.lat;
           final lng = result.geometry?.location.lng;
@@ -109,7 +113,7 @@ class HomeController extends GetxController {
                 markerId: MarkerId('hospital_${result.placeId}'),
                 position: LatLng(lat, lng),
                 infoWindow: InfoWindow(title: result.name),
-                icon: hospitalIcon,
+                icon: hospitalIcon, // Always use regular hospital icon for nearby hospitals
               ),
             );
           }
@@ -117,6 +121,7 @@ class HomeController extends GetxController {
       }
 
       // Search for nearby ambulances with multiple keywords
+      debugPrint('🚑 Searching for ambulances...');
       final ambulanceResponse1 = await _places.searchNearbyWithRadius(
         places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
         5000,
@@ -133,17 +138,22 @@ class HomeController extends GetxController {
       final allAmbulanceResults = <places.PlacesSearchResult>[];
       if (ambulanceResponse1.isOkay) {
         allAmbulanceResults.addAll(ambulanceResponse1.results);
+        debugPrint('🚑 Ambulance search 1 found: ${ambulanceResponse1.results.length} results');
       }
       if (ambulanceResponse2.isOkay) {
         allAmbulanceResults.addAll(ambulanceResponse2.results.where(
           (result) => !allAmbulanceResults.any((existing) => existing.placeId == result.placeId)
         ));
+        debugPrint('🚑 Ambulance search 2 found: ${ambulanceResponse2.results.length} results');
       }
+
+      debugPrint('🚑 Total unique ambulance results: ${allAmbulanceResults.length}');
 
       for (var result in allAmbulanceResults.take(3)) { // Limit to 3
         final lat = result.geometry?.location.lat;
         final lng = result.geometry?.location.lng;
         if (lat != null && lng != null) {
+          debugPrint('🚑 Adding ambulance marker: ${result.name} at (${lat}, ${lng})');
           markers.add(
             Marker(
               markerId: MarkerId('ambulance_${result.placeId}'),
@@ -154,9 +164,11 @@ class HomeController extends GetxController {
           );
         }
       }
+
+      debugPrint('✅ Nearby markers loaded successfully');
     } catch (e) {
       // Ignore errors for nearby markers
-      debugPrint('Failed to load nearby markers: $e');
+      debugPrint('❌ Failed to load nearby markers: $e');
     }
   }
 
@@ -179,6 +191,10 @@ class HomeController extends GetxController {
         const ImageConfiguration(size: Size(32, 32)),
         'assets/markers/hospital.png',
       );
+      selectedHospitalIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(58, 58)),
+        'assets/markers/selectetd_hospital.png',
+      );
       // Update current location icon to person
       currentLocationIcon = personIcon;
 
@@ -189,6 +205,7 @@ class HomeController extends GetxController {
       personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
       ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
       hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      selectedHospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
       currentLocationIcon = personIcon;
     }
   }
