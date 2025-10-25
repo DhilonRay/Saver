@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -23,6 +24,9 @@ class HomeController extends GetxController {
   // Custom marker icons
   BitmapDescriptor currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
   BitmapDescriptor destinationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+  BitmapDescriptor hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
   
   // Google Places API client
   late places.GoogleMapsPlaces _places;
@@ -56,13 +60,145 @@ class HomeController extends GetxController {
   // Controllers
   final TextEditingController destinationController = TextEditingController();
   
+  BitmapDescriptor _getDestinationIcon() {
+    final query = destinationQuery.value.toLowerCase();
+
+    // Check for ambulance-related searches
+    if (query.contains('ambulance') || query.contains('emergency') || query.contains('emergency services')) {
+      return ambulanceIcon;
+    }
+
+    // Check for hospital-related searches with more comprehensive keywords
+    if (query.contains('hospital') ||
+        query.contains('medical') ||
+        query.contains('clinic') ||
+        query.contains('health') ||
+        query.contains('doctor') ||
+        query.contains('nursing') ||
+        query.contains('surgery') ||
+        query.contains('treatment') ||
+        query.contains('care') ||
+        query.contains('diagnostic') ||
+        query.contains('laboratory') ||
+        query.contains('pharmacy')) {
+      return hospitalIcon;
+    }
+
+    // Default destination icon for other locations
+    return destinationIcon;
+  }
+
+  Future<void> _addNearbyMarkers() async {
+    if (currentPosition.value == null) return;
+
+    try {
+      // Search for nearby hospitals
+      final hospitalResponse = await _places.searchNearbyWithRadius(
+        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
+        5000, // 5km radius
+        type: 'hospital',
+      );
+
+      if (hospitalResponse.isOkay) {
+        for (var result in hospitalResponse.results.take(5)) { // Limit to 5
+          final lat = result.geometry?.location.lat;
+          final lng = result.geometry?.location.lng;
+          if (lat != null && lng != null) {
+            markers.add(
+              Marker(
+                markerId: MarkerId('hospital_${result.placeId}'),
+                position: LatLng(lat, lng),
+                infoWindow: InfoWindow(title: result.name),
+                icon: hospitalIcon,
+              ),
+            );
+          }
+        }
+      }
+
+      // Search for nearby ambulances with multiple keywords
+      final ambulanceResponse1 = await _places.searchNearbyWithRadius(
+        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
+        5000,
+        keyword: 'ambulance',
+      );
+
+      final ambulanceResponse2 = await _places.searchNearbyWithRadius(
+        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
+        5000,
+        keyword: 'emergency services',
+      );
+
+      // Combine results and remove duplicates
+      final allAmbulanceResults = <places.PlacesSearchResult>[];
+      if (ambulanceResponse1.isOkay) {
+        allAmbulanceResults.addAll(ambulanceResponse1.results);
+      }
+      if (ambulanceResponse2.isOkay) {
+        allAmbulanceResults.addAll(ambulanceResponse2.results.where(
+          (result) => !allAmbulanceResults.any((existing) => existing.placeId == result.placeId)
+        ));
+      }
+
+      for (var result in allAmbulanceResults.take(3)) { // Limit to 3
+        final lat = result.geometry?.location.lat;
+        final lng = result.geometry?.location.lng;
+        if (lat != null && lng != null) {
+          markers.add(
+            Marker(
+              markerId: MarkerId('ambulance_${result.placeId}'),
+              position: LatLng(lat, lng),
+              infoWindow: InfoWindow(title: result.name),
+              icon: ambulanceIcon,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore errors for nearby markers
+      debugPrint('Failed to load nearby markers: $e');
+    }
+  }
+
   // Store selected place name for fallback
   String? _selectedPlaceName;
+
+  Future<void> _loadCustomIcons() async {
+    try {
+      debugPrint('Loading custom PNG icons...');
+      // Load PNG files (converted from SVG)
+      personIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(88, 88)),
+        'assets/markers/person.png',
+      );
+      ambulanceIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(32, 32)),
+        'assets/markers/ambulance.png',
+      );
+      hospitalIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(32, 32)),
+        'assets/markers/hospital.png',
+      );
+      // Update current location icon to person
+      currentLocationIcon = personIcon;
+
+      debugPrint('Custom icons loaded successfully');
+    } catch (e) {
+      // If loading fails, use default icons
+      debugPrint('Failed to load custom icons: $e');
+      personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      currentLocationIcon = personIcon;
+    }
+  }
+
+
 
   @override
   void onInit() {
     super.onInit();
-    // _loadCustomIcons(); // Disabled to prevent crash
+    _loadCustomIcons();
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
@@ -124,6 +260,9 @@ class HomeController extends GetxController {
         ),
       );
 
+      // Add nearby markers
+      _addNearbyMarkers();
+
       isLoadingLocation.value = false;
       // initial loading finished
       isInitialLoading.value = false;
@@ -140,6 +279,10 @@ class HomeController extends GetxController {
           icon: currentLocationIcon,
         ),
       );
+
+      // Add nearby markers even with default location
+      _addNearbyMarkers();
+
       isLoadingLocation.value = false;
       // initial loading finished (even on error)
       isInitialLoading.value = false;
@@ -266,13 +409,13 @@ class HomeController extends GetxController {
     // Clear existing destination marker
     markers.removeWhere((marker) => marker.markerId.value == 'destination');
 
-    // Add destination marker
+  // Add destination marker
     markers.add(
       Marker(
         markerId: const MarkerId('destination'),
         position: destinationPosition.value!,
         infoWindow: InfoWindow(title: 'Destination'),
-        icon: destinationIcon,
+        icon: _getDestinationIcon(),
       ),
     );
 
