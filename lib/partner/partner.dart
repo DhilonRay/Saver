@@ -34,17 +34,17 @@ class PartnerPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 20),
-                _buildTextField(controller.vehicleNumber, 'Vehicle ', Icons.airlines),
+                _buildTextField(controller.vehicleNumber, 'Vehicle Number *', Icons.airlines),
                 const SizedBox(height: 12),
-                _buildTextField(controller.licenseNumber, 'Driver License Number', Icons.badge_outlined),
+                _buildTextField(controller.licenseNumber, 'Driver License Number *', Icons.badge_outlined),
                 const SizedBox(height: 12),
-                _buildTextField(controller.ambulanceType, 'Ambulance Type (AC/Non-AC)', Icons.local_hospital_outlined),
+                _buildTextField(controller.ambulanceType, 'Ambulance Type (AC/Non-AC) *', Icons.local_hospital_outlined),
                 const SizedBox(height: 12),
-                _buildTextField(controller.coverageArea, 'Coverage Area', Icons.map_outlined),
+                _buildTextField(controller.coverageArea, 'Coverage Area *', Icons.map_outlined),
                 const SizedBox(height: 12),
-                _buildTextField(controller.contactNumberController, 'Contact Number', Icons.phone_outlined),
+                _buildTextField(controller.contactNumberController, 'Contact Number *', Icons.phone_outlined),
                 const SizedBox(height: 12),
-                _buildTextField(controller.companyNameController, 'Company Name', Icons.business_outlined),
+                _buildTextField(controller.companyNameController, 'Company Name *', Icons.business_outlined),
                 const SizedBox(height: 30),
                 Obx(() {
                   return ElevatedButton.icon(
