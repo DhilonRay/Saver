@@ -8,9 +8,9 @@
 
     <!-- The application tag should be here, directly under the <manifest> tag -->
     <application
-        android:label="neosaver"
+        android:label="Saver"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
 
         <!-- Google Maps API Key -->
         <meta-data

@@ -1,7 +1,7 @@
-name: neosaver
+name: saver
 description: "A new Flutter project."
 
-publish_to: 'none' 
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -28,11 +28,12 @@ dependencies:
   geocoding: ^2.1.0
   url_launcher: ^6.3.1
   country_code_picker: ^3.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-
+  flutter_launcher_icons: ^0.13.1
   flutter_lints: ^5.0.0
 
 
@@ -45,3 +46,18 @@ flutter:
   assets:
     - assets/
     - assets/markers/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/1761501706109.jpg"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/1761501706109.jpg"
+    background_color: "#hexcode"
+    theme_color: "#hexcode"
+  windows:
+    generate: true
+    image_path: "assets/1761501706109.jpg"
+    icon_size: 48 # min:48, max:256, default: 48
