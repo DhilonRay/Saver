@@ -171,12 +171,7 @@ class HomePartnerController extends GetxController {
 
   void toggleOnlineStatus() {
     isOnline.value = !isOnline.value;
-    Get.snackbar(
-      'Status Updated',
-      isOnline.value ? 'You are now online and available for orders' : 'You are now offline',
-      backgroundColor: isOnline.value ? Colors.green : Colors.orange,
-      colorText: Colors.white,
-    );
+    
   }
 
   void navigateToOrders() {
