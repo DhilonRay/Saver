@@ -82,8 +82,11 @@ class SignUpController extends GetxController {
         'createdAt': Timestamp.now(),
       });
 
+      debugPrint('User registered with role: ${selectedRole.value}');
+      debugPrint('User data saved to Firestore: ${userCredential.user!.uid}');
+
       // Navigate based on role
-      if (selectedRole.value == 'partner') {
+      if (selectedRole.value == 'driver') {
         Get.offAll(() => PartnerPage(uid: userCredential.user!.uid));
       } else {
         Get.snackbar(

@@ -554,26 +554,26 @@ class SignUpPage extends StatelessWidget {
               // Partner Role Option
               Expanded(
                 child: GestureDetector(
-                  onTap: () => controller.selectedRole.value = 'partner',
+                  onTap: () => controller.selectedRole.value = 'driver',
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                     decoration: BoxDecoration(
-                      color: controller.selectedRole.value == 'partner'
+                      color: controller.selectedRole.value == 'driver'
                           ? primaryBlue.withValues(alpha: 0.1)
                           : lightBlue.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: controller.selectedRole.value == 'partner'
+                        color: controller.selectedRole.value == 'driver'
                             ? primaryBlue
                             : primaryBlue.withValues(alpha: 0.2),
-                        width: controller.selectedRole.value == 'partner' ? 2 : 1,
+                        width: controller.selectedRole.value == 'driver' ? 2 : 1,
                       ),
                     ),
                     child: Column(
                       children: [
                         Icon(
                           Icons.local_shipping,
-                          color: controller.selectedRole.value == 'partner'
+                          color: controller.selectedRole.value == 'driver'
                               ? primaryBlue
                               : textSecondary,
                           size: 28,
@@ -584,7 +584,7 @@ class SignUpPage extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: controller.selectedRole.value == 'partner'
+                            color: controller.selectedRole.value == 'driver'
                                 ? primaryBlue
                                 : textSecondary,
                           ),

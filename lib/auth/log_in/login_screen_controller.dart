@@ -4,9 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../home/home.dart';
+import '../../home_user/home_user.dart';
+import '../../home_partner/home_partner.dart';
 import '../sign_up/signup.dart';
-import '../forgot_page/forgot_page.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
@@ -72,6 +72,82 @@ class LoginController extends GetxController {
     }
   }
 
+  Future<void> _navigateBasedOnRole(String uid) async {
+    try {
+      // Fetch user data from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final role = userData?['role'] as String?;
+        
+        debugPrint('🔍 User document found');
+        debugPrint('👤 User data: $userData');
+        debugPrint('🎭 Detected role: $role');
+
+        // Navigate based on role
+        if (role == 'partner' || role == 'ambulance' || role == 'driver') {
+          debugPrint('Navigating to HomePartnerPage');
+          Get.snackbar(
+            'Login Success',
+            'Welcome Ambulance Partner!',
+            backgroundColor: Colors.green[600],
+            colorText: Colors.white,
+            snackPosition: SnackPosition.TOP,
+            borderRadius: 10,
+            margin: const EdgeInsets.all(10),
+          );
+          Future.delayed(const Duration(milliseconds: 500), () {
+            Get.offAll(() => const HomePartnerPage());
+          });
+        } else {
+          debugPrint('Navigating to HomePage (user)');
+          Get.snackbar(
+            'Login Success',
+            'Welcome User!',
+            backgroundColor: Colors.blue[600],
+            colorText: Colors.white,
+            snackPosition: SnackPosition.TOP,
+            borderRadius: 10,
+            margin: const EdgeInsets.all(10),
+          );
+          Future.delayed(const Duration(milliseconds: 500), () {
+            Get.offAll(() => HomePage());
+          });
+        }
+      } else {
+        // If user document doesn't exist, default to user role
+        debugPrint('User document not found, defaulting to user role');
+        Get.snackbar(
+          'Login Success',
+          'Welcome! (Default user role)',
+          backgroundColor: Colors.orange[600],
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          borderRadius: 10,
+          margin: const EdgeInsets.all(10),
+        );
+        Get.offAll(() => HomePage());
+      }
+    } catch (e) {
+      debugPrint('Error fetching user role: $e');
+      // On error, default to user role
+      Get.snackbar(
+        'Login Success',
+        'Welcome! (Error checking role)',
+        backgroundColor: Colors.orange[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        borderRadius: 10,
+        margin: const EdgeInsets.all(10),
+      );
+      Get.offAll(() => HomePage());
+    }
+  }
+
   Future<void> signInWithEmail() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
@@ -101,7 +177,7 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        Get.offAll(() =>  HomePage());
+        await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
       debugPrint('Email login failed: $e');
@@ -148,12 +224,19 @@ class LoginController extends GetxController {
           .limit(1)
           .get();
 
+      debugPrint('📱 Phone login: Searching for phone $phone');
+      debugPrint('📊 Found ${querySnapshot.docs.length} documents');
+
       if (querySnapshot.docs.isEmpty) {
         throw 'No account found with this phone number. Please sign up first.';
       }
 
       final userData = querySnapshot.docs.first.data();
       final email = userData['email'] as String?;
+      final userRole = userData['role'] as String?;
+
+      debugPrint('📧 Found email: $email');
+      debugPrint('🎭 User role from phone search: $userRole');
 
       if (email == null || email.isEmpty) {
         throw 'Account setup incomplete. Please contact support.';
@@ -167,7 +250,7 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        Get.offAll(() =>  HomePage());
+        await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
       debugPrint('Phone login failed: $e');
@@ -215,7 +298,48 @@ class LoginController extends GetxController {
     }
   }
 
-  void showForgotPasswordDialog() {
-    Get.to(() => const ForgotPasswordPage());
+  Future<void> checkUserRole(String uid) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final role = userData?['role'] as String? ?? 'user';
+        
+        Get.snackbar(
+          'User Role Check',
+          'Your role: $role\nUID: $uid',
+          backgroundColor: Colors.purple[600],
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          borderRadius: 10,
+          margin: const EdgeInsets.all(10),
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'User Role Check',
+          'User document not found in Firestore',
+          backgroundColor: Colors.red[600],
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          borderRadius: 10,
+          margin: const EdgeInsets.all(10),
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to check role: $e',
+        backgroundColor: Colors.red[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        borderRadius: 10,
+        margin: const EdgeInsets.all(10),
+      );
+    }
   }
 }
