@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,13 +6,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_webservice/directions.dart' as directions;
 import '../partner_orders/partners_orders_page.dart';
 import '../partner/partner.dart';
 import '../auth/log_in/login_screen.dart';
 
 class HomePartnerController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Google Maps API client
+  late directions.GoogleMapsDirections _directions;
 
   // Reactive variables
   var partnerData = Rx<Map<String, dynamic>?>(null);
@@ -25,15 +29,53 @@ class HomePartnerController extends GetxController {
   var currentPosition = Rx<Position?>(null);
   var mapController = Rx<GoogleMapController?>(null);
   var markers = <Marker>{}.obs;
+  var polylines = <Polyline>{}.obs;
+
+  // Custom marker icons
+  var ambulanceIcon = Rx<BitmapDescriptor?>(null);
+  var userIcon = Rx<BitmapDescriptor?>(null);
+
+  // Active service tracking
+  var activeOrderId = Rx<String?>(null);
+  var isServiceActive = false.obs;
+  var isDrivingStarted = false.obs;
+
+  // Animation variables
+  var isAnimating = false.obs;
+  var animationRoutePoints = <LatLng>[].obs;
+  var currentAnimationIndex = 0.obs;
+  var animationSpeed = 1.0.obs; // Speed multiplier based on GPS speed
+
+  // Live location tracking
+  StreamSubscription<Position>? _positionStreamSubscription;
 
   @override
   void onInit() {
     super.onInit();
+    // Initialize Google Maps Directions API
+    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    loadCustomIcons();
     loadPartnerData();
     loadOrderStats();
     getCurrentLocation();
     setupFCMListeners();
     setupOrderListener();
+  }
+
+  Future<void> loadCustomIcons() async {
+    try {
+      ambulanceIcon.value = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(24, 24)),
+        'assets/markers/ambulance.png',
+      ) as BitmapDescriptor;
+      userIcon.value = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(24, 24)),
+        'assets/markers/user.png',
+      ) as BitmapDescriptor;
+      print('✅ Custom icons loaded successfully');
+    } catch (e) {
+      print('❌ Error loading custom icons: $e'); 
+    }
   }
 
   void setupOrderListener() {
@@ -257,21 +299,26 @@ class HomePartnerController extends GetxController {
         'acceptedBy': _auth.currentUser?.uid,
       });
 
+      // Set active service
+      activeOrderId.value = orderId;
+      isServiceActive.value = true;
+      isDrivingStarted.value = false;
+
       Get.snackbar(
         'Request Accepted',
-        'Navigating to user location...',
+        'Showing route to user location...',
         backgroundColor: Colors.green,
         colorText: Colors.white,
         duration: const Duration(seconds: 3),
       );
 
-      // Navigate to user location on map
+      // Show route to user location on map
       if (userLocation.isNotEmpty) {
         final lat = userLocation['latitude'] as double?;
         final lng = userLocation['longitude'] as double?;
 
         if (lat != null && lng != null) {
-          navigateToUserLocation(lat, lng);
+          await showRouteToUser(lat, lng);
         }
       }
 
@@ -285,17 +332,358 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  void navigateToUserLocation(double latitude, double longitude) async {
-    final url = 'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving';
+  Future<void> showRouteToUser(double latitude, double longitude) async {
+    if (currentPosition.value == null) return;
+
     try {
-      await launchUrl(Uri.parse(url));
+      // Clear existing polylines
+      polylines.clear();
+
+      // Ensure current location marker is present
+      bool hasCurrentLocationMarker = markers.any((marker) => marker.markerId.value == 'current_location');
+      if (!hasCurrentLocationMarker) {
+        markers.add(
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude),
+            infoWindow: const InfoWindow(title: 'Your Location (Partner)'),
+            icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          ),
+        );
+      }
+
+      // Add or update destination marker
+      markers.removeWhere((marker) => marker.markerId.value == 'user_destination');
+      markers.add(
+        Marker(
+          markerId: const MarkerId('user_destination'),
+          position: LatLng(latitude, longitude),
+          infoWindow: const InfoWindow(title: 'User Location'),
+          icon: userIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
+
+      // Get directions from Google
+      final directionsResponse = await _directions.directions(
+        directions.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
+        directions.Location(lat: latitude, lng: longitude),
+        travelMode: directions.TravelMode.driving,
+      );
+
+      if (directionsResponse.isOkay && directionsResponse.routes.isNotEmpty) {
+        final route = directionsResponse.routes.first;
+
+        // Decode polyline
+        List<LatLng> polylinePoints = [];
+        try {
+          final dynamic routeData = route;
+          final dynamic overviewPolyline = routeData.overviewPolyline;
+          if (overviewPolyline != null) {
+            final dynamic points = overviewPolyline.points;
+            if (points != null && points.isNotEmpty) {
+              polylinePoints = _decodePolyline(points);
+            }
+          }
+        } catch (e) {
+          polylinePoints = [];
+        }
+
+        // Add polyline
+        if (polylinePoints.isNotEmpty) {
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId('route_to_user'),
+              color: Colors.blue.shade700,
+              width: 6,
+              zIndex: 1,
+              points: polylinePoints,
+            ),
+          );
+        } else {
+          // Fallback straight line
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId('route_to_user'),
+              color: Colors.orange.shade700,
+              width: 6,
+              zIndex: 1,
+              points: [LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude), LatLng(latitude, longitude)],
+            ),
+          );
+        }
+
+        // Animate camera to fit the route
+        if (mapController.value != null) {
+          final bounds = LatLngBounds(
+            southwest: LatLng(
+              currentPosition.value!.latitude < latitude ? currentPosition.value!.latitude : latitude,
+              currentPosition.value!.longitude < longitude ? currentPosition.value!.longitude : longitude,
+            ),
+            northeast: LatLng(
+              currentPosition.value!.latitude > latitude ? currentPosition.value!.latitude : latitude,
+              currentPosition.value!.longitude > longitude ? currentPosition.value!.longitude : longitude,
+            ),
+          );
+          await mapController.value!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+        }
+
+        Get.snackbar(
+          'Route Ready',
+          'Follow the blue line to reach the user',
+          backgroundColor: Colors.blue.shade100,
+          colorText: Colors.blue.shade800,
+          duration: const Duration(seconds: 4),
+        );
+      } else {
+        // Fallback: straight line if directions fail
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route_to_user'),
+            color: Colors.red.shade700,
+            width: 4,
+            zIndex: 1,
+            points: [LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude), LatLng(latitude, longitude)],
+          ),
+        );
+
+        Get.snackbar(
+          'Route Warning',
+          'Using direct route (directions unavailable)',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+      }
     } catch (e) {
+      debugPrint('Error showing route: $e');
       Get.snackbar(
-        'Navigation Error',
-        'Could not open Google Maps: $e',
+        'Route Error',
+        'Could not load route: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+    }
+  }
+
+  List<LatLng> _decodePolyline(String encoded) {
+    List<LatLng> points = [];
+    int index = 0;
+    int len = encoded.length;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < len) {
+      int b;
+      int shift = 0;
+      int result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+    return points;
+  }
+
+  void startDriving() {
+    isDrivingStarted.value = true;
+
+    // Start live location tracking
+    startLiveLocationTracking();
+
+    // Try to start route animation immediately if route exists
+    // If not, it will start when route becomes available
+    startRouteAnimation();
+
+    Get.snackbar(
+      '🚑 Driving Started',
+      'Ambulance is moving towards user location!',
+      backgroundColor: Colors.blue.shade100,
+      colorText: Colors.blue.shade800,
+      duration: const Duration(seconds: 3),
+    );
+  }
+
+  void startRouteAnimation() {
+    if (polylines.isEmpty || !isDrivingStarted.value) return;
+
+    isAnimating.value = true;
+    currentAnimationIndex.value = 0;
+
+    // Get route points from the polyline
+    Polyline? routePolyline;
+    for (var polyline in polylines) {
+      if (polyline.polylineId.value == 'route_to_user') {
+        routePolyline = polyline;
+        break;
+      }
+    }
+
+    if (routePolyline != null) {
+      animationRoutePoints.value = routePolyline.points;
+
+      // Show visual feedback that animation started
+      Get.snackbar(
+        '🚑 Ambulance Moving',
+        'Following the route to user location',
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+        duration: const Duration(seconds: 2),
+        snackPosition: SnackPosition.TOP,
+      );
+
+      animateAlongRoute();
+    }
+  }
+
+  void animateAlongRoute() {
+    if (!isAnimating.value || animationRoutePoints.isEmpty) return;
+
+    const int totalPoints = 200; // More animation steps for smoother movement
+    final int totalRoutePoints = animationRoutePoints.length;
+
+    if (currentAnimationIndex.value >= totalPoints) {
+      isAnimating.value = false;
+      return;
+    }
+
+    // Calculate current position along the route
+    final progress = currentAnimationIndex.value / totalPoints;
+    final pointIndex = (progress * (totalRoutePoints - 1)).toInt();
+    final nextPointIndex = (pointIndex + 1).clamp(0, totalRoutePoints - 1);
+
+    final currentPoint = animationRoutePoints[pointIndex];
+    final nextPoint = animationRoutePoints[nextPointIndex];
+
+    // Interpolate between points
+    final segmentProgress = (progress * (totalRoutePoints - 1)) - pointIndex;
+    final lat = currentPoint.latitude + (nextPoint.latitude - currentPoint.latitude) * segmentProgress;
+    final lng = currentPoint.longitude + (nextPoint.longitude - currentPoint.longitude) * segmentProgress;
+
+    // Update marker position with animation
+    updateAnimatedMarkerPosition(LatLng(lat, lng));
+
+    // Calculate animation delay based on speed (faster updates for smoother animation)
+    final delay = Duration(milliseconds: (500 / animationSpeed.value).toInt().clamp(50, 200));
+
+    currentAnimationIndex.value++;
+    Future.delayed(delay, animateAlongRoute);
+  }
+
+  void updateAnimatedMarkerPosition(LatLng position) {
+    markers.removeWhere((marker) => marker.markerId.value == 'current_location');
+    markers.add(
+      Marker(
+        markerId: const MarkerId('current_location'),
+        position: position,
+        infoWindow: const InfoWindow(title: '🚑 Ambulance Moving'),
+        icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        rotation: calculateRotation(position),
+        zIndex: 2.0, // Make sure ambulance appears above other markers
+      ),
+    );
+
+    // Smooth camera following with zoom
+    if (mapController.value != null) {
+      mapController.value!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: position,
+            zoom: 16.0, // Good zoom level to see the route
+            bearing: calculateRotation(position), // Rotate map to match ambulance direction
+          ),
+        ),
+      );
+    }
+  }
+
+  double calculateRotation(LatLng currentPosition) {
+    if (animationRoutePoints.length < 2) return 0.0;
+
+    final nextIndex = (currentAnimationIndex.value + 1).clamp(0, animationRoutePoints.length - 1);
+    if (nextIndex >= animationRoutePoints.length) return 0.0;
+
+    final nextPoint = animationRoutePoints[nextIndex];
+    final bearing = Geolocator.bearingBetween(
+      currentPosition.latitude,
+      currentPosition.longitude,
+      nextPoint.latitude,
+      nextPoint.longitude,
+    );
+
+    return bearing;
+  }
+
+  void startLiveLocationTracking() {
+    // Stop any existing stream
+    _positionStreamSubscription?.cancel();
+
+    // Start new location stream
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // Update every 5 meters
+      ),
+    ).listen((Position position) {
+      // Update current position
+      currentPosition.value = position;
+
+      // Update animation speed based on GPS speed (convert m/s to animation multiplier)
+      if (position.speed > 0) {
+        // Speed in m/s, convert to animation speed multiplier
+        // Normal driving speed ~10-30 km/h = ~3-8 m/s
+        animationSpeed.value = (position.speed / 5.0).clamp(0.5, 3.0);
+      }
+
+      // Update live location in Firestore for this active order
+      if (activeOrderId.value != null) {
+        updateLiveLocation(position.latitude, position.longitude);
+      }
+
+      // If not animating, update marker position directly
+      if (!isAnimating.value) {
+        markers.removeWhere((marker) => marker.markerId.value == 'current_location');
+        markers.add(
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: LatLng(position.latitude, position.longitude),
+            infoWindow: const InfoWindow(title: 'Your Location (Live)'),
+            icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> updateLiveLocation(double latitude, double longitude) async {
+    try {
+      if (activeOrderId.value != null) {
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(activeOrderId.value)
+            .update({
+          'partnerLiveLocation': {
+            'latitude': latitude,
+            'longitude': longitude,
+            'timestamp': Timestamp.now(),
+          },
+        });
+      }
+    } catch (e) {
+      debugPrint('Error updating live location: $e');
     }
   }
 
@@ -308,6 +696,23 @@ class HomePartnerController extends GetxController {
         'orderStatus': 'completed',
         'completedAt': Timestamp.now(),
       });
+
+      // Clear active service
+      if (activeOrderId.value == orderId) {
+        activeOrderId.value = null;
+        isServiceActive.value = false;
+        isDrivingStarted.value = false;
+        isAnimating.value = false; // Stop animation
+
+        // Stop live location tracking
+        _positionStreamSubscription?.cancel();
+        _positionStreamSubscription = null;
+
+        // Clear route
+        polylines.clear();
+        markers.removeWhere((marker) => marker.markerId.value == 'user_destination');
+      }
+
       Get.snackbar(
         'Order Completed',
         'Service marked as completed.',
@@ -322,6 +727,12 @@ class HomePartnerController extends GetxController {
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+    }
+  }
+
+  void completeActiveService() {
+    if (activeOrderId.value != null) {
+      completeOrder(activeOrderId.value!);
     }
   }
 
@@ -449,7 +860,7 @@ class HomePartnerController extends GetxController {
           markerId: const MarkerId('current_location'),
           position: LatLng(position.latitude, position.longitude),
           infoWindow: const InfoWindow(title: 'Your Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         ),
       );
 
