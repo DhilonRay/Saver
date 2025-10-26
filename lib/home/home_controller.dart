@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
+import 'package:url_launcher/url_launcher.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
@@ -95,90 +97,63 @@ class HomeController extends GetxController {
     if (currentPosition.value == null) return;
 
     try {
-      debugPrint('🔍 Searching for nearby hospitals and ambulances...');
+      debugPrint('🔍 Loading ambulance providers from database...');
 
-      // Search for nearby hospitals
-      final hospitalResponse = await _places.searchNearbyWithRadius(
-        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
-        5000, // 5km radius
-        type: 'hospital',
-      );
+      // Clear existing markers first
+      markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
 
-      if (hospitalResponse.isOkay) {
-        debugPrint('🏥 Found ${hospitalResponse.results.length} hospitals');
-        for (var result in hospitalResponse.results.take(5)) { // Limit to 5
-          final lat = result.geometry?.location.lat;
-          final lng = result.geometry?.location.lng;
-          if (lat != null && lng != null) {
-            markers.add(
-              Marker(
-                markerId: MarkerId('hospital_${result.placeId}'),
-                position: LatLng(lat, lng),
-                infoWindow: InfoWindow(title: result.name),
-                icon: hospitalIcon, // Always use regular hospital icon for nearby hospitals
-              ),
-            );
-          }
-        }
-      }
+      // Fetch ambulance providers from Firestore
+      final partnersSnapshot = await FirebaseFirestore.instance
+          .collection('partners')
+          .get();
 
-      // Search for nearby ambulances with multiple keywords
-      debugPrint('🚑 Searching for ambulances...');
-      final ambulanceResponse1 = await _places.searchNearbyWithRadius(
-        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
-        5000,
-        keyword: 'ambulance',
-      );
-
-      final ambulanceResponse2 = await _places.searchNearbyWithRadius(
-        places.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
-        5000,
-        keyword: 'emergency services',
-      );
-
-      // Combine results and remove duplicates
-      final allAmbulanceResults = <places.PlacesSearchResult>[];
-      if (ambulanceResponse1.isOkay) {
-        allAmbulanceResults.addAll(ambulanceResponse1.results);
-        debugPrint('🚑 Ambulance search 1 found: ${ambulanceResponse1.results.length} results');
-      }
-      if (ambulanceResponse2.isOkay) {
-        allAmbulanceResults.addAll(ambulanceResponse2.results.where(
-          (result) => !allAmbulanceResults.any((existing) => existing.placeId == result.placeId)
-        ));
-        debugPrint('🚑 Ambulance search 2 found: ${ambulanceResponse2.results.length} results');
-      }
-
-      debugPrint('🚑 Total unique ambulance results: ${allAmbulanceResults.length}');
+      debugPrint('🚑 Found ${partnersSnapshot.docs.length} ambulance providers in database');
 
       // Only add ambulance markers if showAmbulances is true
       if (showAmbulances.value) {
-        for (var result in allAmbulanceResults.take(3)) { // Limit to 3
-          final lat = result.geometry?.location.lat;
-          final lng = result.geometry?.location.lng;
-          if (lat != null && lng != null) {
-            debugPrint('🚑 Adding ambulance marker: ${result.name} at (${lat}, ${lng})');
+        for (var doc in partnersSnapshot.docs) {
+          final data = doc.data();
+          final latitude = data['latitude'] as double?;
+          final longitude = data['longitude'] as double?;
+          final name = data['name'] as String? ?? 'Ambulance Provider';
+          final phone = data['phone'] as String?;
+          final address = data['address'] as String?;
+          final ambulanceType = data['ambulanceType'] as String?;
+
+          if (latitude != null && longitude != null) {
+            debugPrint('🚑 Adding ambulance provider: $name at ($latitude, $longitude)');
+
+            // Create a custom ambulance data object to pass to details
+            final ambulanceData = {
+              'id': doc.id,
+              'name': name,
+              'phone': phone ?? '+8801581822846',
+              'address': address ?? 'Address not available',
+              'ambulanceType': ambulanceType ?? 'General Ambulance',
+              'latitude': latitude,
+              'longitude': longitude,
+            };
+
             markers.add(
               Marker(
-                markerId: MarkerId('ambulance_${result.placeId}'),
-                position: LatLng(lat, lng),
+                markerId: MarkerId('ambulance_${doc.id}'),
+                position: LatLng(latitude, longitude),
                 infoWindow: InfoWindow(
-                  title: result.name,
-                  snippet: result.formattedAddress ?? 'Ambulance Service',
-                  onTap: () => _showAmbulanceDetails(result),
+                  title: name,
+                  snippet: address ?? 'Ambulance Service',
+                  onTap: () => _showAmbulanceProviderDetails(ambulanceData),
                 ),
                 icon: ambulanceIcon,
-                onTap: () => _showAmbulanceDetails(result),
+                onTap: () => _showAmbulanceProviderDetails(ambulanceData),
               ),
             );
           }
         }
       }
 
-      debugPrint('✅ Nearby markers loaded successfully');
+      debugPrint('✅ Ambulance providers loaded successfully');
     } catch (e) {
-      // Ignore errors for nearby markers
-      debugPrint('❌ Failed to load nearby markers: $e');
+      debugPrint('❌ Failed to load ambulance providers: $e');
     }
   }
 
@@ -190,8 +165,8 @@ class HomeController extends GetxController {
       debugPrint('Loading custom PNG icons...');
       // Load PNG files (converted from SVG)
       personIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(88, 88)),
-        'assets/markers/person.png',
+        const ImageConfiguration(size: Size(40, 40)),
+        'assets/markers/user.png',
       );
       ambulanceIcon = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(32, 32)),
@@ -202,7 +177,7 @@ class HomeController extends GetxController {
         'assets/markers/hospital.png',
       );
       selectedHospitalIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(58, 58)),
+        const ImageConfiguration(size: Size(40, 40)),
         'assets/markers/selectetd_hospital.png',
       );
       // Update current location icon to person
@@ -774,6 +749,29 @@ class HomeController extends GetxController {
     hasStartedTyping.value = false;
   }
 
+  Future<String?> getAmbulancePhoneNumber(String placeId) async {
+    try {
+      debugPrint('Getting phone number for ambulance: $placeId');
+      places.PlacesDetailsResponse response = await _places.getDetailsByPlaceId(
+        placeId,
+        fields: ['formatted_phone_number', 'international_phone_number'],
+      );
+
+      if (response.isOkay) {
+        // Try formatted phone number first, then international
+        String? phoneNumber = response.result.formattedPhoneNumber;
+        if (phoneNumber == null || phoneNumber.isEmpty) {
+          phoneNumber = response.result.internationalPhoneNumber;
+        }
+        debugPrint('Got phone number: $phoneNumber');
+        return phoneNumber;
+      }
+    } catch (e) {
+      debugPrint('Error getting phone number: $e');
+    }
+    return null;
+  }
+
   Future<void> getPlaceDetails(String placeId) async {
     // Attempt to get place details by placeId first. If the google_maps_webservice
     // library fails parsing the response (type cast/null exceptions), fall back
@@ -814,7 +812,7 @@ class HomeController extends GetxController {
     }
 
     // --- Fallback: Use Google Geocoding REST API with the selected place name ---
-  final String addressForGeocoding = _selectedPlaceName ?? destinationController.text;
+    final String addressForGeocoding = _selectedPlaceName ?? destinationController.text;
   if (addressForGeocoding.trim().isEmpty) {
       Get.snackbar(
         'Destination Not Found',
@@ -948,8 +946,8 @@ class HomeController extends GetxController {
     _addNearbyMarkers(); // Reload markers with new ambulance visibility
   }
 
-  void _showAmbulanceDetails(places.PlacesSearchResult result) {
-    // Show ambulance details in a bottom sheet
+  void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
+    // Show ambulance provider details in a bottom sheet
     Get.bottomSheet(
       Container(
         padding: EdgeInsets.all(20),
@@ -967,7 +965,7 @@ class HomeController extends GetxController {
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    result.name,
+                    ambulanceData['name'] ?? 'Ambulance Provider',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -978,7 +976,7 @@ class HomeController extends GetxController {
               ],
             ),
             SizedBox(height: 16),
-            if (result.formattedAddress != null) ...[
+            if (ambulanceData['address'] != null) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -986,7 +984,7 @@ class HomeController extends GetxController {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      result.formattedAddress!,
+                      ambulanceData['address'],
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.black87,
@@ -997,16 +995,46 @@ class HomeController extends GetxController {
               ),
               SizedBox(height: 12),
             ],
+            if (ambulanceData['ambulanceType'] != null) ...[
+              Row(
+                children: [
+                  Icon(Icons.directions_car, color: Colors.grey, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Type: ${ambulanceData['ambulanceType']}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Icon(Icons.phone, color: Colors.grey, size: 20),
                 SizedBox(width: 8),
-                Text(
-                  'Contact for booking',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black87,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Contact Number:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      ambulanceData['phone'] ?? '+8801581822846',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1015,14 +1043,28 @@ class HomeController extends GetxController {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Implement call functionality
-                      Get.snackbar(
-                        'Call Ambulance',
-                        'Calling ${result.name}...',
-                        backgroundColor: Colors.green.shade100,
-                        colorText: Colors.green.shade800,
+                    onPressed: () async {
+                      final String numberToCall = ambulanceData['phone'] ?? '+8801581822846';
+                      final Uri launchUri = Uri(
+                        scheme: 'tel',
+                        path: numberToCall,
                       );
+                      try {
+                        await launchUrl(launchUri);
+                        Get.snackbar(
+                          'Call Ambulance',
+                          'Calling ${ambulanceData['name']}...',
+                          backgroundColor: Colors.green.shade100,
+                          colorText: Colors.green.shade800,
+                        );
+                      } catch (e) {
+                        Get.snackbar(
+                          'Error',
+                          'Unable to make call. Please dial $numberToCall manually.',
+                          backgroundColor: Colors.red.shade100,
+                          colorText: Colors.red.shade800,
+                        );
+                      }
                       Get.back(); // Close bottom sheet
                     },
                     icon: Icon(Icons.call),
@@ -1038,14 +1080,21 @@ class HomeController extends GetxController {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      // TODO: Implement directions functionality
-                      Get.snackbar(
-                        'Get Directions',
-                        'Opening directions to ${result.name}...',
-                        backgroundColor: Colors.blue.shade100,
-                        colorText: Colors.blue.shade800,
-                      );
-                      Get.back(); // Close bottom sheet
+                      // Navigate to ambulance location
+                      final lat = ambulanceData['latitude'] as double?;
+                      final lng = ambulanceData['longitude'] as double?;
+                      if (lat != null && lng != null) {
+                        // Set destination and navigate
+                        destinationPosition.value = LatLng(lat, lng);
+                        _addDestinationMarkerAndRoute();
+                        Get.back(); // Close bottom sheet
+                        Get.snackbar(
+                          'Navigation',
+                          'Navigating to ${ambulanceData['name']}...',
+                          backgroundColor: Colors.blue.shade100,
+                          colorText: Colors.blue.shade800,
+                        );
+                      }
                     },
                     icon: Icon(Icons.directions),
                     label: Text('Directions'),
