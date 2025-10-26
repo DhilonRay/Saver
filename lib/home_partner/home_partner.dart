@@ -95,10 +95,11 @@ class HomePartnerPage extends StatelessWidget {
                 Positioned.fill(
                   child: _buildMapSection(controller),
                 ),
-
-                // Overlay the online toggle at the top (SafeArea)
-                SafeArea(
-                  child: _buildOnlineStatusSection(controller),
+                // Online toggle container
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: _buildOnlineToggle(controller),
                 ),
               ],
             );
@@ -109,66 +110,7 @@ class HomePartnerPage extends StatelessWidget {
   }
 
   
-  Widget _buildOnlineStatusSection(HomePartnerController controller) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        // Make the card background transparent so the map is visible underneath
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                controller.isOnline.value ? Icons.online_prediction : Icons.offline_bolt,
-                color: controller.isOnline.value ? Colors.green : Colors.red,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    controller.isOnline.value ? 'Online' : 'Offline',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: controller.isOnline.value ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  Text(
-                    controller.isOnline.value
-                        ? 'Available for emergency calls'
-                        : 'Not accepting new orders',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Switch(
-            value: controller.isOnline.value,
-            onChanged: (value) => controller.toggleOnlineStatus(),
-            activeColor: primaryGreen,
-            activeTrackColor: accentGreen,
-          ),
-        ],
-      ),
-    );
-  }
+ 
 
   
 
@@ -217,7 +159,40 @@ class HomePartnerPage extends StatelessWidget {
     });
   }
 
-
-
-
+  Widget _buildOnlineToggle(HomePartnerController controller) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Obx(() => Switch(
+            value: controller.isOnline.value,
+            onChanged: (value) => controller.toggleOnlineStatus(),
+            activeThumbColor: primaryGreen,
+            activeTrackColor: secondaryGreen.withValues(alpha: 0.5),
+          )),
+          const SizedBox(width: 8),
+          Obx(() => Text(
+            controller.isOnline.value ? 'Online' : 'Offline',
+            style: TextStyle(
+              color: controller.isOnline.value ? primaryGreen : Colors.grey,
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
+          )),
+        ],
+      ),
+    );
+  }
 }
