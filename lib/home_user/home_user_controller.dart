@@ -17,6 +17,7 @@ import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
+import '../ambulance_service/ambulance_services_page.dart';
 
 class HomeController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -941,9 +942,7 @@ class HomeController extends GetxController {
   }
 
   void navigateToAmbulanceServices() {
-    // Toggle ambulance visibility instead of navigating to new page
-    showAmbulances.value = !showAmbulances.value;
-    _addNearbyMarkers(); // Reload markers with new ambulance visibility
+    Get.to(() => const AmbulanceServicesPage());
   }
 
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {

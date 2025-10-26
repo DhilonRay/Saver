@@ -119,26 +119,7 @@ class HomePartnerPage extends StatelessWidget {
       if (controller.currentPosition.value == null) {
         return Container(
           color: Colors.grey.shade200,
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.location_off,
-                  size: 48,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Location not available',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          
         );
       }
 

@@ -90,6 +90,25 @@ class LoginController extends GetxController {
 
         // Navigate based on role
         if (role == 'partner' || role == 'ambulance' || role == 'driver') {
+          // Also store FCM token in partners collection
+          if (fcmToken.value.isNotEmpty) {
+            await FirebaseFirestore.instance
+                .collection('partners')
+                .doc(uid)
+                .update({
+              'fcmToken': fcmToken.value,
+              'lastLogin': Timestamp.now(),
+            }).catchError((error) {
+              // If update fails, try to set the token
+              FirebaseFirestore.instance
+                  .collection('partners')
+                  .doc(uid)
+                  .set({
+                'fcmToken': fcmToken.value,
+                'lastLogin': Timestamp.now(),
+              }, SetOptions(merge: true));
+            });
+          }
           debugPrint('Navigating to HomePartnerPage');
           Get.snackbar(
             'Login Success',
@@ -177,6 +196,25 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
+        // Store FCM token in user document
+        if (fcmToken.value.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .update({
+            'fcmToken': fcmToken.value,
+            'lastLogin': Timestamp.now(),
+          }).catchError((error) {
+            // If update fails, try to set the token
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(userCredential.user!.uid)
+                .set({
+              'fcmToken': fcmToken.value,
+              'lastLogin': Timestamp.now(),
+            }, SetOptions(merge: true));
+          });
+        }
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
@@ -250,6 +288,25 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
+        // Store FCM token in user document
+        if (fcmToken.value.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .update({
+            'fcmToken': fcmToken.value,
+            'lastLogin': Timestamp.now(),
+          }).catchError((error) {
+            // If update fails, try to set the token
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(userCredential.user!.uid)
+                .set({
+              'fcmToken': fcmToken.value,
+              'lastLogin': Timestamp.now(),
+            }, SetOptions(merge: true));
+          });
+        }
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
