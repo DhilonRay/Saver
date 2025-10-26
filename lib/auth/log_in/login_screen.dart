@@ -584,7 +584,17 @@ class LoginPage extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: controller.showForgotPasswordDialog,
+            onPressed: () {
+              Get.snackbar(
+                'Forgot Password',
+                'Please contact support to reset your password',
+                backgroundColor: Colors.blue[600],
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+                borderRadius: 10,
+                margin: const EdgeInsets.all(10),
+              );
+            },
             style: TextButton.styleFrom(
               foregroundColor: accentBlue,
               textStyle: const TextStyle(
@@ -679,7 +689,17 @@ class LoginPage extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: controller.showForgotPasswordDialog,
+            onPressed: () {
+              Get.snackbar(
+                'Forgot Password',
+                'Please contact support to reset your password',
+                backgroundColor: Colors.blue[600],
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+                borderRadius: 10,
+                margin: const EdgeInsets.all(10),
+              );
+            },
             style: TextButton.styleFrom(
               foregroundColor: accentBlue,
               textStyle: const TextStyle(
