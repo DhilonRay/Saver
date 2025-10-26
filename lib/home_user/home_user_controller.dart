@@ -41,6 +41,12 @@ class HomeController extends GetxController {
   var isLoadingLocation = true.obs;
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
+
+  // Partner live tracking
+  var partnerLiveLocation = Rx<LatLng?>(null);
+  var partnerLocationTrail = <LatLng>[].obs;
+  var isTrackingPartner = false.obs;
+  StreamSubscription<DocumentSnapshot>? _orderSubscription;
   
   // Autocomplete variables
   var placeSuggestions = <Map<String, dynamic>>[].obs;
@@ -1348,7 +1354,11 @@ class HomeController extends GetxController {
   }
 
   void listenForRequestUpdates(String orderId) {
-    FirebaseFirestore.instance
+    // Cancel any existing subscription
+    _orderSubscription?.cancel();
+
+    // Listen for order updates
+    _orderSubscription = FirebaseFirestore.instance
         .collection('orders')
         .doc(orderId)
         .snapshots()
@@ -1356,15 +1366,26 @@ class HomeController extends GetxController {
       if (doc.exists) {
         final data = doc.data();
         final status = data?['orderStatus'] ?? data?['status'];
+
+        // Handle status updates
         if (status == 'accepted') {
+          isTrackingPartner.value = true;
           Get.snackbar(
             'Request Accepted',
-            'An ambulance is on the way!',
+            'An ambulance is on the way! Track its live location.',
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
             duration: const Duration(seconds: 5),
           );
         } else if (status == 'completed') {
+          isTrackingPartner.value = false;
+          partnerLiveLocation.value = null;
+          partnerLocationTrail.clear();
+
+          // Clear partner markers and polylines
+          markers.removeWhere((marker) => marker.markerId.value == 'partner_live');
+          polylines.removeWhere((polyline) => polyline.polylineId.value == 'partner_trail');
+
           Get.snackbar(
             'Service Completed',
             'Your ambulance service has been completed.',
@@ -1372,6 +1393,56 @@ class HomeController extends GetxController {
             colorText: Colors.blue.shade800,
             duration: const Duration(seconds: 5),
           );
+        }
+
+        // Handle live location updates
+        final liveLocation = data?['partnerLiveLocation'] as Map<String, dynamic>?;
+        if (liveLocation != null && isTrackingPartner.value) {
+          final lat = liveLocation['latitude'] as double?;
+          final lng = liveLocation['longitude'] as double?;
+
+          if (lat != null && lng != null) {
+            final newLocation = LatLng(lat, lng);
+
+            // Update partner live location
+            partnerLiveLocation.value = newLocation;
+
+            // Add to location trail
+            if (partnerLocationTrail.isEmpty ||
+                partnerLocationTrail.last != newLocation) {
+              partnerLocationTrail.add(newLocation);
+
+              // Keep only last 50 points to avoid performance issues
+              if (partnerLocationTrail.length > 50) {
+                partnerLocationTrail.removeAt(0);
+              }
+            }
+
+            // Update partner marker
+            markers.removeWhere((marker) => marker.markerId.value == 'partner_live');
+            markers.add(
+              Marker(
+                markerId: const MarkerId('partner_live'),
+                position: newLocation,
+                infoWindow: const InfoWindow(title: '🚑 Ambulance (Live)'),
+                icon: ambulanceIcon,
+              ),
+            );
+
+            // Update partner trail polyline
+            polylines.removeWhere((polyline) => polyline.polylineId.value == 'partner_trail');
+            if (partnerLocationTrail.length > 1) {
+              polylines.add(
+                Polyline(
+                  polylineId: const PolylineId('partner_trail'),
+                  color: Colors.green.shade600,
+                  width: 4,
+                  points: partnerLocationTrail,
+                  zIndex: 2,
+                ),
+              );
+            }
+          }
         }
       }
     });

@@ -23,11 +23,11 @@ class HomePartnerPage extends StatelessWidget {
           backgroundColor: backgroundColor,
           appBar: AppBar(
          
-            backgroundColor: primaryGreen,
+       
             elevation: 2,
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.white),
+                icon: const Icon(Icons.refresh, color: Colors.blueGrey),
                 onPressed: controller.refreshData,
                 tooltip: 'Refresh Data',
               ),
@@ -104,6 +104,26 @@ class HomePartnerPage extends StatelessWidget {
               ],
             );
           }),
+          floatingActionButton: Obx(() {
+            if (controller.isServiceActive.value && !controller.isDrivingStarted.value) {
+              return FloatingActionButton.extended(
+                onPressed: controller.startDriving,
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start Driving'),
+              );
+            } else if (controller.isDrivingStarted.value) {
+              return FloatingActionButton.extended(
+                onPressed: controller.completeActiveService,
+                backgroundColor: primaryGreen,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Complete Service'),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
         );
       },
     );
@@ -133,6 +153,7 @@ class HomePartnerPage extends StatelessWidget {
         ),
         onMapCreated: controller.onMapCreated,
         markers: controller.markers,
+        polylines: controller.polylines.toSet(),
         myLocationEnabled: true,
         myLocationButtonEnabled: true,
         zoomControlsEnabled: true,
