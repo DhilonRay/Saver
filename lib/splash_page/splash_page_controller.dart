@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:neosaver/auth/log_in/login_screen.dart';
+import 'package:saver/auth/log_in/login_screen.dart';
 import '../home_user/home_user.dart';
 import '../home_partner/home_partner.dart';
 import 'package:get/get.dart';

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,7 +16,6 @@ import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
-import '../ambulance_service/ambulance_services_page.dart';
 
 class HomeController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -98,63 +96,72 @@ class HomeController extends GetxController {
     if (currentPosition.value == null) return;
 
     try {
-      debugPrint('🔍 Loading ambulance providers from database...');
+      debugPrint('🔍 Setting up real-time ambulance providers listener...');
 
       // Clear existing markers first
       markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
 
-      // Fetch ambulance providers from Firestore
-      final partnersSnapshot = await FirebaseFirestore.instance
+      // Set up real-time listener for ambulance providers
+      FirebaseFirestore.instance
           .collection('partners')
-          .get();
+          .where('isOnline', isEqualTo: true) // Only show online partners
+          .snapshots()
+          .listen((partnersSnapshot) {
+        debugPrint('🚑 Real-time update: Found ${partnersSnapshot.docs.length} online ambulance providers');
 
-      debugPrint('🚑 Found ${partnersSnapshot.docs.length} ambulance providers in database');
+        // Clear existing ambulance markers
+        markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
 
-      // Only add ambulance markers if showAmbulances is true
-      if (showAmbulances.value) {
-        for (var doc in partnersSnapshot.docs) {
-          final data = doc.data();
-          final latitude = data['latitude'] as double?;
-          final longitude = data['longitude'] as double?;
-          final name = data['name'] as String? ?? 'Ambulance Provider';
-          final phone = data['phone'] as String?;
-          final address = data['address'] as String?;
-          final ambulanceType = data['ambulanceType'] as String?;
+        // Only add ambulance markers if showAmbulances is true
+        if (showAmbulances.value) {
+          for (var doc in partnersSnapshot.docs) {
+            final data = doc.data();
+            final latitude = data['latitude'] as double?;
+            final longitude = data['longitude'] as double?;
+            final name = data['companyName'] as String? ?? 'Ambulance Provider';
+            final phone = data['contact'] as String?;
+            final address = data['coverageArea'] as String?;
+            final ambulanceType = data['ambulanceType'] as String?;
+            final isOnline = data['isOnline'] as bool? ?? false;
 
-          if (latitude != null && longitude != null) {
-            debugPrint('🚑 Adding ambulance provider: $name at ($latitude, $longitude)');
+            // Only show online partners with valid location
+            if (latitude != null && longitude != null && isOnline) {
+              debugPrint('🚑 Adding online ambulance provider: $name at ($latitude, $longitude)');
 
-            // Create a custom ambulance data object to pass to details
-            final ambulanceData = {
-              'id': doc.id,
-              'name': name,
-              'phone': phone ?? '+8801581822846',
-              'address': address ?? 'Address not available',
-              'ambulanceType': ambulanceType ?? 'General Ambulance',
-              'latitude': latitude,
-              'longitude': longitude,
-            };
+              // Create a custom ambulance data object to pass to details
+              final ambulanceData = {
+                'id': doc.id,
+                'name': name,
+                'phone': phone ?? '+8801581822846',
+                'address': address ?? 'Coverage area not specified',
+                'ambulanceType': ambulanceType ?? 'General Ambulance',
+                'latitude': latitude,
+                'longitude': longitude,
+                'isOnline': isOnline,
+              };
 
-            markers.add(
-              Marker(
-                markerId: MarkerId('ambulance_${doc.id}'),
-                position: LatLng(latitude, longitude),
-                infoWindow: InfoWindow(
-                  title: name,
-                  snippet: address ?? 'Ambulance Service',
+              markers.add(
+                Marker(
+                  markerId: MarkerId('ambulance_${doc.id}'),
+                  position: LatLng(latitude, longitude),
+                  infoWindow: InfoWindow(
+                    title: '$name (Online)',
+                    snippet: '🚑 $ambulanceType • Tap for details',
+                    onTap: () => _showAmbulanceProviderDetails(ambulanceData),
+                  ),
+                  icon: ambulanceIcon,
                   onTap: () => _showAmbulanceProviderDetails(ambulanceData),
                 ),
-                icon: ambulanceIcon,
-                onTap: () => _showAmbulanceProviderDetails(ambulanceData),
-              ),
-            );
+              );
+            }
           }
         }
-      }
 
-      debugPrint('✅ Ambulance providers loaded successfully');
+        debugPrint('✅ Real-time ambulance providers updated successfully');
+      });
+
     } catch (e) {
-      debugPrint('❌ Failed to load ambulance providers: $e');
+      debugPrint('❌ Failed to set up real-time ambulance providers listener: $e');
     }
   }
 
@@ -942,7 +949,119 @@ class HomeController extends GetxController {
   }
 
   void navigateToAmbulanceServices() {
-    Get.to(() => const AmbulanceServicesPage());
+    // Toggle ambulance visibility to show/hide nearby drivers on map
+    showAmbulances.value = !showAmbulances.value;
+
+    if (showAmbulances.value) {
+      // Show nearby ambulance providers on map
+      _addNearbyMarkers();
+
+      // Show a snackbar to inform user
+      Get.snackbar(
+        'Nearby Ambulances',
+        'Showing live locations of available ambulance drivers. Tap markers for details.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+        duration: Duration(seconds: 4),
+      );
+    } else {
+      // Hide ambulance markers
+      markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
+      Get.snackbar(
+        'Ambulance View',
+        'Ambulance locations hidden from map',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.grey.shade100,
+        colorText: Colors.grey.shade800,
+        duration: Duration(seconds: 2),
+      );
+    }
+  }
+
+  void _bookSpecificAmbulance(Map<String, dynamic> ambulanceData) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      Get.snackbar(
+        'Authentication Required',
+        'You need to be logged in to place an order.',
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+      );
+      return;
+    }
+
+    final partnerId = ambulanceData['id'] as String?;
+    final companyName = ambulanceData['name'] as String? ?? 'Ambulance Provider';
+
+    if (partnerId == null) {
+      Get.snackbar(
+        'Error',
+        'Invalid ambulance provider selected.',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+      return;
+    }
+
+    String selectedUrgency = 'normal'; // normal, urgent, emergency
+    String additionalNotes = '';
+
+    final result = await Get.dialog(
+      AlertDialog(
+        title: Text('Book Ambulance - $companyName'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Select urgency level:'),
+              const SizedBox(height: 10),
+              DropdownButton<String>(
+                value: selectedUrgency,
+                items: const [
+                  DropdownMenuItem(value: 'normal', child: Text('Normal')),
+                  DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
+                  DropdownMenuItem(value: 'emergency', child: Text('Emergency')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => selectedUrgency = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Additional Notes (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => additionalNotes = value,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('Book Now'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      await _createDirectAmbulanceRequest(
+        partnerId: partnerId,
+        companyName: companyName,
+        urgency: selectedUrgency,
+        notes: additionalNotes,
+      );
+    }
   }
 
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
@@ -960,16 +1079,35 @@ class HomeController extends GetxController {
           children: [
             Row(
               children: [
-                Icon(Icons.local_hospital, color: Colors.red, size: 30),
+                Icon(Icons.local_hospital, color: Colors.green, size: 30),
                 SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    ambulanceData['name'] ?? 'Ambulance Provider',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ambulanceData['name'] ?? 'Ambulance Provider',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, color: Colors.green, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'Online & Available',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1037,9 +1175,50 @@ class HomeController extends GetxController {
                 ),
               ],
             ),
+            SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This ambulance driver is currently online and available for immediate service.',
+                      style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             SizedBox(height: 20),
             Row(
               children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Get.back(); // Close bottom sheet
+                      _bookSpecificAmbulance(ambulanceData);
+                    },
+                    icon: Icon(Icons.book_online),
+                    label: Text('Book Now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () async {
@@ -1075,7 +1254,11 @@ class HomeController extends GetxController {
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
@@ -1109,6 +1292,89 @@ class HomeController extends GetxController {
       ),
       isScrollControlled: true,
     );
+  }
+
+  Future<String?> _createDirectAmbulanceRequest({
+    required String partnerId,
+    required String companyName,
+    required String urgency,
+    required String notes,
+  }) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      Get.snackbar(
+        'Error',
+        'User not authenticated',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+      return null;
+    }
+    try {
+      final docRef = await FirebaseFirestore.instance.collection('orders').add({
+        'userId': userId,
+        'partnerId': partnerId,
+        'companyName': companyName,
+        'urgency': urgency,
+        'notes': notes,
+        'status': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'ambulance',
+        'userLocation': {
+          'latitude': currentPosition.value?.latitude,
+          'longitude': currentPosition.value?.longitude,
+        },
+      });
+      Get.snackbar(
+        'Success',
+        'Ambulance request sent successfully',
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+      );
+      
+      // Listen for status updates
+      listenForRequestUpdates(docRef.id);
+      
+      return docRef.id;
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to send request: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+      return null;
+    }
+  }
+
+  void listenForRequestUpdates(String orderId) {
+    FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists) {
+        final data = doc.data();
+        final status = data?['orderStatus'] ?? data?['status'];
+        if (status == 'accepted') {
+          Get.snackbar(
+            'Request Accepted',
+            'An ambulance is on the way!',
+            backgroundColor: Colors.green.shade100,
+            colorText: Colors.green.shade800,
+            duration: const Duration(seconds: 5),
+          );
+        } else if (status == 'completed') {
+          Get.snackbar(
+            'Service Completed',
+            'Your ambulance service has been completed.',
+            backgroundColor: Colors.blue.shade100,
+            colorText: Colors.blue.shade800,
+            duration: const Duration(seconds: 5),
+          );
+        }
+      }
+    });
   }
 
   void navigateToPartnersOrders() {
