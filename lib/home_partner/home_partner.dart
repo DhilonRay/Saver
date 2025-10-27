@@ -248,7 +248,7 @@ class HomePartnerPage extends StatelessWidget {
           zoom: 15,
         ),
         onMapCreated: controller.onMapCreated,
-        markers: controller.markers,
+        markers: controller.markers.value,
         polylines: controller.polylines.toSet(),
         myLocationEnabled: true,
         myLocationButtonEnabled: true,
