@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'home_partner_controller.dart';
 import '../ambulance_request/ambulance_request_page.dart';
 
@@ -92,6 +93,35 @@ class HomePartnerPage extends StatelessWidget {
                 // Full-screen map as the bottom layer
                 Positioned.fill(
                   child: _buildMapSection(controller),
+                ),
+                // Debug controls (only in debug mode)
+                if (kDebugMode) Positioned(
+                  bottom: 120,
+                  left: 16,
+                  child: Column(
+                    children: [
+                      FloatingActionButton.small(
+                        onPressed: () {
+                          if (controller.isAnimating.value) {
+                            controller.isAnimating.value = false;
+                          } else {
+                            controller.startRouteAnimation();
+                          }
+                        },
+                        backgroundColor: Colors.deepOrange,
+                        child: Obx(() => Icon(controller.isAnimating.value ? Icons.pause : Icons.directions_car)),
+                      ),
+                      const SizedBox(height: 8),
+                      FloatingActionButton.small(
+                        onPressed: () {
+                          // Force a few emulator geo fixes guide in logs
+                          Get.snackbar('Debug', 'Use adb emu geo fix to simulate movement', duration: const Duration(seconds: 2));
+                        },
+                        backgroundColor: Colors.blueGrey,
+                        child: const Icon(Icons.info_outline),
+                      ),
+                    ],
+                  ),
                 ),
                 // Online toggle container
                 Positioned(

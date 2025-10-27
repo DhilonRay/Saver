@@ -76,14 +76,15 @@ class HomePartnerController extends GetxController {
 
   Future<void> loadCustomIcons() async {
     try {
-      ambulanceIcon.value = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(24, 24)),
+      // Use fromAssetImage to correctly load BitmapDescriptor from assets
+      ambulanceIcon.value = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(64, 64)),
         'assets/markers/ambulance.png',
-      ) as BitmapDescriptor;
-      userIcon.value = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(24, 24)),
+      );
+      userIcon.value = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(48, 48)),
         'assets/markers/user.png',
-      ) as BitmapDescriptor;
+      );
       print('✅ Custom icons loaded successfully');
     } catch (e) {
       print('❌ Error loading custom icons: $e'); 
@@ -363,6 +364,8 @@ class HomePartnerController extends GetxController {
             position: LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude),
             infoWindow: const InfoWindow(title: 'Your Location (Partner)'),
             icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+            flat: true,
+            anchor: const Offset(0.5, 0.5),
           ),
         );
         markers.value = updated;
@@ -377,6 +380,8 @@ class HomePartnerController extends GetxController {
           position: LatLng(latitude, longitude),
           infoWindow: const InfoWindow(title: 'User Location'),
           icon: userIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
         ),
       );
       markers.value = updated2;
@@ -624,6 +629,8 @@ class HomePartnerController extends GetxController {
         position: position,
         infoWindow: const InfoWindow(title: '🚑 Ambulance Moving'),
         icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        flat: true,
+        anchor: const Offset(0.5, 0.5),
         rotation: calculateRotation(position),
         zIndex: 2.0, // Make sure ambulance appears above other markers
       ),
@@ -697,6 +704,8 @@ class HomePartnerController extends GetxController {
             position: LatLng(position.latitude, position.longitude),
             infoWindow: const InfoWindow(title: 'Your Location (Live)'),
             icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+            flat: true,
+            anchor: const Offset(0.5, 0.5),
           ),
         );
         markers.value = updatedLive;
@@ -910,6 +919,8 @@ class HomePartnerController extends GetxController {
         position: LatLng(position.latitude, position.longitude),
         infoWindow: const InfoWindow(title: 'Your Location'),
         icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        flat: true,
+        anchor: const Offset(0.5, 0.5),
       );
       markers.value = {newMarker};
 
@@ -1124,6 +1135,8 @@ class HomePartnerController extends GetxController {
       position: LatLng(position.latitude, position.longitude),
       infoWindow: const InfoWindow(title: 'Your Ambulance'),
       icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
       rotation: position.heading.isNaN ? 0.0 : position.heading, // Handle NaN heading
     );
 
@@ -1141,6 +1154,8 @@ class HomePartnerController extends GetxController {
           position: userDestination.value!,
           infoWindow: const InfoWindow(title: 'User Location'),
           icon: userIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
         ),
       );
     }
