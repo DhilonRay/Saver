@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,7 +29,7 @@ class HomePartnerController extends GetxController {
   // Location variables
   var currentPosition = Rx<Position?>(null);
   var mapController = Rx<GoogleMapController?>(null);
-  var markers = <Marker>{}.obs;
+  var markers = Rx<Set<Marker>>({});
   var polylines = <Polyline>{}.obs;
 
   // Custom marker icons
@@ -46,6 +47,11 @@ class HomePartnerController extends GetxController {
   var currentAnimationIndex = 0.obs;
   var animationSpeed = 1.0.obs; // Speed multiplier based on GPS speed
 
+  // Route progress tracking
+  var originalRoutePoints = <LatLng>[].obs; // Store the full route
+  var remainingRoutePoints = <LatLng>[].obs; // Points still to travel
+  var userDestination = Rx<LatLng?>(null); // Store user location
+
   // Live location tracking
   StreamSubscription<Position>? _positionStreamSubscription;
 
@@ -60,6 +66,12 @@ class HomePartnerController extends GetxController {
     getCurrentLocation();
     setupFCMListeners();
     setupOrderListener();
+    
+    // DEBUG: Start location tracking for testing
+    Future.delayed(const Duration(seconds: 5), () {
+      print('🚀 DEBUG: Starting location tracking for testing...');
+      startLocationTracking();
+    });
   }
 
   Future<void> loadCustomIcons() async {
@@ -299,26 +311,28 @@ class HomePartnerController extends GetxController {
         'acceptedBy': _auth.currentUser?.uid,
       });
 
-      // Set active service
+      // Set active service but don't start driving yet
       activeOrderId.value = orderId;
       isServiceActive.value = true;
       isDrivingStarted.value = false;
 
       Get.snackbar(
         'Request Accepted',
-        'Showing route to user location...',
+        'Showing route to user location. Tap "Start Driving" to begin.',
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       );
 
-      // Show route to user location on map
+      // Show route to user location on map (but don't start tracking yet)
       if (userLocation.isNotEmpty) {
         final lat = userLocation['latitude'] as double?;
         final lng = userLocation['longitude'] as double?;
 
         if (lat != null && lng != null) {
           await showRouteToUser(lat, lng);
+          // Store user destination for when driving starts
+          userDestination.value = LatLng(lat, lng);
         }
       }
 
@@ -340,9 +354,10 @@ class HomePartnerController extends GetxController {
       polylines.clear();
 
       // Ensure current location marker is present
-      bool hasCurrentLocationMarker = markers.any((marker) => marker.markerId.value == 'current_location');
+      bool hasCurrentLocationMarker = markers.value.any((marker) => marker.markerId.value == 'current_location');
       if (!hasCurrentLocationMarker) {
-        markers.add(
+        final updated = Set<Marker>.from(markers.value);
+        updated.add(
           Marker(
             markerId: const MarkerId('current_location'),
             position: LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude),
@@ -350,11 +365,13 @@ class HomePartnerController extends GetxController {
             icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
           ),
         );
+        markers.value = updated;
       }
 
       // Add or update destination marker
-      markers.removeWhere((marker) => marker.markerId.value == 'user_destination');
-      markers.add(
+      final updated2 = Set<Marker>.from(markers.value);
+      updated2.removeWhere((marker) => marker.markerId.value == 'user_destination');
+      updated2.add(
         Marker(
           markerId: const MarkerId('user_destination'),
           position: LatLng(latitude, longitude),
@@ -362,6 +379,7 @@ class HomePartnerController extends GetxController {
           icon: userIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
+      markers.value = updated2;
 
       // Get directions from Google
       final directionsResponse = await _directions.directions(
@@ -390,6 +408,11 @@ class HomePartnerController extends GetxController {
 
         // Add polyline
         if (polylinePoints.isNotEmpty) {
+          // Store the full route for progress tracking
+          originalRoutePoints.value = List.from(polylinePoints);
+          remainingRoutePoints.value = List.from(polylinePoints);
+          userDestination.value = LatLng(latitude, longitude);
+
           polylines.add(
             Polyline(
               polylineId: const PolylineId('route_to_user'),
@@ -499,22 +522,31 @@ class HomePartnerController extends GetxController {
   }
 
   void startDriving() {
-    isDrivingStarted.value = true;
+    if (activeOrderId.value != null && userDestination.value != null) {
+      isDrivingStarted.value = true;
 
-    // Start live location tracking
-    startLiveLocationTracking();
+      // Start driving with location tracking and route progress
+      startDrivingToUser(
+        activeOrderId.value!,
+        userDestination.value!.latitude,
+        userDestination.value!.longitude
+      );
 
-    // Try to start route animation immediately if route exists
-    // If not, it will start when route becomes available
-    startRouteAnimation();
-
-    Get.snackbar(
-      '🚑 Driving Started',
-      'Ambulance is moving towards user location!',
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      duration: const Duration(seconds: 3),
-    );
+      Get.snackbar(
+        '🚑 Driving Started',
+        'Ambulance is moving towards user location!',
+        backgroundColor: Colors.blue.shade100,
+        colorText: Colors.blue.shade800,
+        duration: const Duration(seconds: 3),
+      );
+    } else {
+      Get.snackbar(
+        'Error',
+        'No active service to start driving for',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   void startRouteAnimation() {
@@ -584,8 +616,9 @@ class HomePartnerController extends GetxController {
   }
 
   void updateAnimatedMarkerPosition(LatLng position) {
-    markers.removeWhere((marker) => marker.markerId.value == 'current_location');
-    markers.add(
+    final updated = Set<Marker>.from(markers.value);
+    updated.removeWhere((marker) => marker.markerId.value == 'current_location');
+    updated.add(
       Marker(
         markerId: const MarkerId('current_location'),
         position: position,
@@ -595,6 +628,7 @@ class HomePartnerController extends GetxController {
         zIndex: 2.0, // Make sure ambulance appears above other markers
       ),
     );
+    markers.value = updated;
 
     // Smooth camera following with zoom
     if (mapController.value != null) {
@@ -655,8 +689,9 @@ class HomePartnerController extends GetxController {
 
       // If not animating, update marker position directly
       if (!isAnimating.value) {
-        markers.removeWhere((marker) => marker.markerId.value == 'current_location');
-        markers.add(
+        final updatedLive = Set<Marker>.from(markers.value);
+        updatedLive.removeWhere((marker) => marker.markerId.value == 'current_location');
+        updatedLive.add(
           Marker(
             markerId: const MarkerId('current_location'),
             position: LatLng(position.latitude, position.longitude),
@@ -664,6 +699,7 @@ class HomePartnerController extends GetxController {
             icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
           ),
         );
+        markers.value = updatedLive;
       }
     });
   }
@@ -705,12 +741,10 @@ class HomePartnerController extends GetxController {
         isAnimating.value = false; // Stop animation
 
         // Stop live location tracking
-        _positionStreamSubscription?.cancel();
-        _positionStreamSubscription = null;
+        stopLocationTracking();
 
-        // Clear route
-        polylines.clear();
-        markers.removeWhere((marker) => marker.markerId.value == 'user_destination');
+        // Clear route and progress data
+        completeService();
       }
 
       Get.snackbar(
@@ -870,16 +904,14 @@ class HomePartnerController extends GetxController {
       // Update location in Firestore for real-time tracking
       await updatePartnerLocation(position.latitude, position.longitude);
 
-      // Add marker for current location
-      markers.clear();
-      markers.add(
-        Marker(
-          markerId: const MarkerId('current_location'),
-          position: LatLng(position.latitude, position.longitude),
-          infoWindow: const InfoWindow(title: 'Your Location'),
-          icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        ),
+      // Add marker for current location (assign new set to trigger reactivity)
+      final newMarker = Marker(
+        markerId: const MarkerId('current_location'),
+        position: LatLng(position.latitude, position.longitude),
+        infoWindow: const InfoWindow(title: 'Your Location'),
+        icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       );
+      markers.value = {newMarker};
 
       print('📍 Current location: ${position.latitude}, ${position.longitude}');
     } catch (e) {
@@ -971,5 +1003,297 @@ class HomePartnerController extends GetxController {
     loadPartnerData();
     loadOrderStats();
     getCurrentLocation();
+  }
+
+  // Start location tracking for active service
+  void startLocationTracking() {
+    print('🚀 Starting location tracking...');
+
+    // Check location service
+    Geolocator.isLocationServiceEnabled().then((serviceEnabled) {
+      print('📍 Location service enabled: $serviceEnabled');
+      if (!serviceEnabled) {
+        Get.snackbar(
+          'Location Services Disabled',
+          'Please enable location services to track your movement.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Check permissions
+      Geolocator.checkPermission().then((permission) {
+        print('📍 Location permission: $permission');
+
+        if (permission == LocationPermission.denied) {
+          Geolocator.requestPermission().then((newPermission) {
+            print('📍 Requested permission: $newPermission');
+            if (newPermission == LocationPermission.denied || newPermission == LocationPermission.deniedForever) {
+              Get.snackbar(
+                'Location Permission Denied',
+                'Location permission is required to track movement.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+              return;
+            }
+            _startLocationStream();
+          });
+        } else if (permission == LocationPermission.deniedForever) {
+          Get.snackbar(
+            'Location Permission Denied Forever',
+            'Please enable location permission in app settings.',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          return;
+        } else {
+          _startLocationStream();
+        }
+      });
+    });
+  }
+
+  void _startLocationStream() {
+    print('📡 Starting location stream...');
+
+    if (_positionStreamSubscription != null) {
+      _positionStreamSubscription!.cancel();
+    }
+
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 1, // Update every 1 meter for testing
+    );
+
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      print('📍 Location update received: ${position.latitude}, ${position.longitude}, heading: ${position.heading}, accuracy: ${position.accuracy}');
+
+      // If live GPS indicates movement, stop any simulated animation so live updates take over
+      if (isAnimating.value && position.speed > 0.5) {
+        print('🛑 Live GPS movement detected (speed=${position.speed}), stopping route animation');
+        isAnimating.value = false;
+        // push animation index forward to ensure animateAlongRoute will exit quickly
+        currentAnimationIndex.value = 9999;
+      }
+
+      // Update current position
+      currentPosition.value = position;
+
+      // Update ambulance marker position (live)
+      updateAmbulanceMarker(position);
+
+      // Update route progress if service is active
+      if (isServiceActive.value && userDestination.value != null) {
+        updateRouteProgress(position);
+      }
+
+      // Update location in Firestore for real-time tracking
+      updatePartnerLocation(position.latitude, position.longitude);
+    }, onError: (error) {
+      print('❌ Location stream error: $error');
+      Get.snackbar(
+        'Location Error',
+        'Failed to track location: $error',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    });
+
+    print('📡 Location stream started successfully');
+  }
+
+  // Stop location tracking
+  void stopLocationTracking() {
+    if (_positionStreamSubscription != null) {
+      _positionStreamSubscription!.cancel();
+      _positionStreamSubscription = null;
+    }
+  }
+
+  // Update ambulance marker position
+  void updateAmbulanceMarker(Position position) {
+    print('🚑 Updating ambulance marker to: ${position.latitude}, ${position.longitude}');
+
+    // Create new ambulance/current-location marker
+    final ambulanceMarker = Marker(
+      markerId: const MarkerId('current_location'),
+      position: LatLng(position.latitude, position.longitude),
+      infoWindow: const InfoWindow(title: 'Your Ambulance'),
+      icon: ambulanceIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+      rotation: position.heading.isNaN ? 0.0 : position.heading, // Handle NaN heading
+    );
+
+    // Update markers set - create a new set to trigger reactivity
+    final updatedMarkers = Set<Marker>.from(markers.value);
+  updatedMarkers.removeWhere((marker) => marker.markerId.value == 'current_location');
+    updatedMarkers.add(ambulanceMarker);
+
+    // Keep user destination marker if it exists
+    if (userDestination.value != null) {
+      updatedMarkers.removeWhere((marker) => marker.markerId.value == 'user_destination');
+      updatedMarkers.add(
+        Marker(
+          markerId: const MarkerId('user_destination'),
+          position: userDestination.value!,
+          infoWindow: const InfoWindow(title: 'User Location'),
+          icon: userIcon.value ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
+    }
+
+    markers.value = updatedMarkers;
+    print('🚑 Ambulance marker updated. Total markers: ${markers.value.length}');
+
+    // If service is active (driving), smoothly move the camera to follow the ambulance
+    if (isDrivingStarted.value && mapController.value != null) {
+      try {
+        mapController.value!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(position.latitude, position.longitude),
+              zoom: 16.0,
+              bearing: position.heading.isNaN ? 0.0 : position.heading,
+            ),
+          ),
+        );
+      } catch (e) {
+        print('❌ Camera animate error: $e');
+      }
+    }
+
+    // Force UI update
+    update();
+  }
+
+  // Update route progress by removing completed segments
+  void updateRouteProgress(Position currentPosition) {
+    if (remainingRoutePoints.isEmpty || userDestination.value == null) return;
+
+    final currentLatLng = LatLng(currentPosition.latitude, currentPosition.longitude);
+
+    // Find the closest point on the route to current position
+    int closestIndex = 0;
+    double minDistance = double.infinity;
+
+    for (int i = 0; i < remainingRoutePoints.length; i++) {
+      final distance = _calculateDistance(currentLatLng, remainingRoutePoints[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    // If we're close enough to a route point (within 20 meters), remove all points before it
+    if (minDistance < 20) { // 20 meters threshold
+      if (closestIndex > 0) {
+        print('🛣️ Removing ${closestIndex} route points, ${remainingRoutePoints.length - closestIndex} remaining');
+        remainingRoutePoints.removeRange(0, closestIndex);
+
+        // Update the polyline to show only remaining route
+        polylines.clear();
+        if (remainingRoutePoints.isNotEmpty) {
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId('route_to_user'),
+              color: Colors.blue.shade700,
+              width: 6,
+              zIndex: 1,
+              points: remainingRoutePoints,
+            ),
+          );
+          print('🛣️ Polyline updated with ${remainingRoutePoints.length} points');
+        }
+      }
+    }
+
+    // Force UI update
+    update();
+
+    // Check if we've reached the destination (within 50 meters)
+    final distanceToDestination = _calculateDistance(currentLatLng, userDestination.value!);
+    if (distanceToDestination < 50) {
+      // Arrived at destination
+      completeService();
+    }
+  }
+
+  // Calculate distance between two LatLng points using Haversine formula
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    const double earthRadius = 6371000; // Earth's radius in meters
+
+    final double lat1Rad = point1.latitude * (pi / 180);
+    final double lat2Rad = point2.latitude * (pi / 180);
+    final double deltaLatRad = (point2.latitude - point1.latitude) * (pi / 180);
+    final double deltaLngRad = (point2.longitude - point1.longitude) * (pi / 180);
+
+    final double a = sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+        cos(lat1Rad) * cos(lat2Rad) * sin(deltaLngRad / 2) * sin(deltaLngRad / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  // Complete the service when destination is reached
+  void completeService() {
+    stopLocationTracking();
+    isServiceActive.value = false;
+    isDrivingStarted.value = false;
+
+    // Clear route data
+    polylines.clear();
+    originalRoutePoints.clear();
+    remainingRoutePoints.clear();
+    userDestination.value = null;
+
+    Get.snackbar(
+      'Service Completed',
+      'You have arrived at the user\'s location!',
+      backgroundColor: Colors.green.shade100,
+      colorText: Colors.green.shade800,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  // Start driving to user location
+  void startDrivingToUser(String orderId, double userLat, double userLng) {
+    print('🚀 Starting driving to user: $userLat, $userLng');
+    activeOrderId.value = orderId;
+    isServiceActive.value = true;
+    isDrivingStarted.value = true;
+    userDestination.value = LatLng(userLat, userLng);
+
+    // Initialize remaining route points from original route if available
+    if (originalRoutePoints.isNotEmpty) {
+      remainingRoutePoints.value = List.from(originalRoutePoints);
+      print('🚗 Route initialized with ${remainingRoutePoints.length} points');
+    } else {
+      print('⚠️ No original route points found!');
+    }
+
+    // Start location tracking
+    startLocationTracking();
+
+    // Start route animation as a fallback for simulators or when GPS isn't moving
+    // This will animate the ambulance icon along the calculated polyline points
+    Future.delayed(const Duration(milliseconds: 300), () {
+      try {
+        print('🚀 DEBUG: initiating route animation...');
+        startRouteAnimation();
+      } catch (e) {
+        print('❌ Failed to start route animation: $e');
+      }
+    });
+
+    Get.snackbar(
+      'Service Started',
+      'Location tracking enabled. Follow the route to reach the user.',
+      backgroundColor: Colors.green.shade100,
+      colorText: Colors.green.shade800,
+      duration: const Duration(seconds: 4),
+    );
   }
 }

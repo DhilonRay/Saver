@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:geocoding/geocoding.dart';
+import '../home_user/home_user.dart';
+import '../home_partner/home_partner_controller.dart';
 
 class AmbulanceRequestPage extends StatelessWidget {
   const AmbulanceRequestPage({super.key});
@@ -363,6 +365,56 @@ class AmbulanceRequestPage extends StatelessWidget {
 
   Future<void> _acceptRequest(String requestId) async {
     try {
+      // First, get the request data
+      final requestDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .get();
+
+      if (!requestDoc.exists) {
+        Get.snackbar(
+          'Error',
+          'Request not found',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      final requestData = requestDoc.data() as Map<String, dynamic>;
+      final userId = requestData['userId'] as String?;
+
+      if (userId == null) {
+        Get.snackbar(
+          'Error',
+          'Invalid request data',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Check if the user already has an accepted ambulance request from any partner
+      final existingAcceptedRequests = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .where('type', isEqualTo: 'ambulance')
+          .where('status', isEqualTo: 'accepted')
+          .get();
+
+      if (existingAcceptedRequests.docs.isNotEmpty) {
+        // User is already being served by another partner
+        Get.snackbar(
+          'Cannot Accept',
+          'This user is already being served by another ambulance partner.',
+          backgroundColor: Colors.orange.shade700,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
+      // Proceed with accepting the request
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(requestId)
@@ -370,6 +422,36 @@ class AmbulanceRequestPage extends StatelessWidget {
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
       });
+
+      // Get user location and navigate to map (existing code)
+      final userLocation = requestData['userLocation'] as Map<String, dynamic>?;
+
+      if (userLocation != null) {
+        final latitude = userLocation['latitude'] as double?;
+        final longitude = userLocation['longitude'] as double?;
+
+        if (latitude != null && longitude != null) {
+          // Navigate to map page and show route
+          Get.offAll(() => HomePage());
+          
+          // Use a slight delay to ensure the page is loaded before calling the method
+          Future.delayed(const Duration(milliseconds: 500), () {
+            final homeController = Get.find<HomePartnerController>();
+            homeController.showRouteToUser(latitude, longitude);
+          });
+
+          Get.snackbar(
+            'Success',
+            'Request accepted! Navigating to map with route.',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+          return;
+        }
+      }
+
+      // Fallback if location data is not available
       Get.snackbar(
         'Success',
         'Request accepted successfully',

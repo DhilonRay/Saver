@@ -1525,4 +1525,35 @@ class HomeController extends GetxController {
       controller.animateCamera(CameraUpdate.zoomOut());
     }
   }
+
+  // Method to set destination from coordinates and show route (for ambulance requests)
+  Future<void> setDestinationFromCoordinates(double latitude, double longitude) async {
+    try {
+      destinationPosition.value = LatLng(latitude, longitude);
+      await _addDestinationMarkerAndRoute();
+      
+      // Move camera to show both current location and destination
+      if (_controller.isCompleted && currentPosition.value != null) {
+        final GoogleMapController controller = await _controller.future;
+        LatLngBounds bounds = LatLngBounds(
+          southwest: LatLng(
+            latitude < currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
+            longitude < currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+          ),
+          northeast: LatLng(
+            latitude > currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
+            longitude > currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+          ),
+        );
+        controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to set destination: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
 }
