@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
+import '../ambulance_request/ambulance_request_page.dart';
 
 class HomePartnerPage extends StatelessWidget {
   const HomePartnerPage({super.key});
@@ -16,25 +17,22 @@ class HomePartnerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
     return GetBuilder<HomePartnerController>(
       init: HomePartnerController(),
       builder: (controller) {
         return Scaffold(
+          key: scaffoldKey,
           backgroundColor: backgroundColor,
           appBar: AppBar(
-         
-       
-            elevation: 2,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.blueGrey),
-                onPressed: controller.refreshData,
-                tooltip: 'Refresh Data',
-              ),
-           
-            ],
+            leading: IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                scaffoldKey.currentState?.openDrawer();
+              },
+            ),
           ),
-          body: Obx(() {
+            body: Obx(() {
             if (controller.isLoading.value) {
               return const Center(
                 child: CircularProgressIndicator(
@@ -124,6 +122,104 @@ class HomePartnerPage extends StatelessWidget {
             }
             return const SizedBox.shrink();
           }),
+          drawer: Drawer(
+            child: Builder(
+              builder: (context) => ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                DrawerHeader(
+                 
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        controller.partnerData.value?['name'] ?? 'Name',
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        controller.partnerData.value?['email'] ?? 'Email',
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        controller.partnerData.value?['address'] ?? 'Address',
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                  ListTile(
+                    leading: const Icon(Icons.dashboard),
+                    title: const Text('Order Dashboard'),
+                    onTap: () {
+                      // TODO: Navigate to Order Dashboard
+                      Navigator.of(context).pop(); // Close the drawer
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.local_shipping),
+                    title: const Text('Ambulance Requests'),
+                    onTap: () {
+                      Navigator.of(context).pop(); // Close the drawer
+                      Get.to(() => const AmbulanceRequestPage());
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.account_circle),
+                    title: const Text('Profile'),
+                    onTap: () {
+                      // TODO: Navigate to Profile
+                      Navigator.of(context).pop(); // Close the drawer
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.attach_money),
+                    title: const Text('Earnings'),
+                    onTap: () {
+                      // TODO: Navigate to Earnings
+                      Navigator.of(context).pop(); // Close the drawer
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings),
+                    title: const Text('Settings'),
+                    onTap: () {
+                      // TODO: Navigate to Settings
+                      Navigator.of(context).pop(); // Close the drawer
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.help),
+                    title: const Text('Help & Support'),
+                    onTap: () {
+                      
+                      Navigator.of(context).pop(); // Close the drawer
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('Logout'),
+                    onTap: () {
+                      controller.logout();
+                    },
+                  ),
+                  // Add more menu items here as needed
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

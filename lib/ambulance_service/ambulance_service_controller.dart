@@ -138,6 +138,26 @@ class AmbulanceServiceController extends GetxController {
     if (userId == null) return;
 
     try {
+      // Check if user already has a pending ambulance request to this specific partner
+      final existingRequests = await _firestore
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .where('partnerId', isEqualTo: partnerId)
+          .where('type', isEqualTo: 'ambulance')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      if (existingRequests.docs.isNotEmpty) {
+        Get.snackbar(
+          'Request Already Pending',
+          'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
       isLoading.value = true;
 
       // Get user's current location
@@ -161,11 +181,11 @@ class AmbulanceServiceController extends GetxController {
         'userId': userId,
         'partnerId': partnerId,
         'orderStatus': 'pending',
-        'createdAt': Timestamp.now(),
+        'timestamp': Timestamp.now(),
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
-        'type': 'ambulance_request',
+        'type': 'ambulance',
       };
 
       if (userPosition != null) {
@@ -241,7 +261,7 @@ class AmbulanceServiceController extends GetxController {
       'orderId': orderData['orderId'] ?? '',
       'userId': orderData['userId'] ?? '',
       'urgency': orderData['urgency'] ?? 'normal',
-      'type': 'ambulance_request',
+      'type': 'ambulance',
       'userLocation': orderData['userLocation'] ?? {},
     };
 

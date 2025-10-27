@@ -136,7 +136,7 @@ class HomePartnerController extends GetxController {
 
   void handleIncomingRequest(RemoteMessage message) {
     final data = message.data;
-    if (data['type'] == 'ambulance_request') {
+    if (data['type'] == 'ambulance') {
       showRequestBottomSheet(data['orderId'] ?? '', data);
     }
   }
@@ -740,17 +740,34 @@ class HomePartnerController extends GetxController {
     try {
       isLoading.value = true;
       final user = _auth.currentUser;
+      print('👤 Current User: $user');
+      print('🆔 User UID: ${user?.uid}');
       if (user != null) {
         final doc = await FirebaseFirestore.instance
-            .collection('partners')
+            .collection('users')
             .doc(user.uid)
             .get();
 
         if (doc.exists) {
-          partnerData.value = doc.data();
-          print('✅ Partner data loaded: ${partnerData.value}');
+          print('📄 Partner document exists');
+          final currentToken = await FirebaseMessaging.instance.getToken();
+          print('🔑 Current FCM Token: $currentToken');
+          print('🔑 Stored FCM Token: ${doc['fcmToken']}');
+          // Temporarily disable token check to show name
+          // if (doc['fcmToken'] == currentToken) {
+            partnerData.value = doc.data();
+            print('✅ Partner data loaded: ${partnerData.value}');
+          // } else {
+          //   print('❌ FCM token mismatch');
+          //   Get.snackbar(
+          //     'Error',
+          //     'Device verification failed. Please log in again.',
+          //     backgroundColor: Colors.red,
+          //     colorText: Colors.white,
+          //   );
+          // }
         } else {
-          print('❌ Partner data not found');
+          print('❌ Partner document not found');
           Get.snackbar(
             'Error',
             'Partner profile not found. Please complete registration.',
@@ -881,7 +898,7 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user != null) {
         await FirebaseFirestore.instance
-            .collection('partners')
+            .collection('users')
             .doc(user.uid)
             .update({
           'latitude': latitude,
@@ -903,7 +920,7 @@ class HomePartnerController extends GetxController {
     final user = _auth.currentUser;
     if (user != null) {
       FirebaseFirestore.instance
-          .collection('partners')
+          .collection('users')
           .doc(user.uid)
           .update({
         'isOnline': isOnline.value,

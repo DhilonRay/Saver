@@ -1316,7 +1316,27 @@ class HomeController extends GetxController {
       );
       return null;
     }
+
     try {
+      // Check if user already has a pending ambulance request to this specific partner
+      final existingRequests = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .where('partnerId', isEqualTo: partnerId)
+          .where('type', isEqualTo: 'ambulance')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      if (existingRequests.docs.isNotEmpty) {
+        Get.snackbar(
+          'Request Already Pending',
+          'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: const Duration(seconds: 5),
+        );
+        return null;
+      }
       final docRef = await FirebaseFirestore.instance.collection('orders').add({
         'userId': userId,
         'partnerId': partnerId,
