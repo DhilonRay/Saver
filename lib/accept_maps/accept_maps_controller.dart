@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_webservice/directions.dart' as directions;
 
 class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -16,15 +17,34 @@ class AcceptMapsController extends GetxController {
   var partnerPosition = Rx<LatLng?>(null);
   var userPosition = Rx<LatLng?>(null);
   var markers = <Marker>{}.obs;
+  var polylines = <Polyline>{}.obs;
   var isLoadingLocation = true.obs;
   var requestData = Rx<Map<String, dynamic>?>(null);
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
 
+  // Google Maps Directions API client
+  late directions.GoogleMapsDirections _directions;
+
+  // Helper function to format address display
+  String formatAddress(String? address) {
+    if (address == null || address.isEmpty) {
+      return 'Address not provided';
+    }
+    
+    // Check if it's coordinates format
+    if (address.startsWith('Lat:') && address.contains('Lng:')) {
+      return 'Location coordinates available';
+    }
+    
+    return address;
+  }
+
   @override
   void onInit() {
     super.onInit();
+    _initializeDirections();
     _loadCustomIcons();
     _getCurrentLocation();
 
@@ -39,6 +59,12 @@ class AcceptMapsController extends GetxController {
     } else {
       debugPrint('AcceptMaps: No request data received in arguments');
     }
+  }
+
+  void _initializeDirections() {
+    // Initialize Google Maps Directions API
+    // Note: You'll need to add your API key here
+    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
   }
 
   Future<void> _loadCustomIcons() async {
@@ -119,6 +145,97 @@ class AcceptMapsController extends GetxController {
         ),
       );
     }
+  }
+
+  Future<void> _createRoutePolyline() async {
+    if (partnerPosition.value != null && userPosition.value != null) {
+      try {
+        debugPrint('Creating route polyline from ${partnerPosition.value} to ${userPosition.value}');
+
+        final origin = '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
+        final destination = '${userPosition.value!.latitude},${userPosition.value!.longitude}';
+
+        final result = await _directions.directionsWithLocation(
+          directions.Location(lat: partnerPosition.value!.latitude, lng: partnerPosition.value!.longitude),
+          directions.Location(lat: userPosition.value!.latitude, lng: userPosition.value!.longitude),
+          travelMode: directions.TravelMode.driving,
+        );
+
+        if (result.status == 'OK' && result.routes.isNotEmpty) {
+          final route = result.routes.first;
+          final polylinePoints = <LatLng>[];
+
+          // Decode the polyline points
+          for (var leg in route.legs) {
+            for (var step in leg.steps) {
+              final points = _decodePolyline(step.polyline.points);
+              polylinePoints.addAll(points);
+            }
+          }
+
+          // Create polyline
+          final polyline = Polyline(
+            polylineId: PolylineId('route'),
+            points: polylinePoints,
+            color: Colors.blue,
+            width: 5,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+          );
+
+          polylines.clear();
+          polylines.add(polyline);
+
+          debugPrint('Route polyline created with ${polylinePoints.length} points');
+        } else {
+          debugPrint('Failed to get directions: ${result.status}');
+        }
+      } catch (e) {
+        debugPrint('Error creating route polyline: $e');
+      }
+    }
+  }
+
+  List<LatLng> _decodePolyline(String encoded) {
+    List<LatLng> points = [];
+    int index = 0;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < encoded.length) {
+      int b;
+      int shift = 0;
+      int result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      double latitude = lat / 1E5;
+      double longitude = lng / 1E5;
+
+      points.add(LatLng(latitude, longitude));
+    }
+
+    return points;
   }
 
   void onMapCreated(GoogleMapController controller) {

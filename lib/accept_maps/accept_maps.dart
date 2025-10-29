@@ -264,7 +264,7 @@ class AcceptMapsPage extends StatelessWidget {
                   _buildDetailRow(
                     icon: Icons.location_on,
                     title: 'Pickup Location',
-                    value: controller.requestData.value?['pickupAddress'] ?? 'Address not provided',
+                    value: controller.formatAddress(controller.requestData.value?['pickupAddress']),
                   ),
 
                   if (controller.requestData.value?['email'] != null &&
