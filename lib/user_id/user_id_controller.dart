@@ -48,6 +48,7 @@ class UserIdController extends GetxController {
             'phone': 'N/A',
             'address': 'N/A',
             'uid': uid,
+            'role': 'user', // Default role for users
             'createdAt': Timestamp.now(),
           };
           nameController.text = 'N/A';

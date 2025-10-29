@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
@@ -1318,6 +1319,10 @@ class HomeController extends GetxController {
     }
 
     try {
+      // Fetch user details from users collection
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final userData = userDoc.data() ?? {};
+
       // Check if user already has a pending ambulance request to this specific partner
       final existingRequests = await FirebaseFirestore.instance
           .collection('orders')
@@ -1337,6 +1342,51 @@ class HomeController extends GetxController {
         );
         return null;
       }
+
+      // Get current location for pickup address
+      String pickupAddress = 'Location not available';
+      if (currentPosition.value != null) {
+        try {
+          // Try reverse geocoding to get human-readable address
+          List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(
+            currentPosition.value!.latitude,
+            currentPosition.value!.longitude,
+          );
+          
+          if (placemarks.isNotEmpty) {
+            geocoding.Placemark place = placemarks.first;
+            // Build a readable address from placemark data
+            List<String> addressParts = [];
+            if (place.street != null && place.street!.isNotEmpty) {
+              addressParts.add(place.street!);
+            }
+            if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+              addressParts.add(place.subLocality!);
+            }
+            if (place.locality != null && place.locality!.isNotEmpty) {
+              addressParts.add(place.locality!);
+            }
+            if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+              addressParts.add(place.administrativeArea!);
+            }
+            if (place.country != null && place.country!.isNotEmpty) {
+              addressParts.add(place.country!);
+            }
+            
+            pickupAddress = addressParts.join(', ');
+            debugPrint('Reverse geocoding successful: $pickupAddress');
+          } else {
+            // Fallback to coordinates if reverse geocoding fails
+            pickupAddress = 'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
+            debugPrint('Reverse geocoding returned no results, using coordinates');
+          }
+        } catch (e) {
+          // Fallback to coordinates if reverse geocoding fails
+          pickupAddress = 'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
+          debugPrint('Reverse geocoding failed: $e, using coordinates');
+        }
+      }
+
       final docRef = await FirebaseFirestore.instance.collection('orders').add({
         'userId': userId,
         'partnerId': partnerId,
@@ -1350,6 +1400,13 @@ class HomeController extends GetxController {
           'latitude': currentPosition.value?.latitude,
           'longitude': currentPosition.value?.longitude,
         },
+        // Include user details
+        'patientName': userData['name'] ?? 'Name not provided',
+        'phone': userData['phone'] ?? 'Phone not provided',
+        'email': userData['email'] ?? _auth.currentUser?.email ?? 'Email not provided',
+        'pickupAddress': pickupAddress,
+        'pickupLat': currentPosition.value?.latitude,
+        'pickupLng': currentPosition.value?.longitude,
       });
       Get.snackbar(
         'Success',

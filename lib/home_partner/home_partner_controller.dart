@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import '../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../chat_page/sos_chat_page.dart';
@@ -30,6 +31,20 @@ class HomePartnerController extends GetxController {
   var pendingRequests = <Map<String, dynamic>>[].obs;
   var showRequestBottomSheet = false.obs;
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
+
+  // Helper function to format address display
+  String _formatAddress(String? address) {
+    if (address == null || address.isEmpty) {
+      return 'Address not provided - contact patient';
+    }
+    
+    // Check if it's coordinates format
+    if (address.startsWith('Lat:') && address.contains('Lng:')) {
+      return 'Location coordinates available - contact patient for details';
+    }
+    
+    return address;
+  }
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -201,7 +216,7 @@ class HomePartnerController extends GetxController {
             ),
             SizedBox(height: 16),
             Text(
-              'Location: ${request['pickupAddress'] ?? 'Address not provided - contact patient'}',
+              'Location: ${_formatAddress(request['pickupAddress'])}',
               style: TextStyle(fontSize: 16),
             ),
             Text(
