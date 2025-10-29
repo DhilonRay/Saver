@@ -55,6 +55,8 @@ class AcceptMapsController extends GetxController {
       debugPrint('AcceptMaps: Received request data with ID: ${args['id']}');
       if (args['pickupLat'] != null && args['pickupLng'] != null) {
         userPosition.value = LatLng(args['pickupLat'], args['pickupLng']);
+        // Create route polyline after setting user position
+        _createRoutePolyline();
       }
     } else {
       debugPrint('AcceptMaps: No request data received in arguments');
@@ -110,6 +112,8 @@ class AcceptMapsController extends GetxController {
 
       // Update markers
       _updateMarkers();
+      // Create route polyline if user position is available
+      _createRoutePolyline();
 
       isLoadingLocation.value = false;
     } catch (e) {
@@ -155,9 +159,9 @@ class AcceptMapsController extends GetxController {
         final origin = '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
         final destination = '${userPosition.value!.latitude},${userPosition.value!.longitude}';
 
-        final result = await _directions.directionsWithLocation(
-          directions.Location(lat: partnerPosition.value!.latitude, lng: partnerPosition.value!.longitude),
-          directions.Location(lat: userPosition.value!.latitude, lng: userPosition.value!.longitude),
+        final result = await _directions.directions(
+          origin,
+          destination,
           travelMode: directions.TravelMode.driving,
         );
 
