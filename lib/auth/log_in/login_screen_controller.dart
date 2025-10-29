@@ -120,7 +120,7 @@ class LoginController extends GetxController {
             margin: const EdgeInsets.all(10),
           );
           Future.delayed(const Duration(milliseconds: 500), () {
-            Get.offAll(() => const HomePartnerPage());
+            Get.offAll(() => HomePartnerPage());
           });
         } else {
           debugPrint('Navigating to HomePage (user)');

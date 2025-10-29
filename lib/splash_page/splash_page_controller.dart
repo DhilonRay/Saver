@@ -21,7 +21,7 @@ class SplashPageController {
 
           if (role != null && role == 'driver') {
             // Navigate to partner home for drivers
-            Get.offAll(() => const HomePartnerPage());
+            Get.offAll(() =>  HomePartnerPage());
           } else {
             // Default to user home
             Get.offAll(() => HomePage());
