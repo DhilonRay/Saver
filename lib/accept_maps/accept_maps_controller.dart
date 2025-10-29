@@ -21,6 +21,10 @@ class AcceptMapsController extends GetxController {
   var isLoadingLocation = true.obs;
   var requestData = Rx<Map<String, dynamic>?>(null);
 
+  // Live tracking variables
+  var isLiveTracking = false.obs;
+  StreamSubscription<Position>? _positionSubscription;
+
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
 
@@ -331,6 +335,87 @@ class AcceptMapsController extends GetxController {
     }
   }
 
+  // Live tracking functions
+  void startLiveTracking() {
+    if (isLiveTracking.value) return;
+
+    isLiveTracking.value = true;
+    debugPrint('Starting live location tracking...');
+
+    // Start listening to position changes
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // Update every 5 meters
+      ),
+    ).listen((Position position) {
+      final newPosition = LatLng(position.latitude, position.longitude);
+      partnerPosition.value = newPosition;
+
+      // Update marker position
+      _updatePartnerMarker();
+
+      // Move camera to follow ambulance when live tracking
+      _animateCameraToPosition(newPosition);
+
+      debugPrint('Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
+    });
+
+    Get.snackbar(
+      'Live Tracking Started',
+      'Your location is now being tracked in real-time',
+      backgroundColor: Colors.blue.shade100,
+      colorText: Colors.blue.shade800,
+      duration: Duration(seconds: 3),
+    );
+  }
+
+  void stopLiveTracking() {
+    if (!isLiveTracking.value) return;
+
+    isLiveTracking.value = false;
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+
+    debugPrint('Stopped live location tracking');
+  }
+
+  void _animateCameraToPosition(LatLng position) async {
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: position,
+          zoom: 16.0, // Appropriate zoom level for following
+        ),
+      ),
+    );
+  }
+
+  void _updatePartnerMarker() {
+    if (partnerPosition.value != null) {
+      // Create a new set with updated markers to trigger reactivity
+      final updatedMarkers = Set<Marker>.from(markers);
+
+      // Remove existing partner marker
+      updatedMarkers.removeWhere((marker) => marker.markerId.value == 'partner_location');
+
+      // Add updated partner marker
+      updatedMarkers.add(
+        Marker(
+          markerId: MarkerId('partner_location'),
+          position: partnerPosition.value!,
+          infoWindow: InfoWindow(title: 'Your Ambulance (Live)'),
+          icon: partnerLocationIcon,
+        ),
+      );
+
+      // Reassign to trigger reactivity
+      markers.assignAll(updatedMarkers);
+    }
+  }
+
+  // Navigate back
   void goBack() {
     Get.back();
   }

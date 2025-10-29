@@ -162,8 +162,8 @@ class AcceptMapsPage extends StatelessWidget {
 
               // Sliding panel with ride details
               SlidingUpPanel(
-                minHeight: 200,
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
+                minHeight: 130,
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 panelBuilder: (scrollController) => _buildSlidePanel(scrollController, controller),
                 body: Container(), // Empty body since map is already full screen
@@ -344,29 +344,93 @@ class AcceptMapsPage extends StatelessWidget {
 
                   SizedBox(height: 24),
 
-                  // Complete ride button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: controller.completeRide,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  // Live tracking status indicator
+                  Obx(() {
+                    if (controller.isLiveTracking.value) {
+                      return Container(
+                        padding: EdgeInsets.all(12),
+                        margin: EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
                         ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        'Complete Ride',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Colors.blue.shade600,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Live tracking active - Your location is being updated in real-time',
+                                style: TextStyle(
+                                  color: Colors.blue.shade800,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ),
+                      );
+                    }
+                    return SizedBox.shrink();
+                  }),
+
+                  // Complete ride button (shown when live tracking is active)
+                  Obx(() {
+                    if (controller.isLiveTracking.value) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: controller.completeRide,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            'Complete Ride',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      // Pick up patient button (shown initially)
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: controller.startLiveTracking,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            'Picked Up Patient - Start Live Tracking',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }),
 
                   SizedBox(height: 12),
 
