@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../user_id/userid.dart';
 
 class AmbulanceServiceController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -176,23 +177,64 @@ class AmbulanceServiceController extends GetxController {
         print('Could not get user location: $e');
       }
 
+      // Get user data from Firestore
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final userData = userDoc.data() ?? {};
+
+      debugPrint('🔍 Ambulance Request - User ID: $userId');
+      debugPrint('📄 User document exists: ${userDoc.exists}');
+      debugPrint('👤 User data: $userData');
+
+      // Get current user info from Firebase Auth as fallback
+      final currentUser = _auth.currentUser;
+      final userName = userData['name'] ?? currentUser?.displayName ?? 'Patient';
+      final userPhone = userData['phone'] ?? currentUser?.phoneNumber ?? 'Contact required';
+      final userAddress = userData['address'] ?? 'Please update your address in profile';
+      final userEmail = userData['email'] ?? currentUser?.email ?? '';
+
+      // Check if essential information is missing and show warning
+      if (userData['name'] == null || userData['phone'] == null || userData['address'] == null) {
+        Get.snackbar(
+          'Profile Incomplete',
+          'Please update your profile with complete information (name, phone, address) for better service.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: const Duration(seconds: 4),
+          mainButton: TextButton(
+            onPressed: () {
+              // Navigate to user profile page
+              Get.to(() => UserIdPage());
+            },
+            child: const Text('Update Profile', style: TextStyle(color: Colors.blue)),
+          ),
+        );
+      }
+
       // Create the order
       final orderData = {
         'userId': userId,
         'partnerId': partnerId,
-        'orderStatus': 'pending',
+        'status': 'pending',
         'timestamp': Timestamp.now(),
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
         'type': 'ambulance',
+        'patientName': userName,
+        'phone': userPhone,
+        'pickupAddress': userAddress,
+        'email': userEmail,
       };
+
+      debugPrint('📝 Order data to be saved: $orderData');
 
       if (userPosition != null) {
         orderData['userLocation'] = {
           'latitude': userPosition.latitude,
           'longitude': userPosition.longitude,
         };
+        orderData['pickupLat'] = userPosition.latitude;
+        orderData['pickupLng'] = userPosition.longitude;
       }
 
       final orderRef = await _firestore.collection('orders').add(orderData);
