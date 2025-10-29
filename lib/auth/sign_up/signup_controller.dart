@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import '../../home_user/home_user.dart';
 import '../../partner/partner.dart';
-import '../log_in/login_screen.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -98,9 +98,9 @@ class SignUpController extends GetxController {
           borderRadius: 10,
           margin: const EdgeInsets.all(10),
         );
-        // Add a small delay to ensure proper cleanup before navigation
+        // Navigate directly to home page since user is already authenticated
         Future.delayed(const Duration(milliseconds: 100), () {
-          Get.offAll(() => const LoginPage());
+          Get.offAll(() => HomePage());
         });
       }
     } catch (e) {
@@ -219,7 +219,7 @@ class SignUpController extends GetxController {
 
   void goToLogin() {
     Future.delayed(const Duration(milliseconds: 100), () {
-      Get.offAll(() => const LoginPage());
+      Get.offAll(() => HomePage());
     });
   }
 }
