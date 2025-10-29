@@ -62,6 +62,7 @@ class AcceptMapsPage extends StatelessWidget {
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
                   markers: controller.markers.toSet(),
+                  polylines: controller.polylines.toSet(),
                   onMapCreated: controller.onMapCreated,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
