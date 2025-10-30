@@ -17,7 +17,7 @@ class PartnerOrdersController extends GetxController {
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore.collection('orders').doc(orderId).update({'orderStatus': newStatus});
+      await _firestore.collection('orders').doc(orderId).update({'status': newStatus});
 
       Get.snackbar(
         'Success',
@@ -49,12 +49,13 @@ class PartnerOrdersController extends GetxController {
   }
 
   Stream<QuerySnapshot> getOrdersStream() {
-    if (partnerId.value.isEmpty) return const Stream.empty();
+    if (partnerId.value.isEmpty) {
+      return const Stream.empty();
+    }
 
     return _firestore
         .collection('orders')
         .where('partnerId', isEqualTo: partnerId.value)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 

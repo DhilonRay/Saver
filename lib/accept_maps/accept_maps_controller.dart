@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,6 +25,15 @@ class AcceptMapsController extends GetxController {
   // Live tracking variables
   var isLiveTracking = false.obs;
   StreamSubscription<Position>? _positionSubscription;
+
+  // Timing and performance optimization
+  Timer? _firestoreUpdateTimer;
+  Timer? _cameraUpdateTimer;
+  Position? _lastFirestorePosition;
+  Position? _lastCameraPosition;
+  static const Duration _firestoreUpdateInterval = Duration(seconds: 3); // Update every 3 seconds
+  static const Duration _cameraUpdateInterval = Duration(seconds: 5); // Camera update every 5 seconds
+  static const double _minDistanceForCameraUpdate = 20.0; // 20 meters minimum for camera update
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -80,7 +90,10 @@ class AcceptMapsController extends GetxController {
         const ImageConfiguration(size: Size(40, 40)),
         'assets/markers/ambulance.png',
       );
-      userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      userLocationIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(50, 50)),
+        'assets/markers/user.png',
+      );
       debugPrint('Accept maps custom icons loaded successfully');
     } catch (e) {
       debugPrint('Failed to load accept maps custom icons: $e');
@@ -336,13 +349,29 @@ class AcceptMapsController extends GetxController {
   }
 
   // Live tracking functions
-  void startLiveTracking() {
+  void startLiveTracking() async {
     if (isLiveTracking.value) return;
 
     isLiveTracking.value = true;
     debugPrint('Starting live location tracking...');
 
-    // Start listening to position changes
+    // Update order status to in_transit
+    if (requestData.value != null) {
+      final requestId = requestData.value!['id'];
+      try {
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(requestId)
+            .update({
+          'status': 'in_transit',
+        });
+        debugPrint('Updated order status to in_transit');
+      } catch (e) {
+        debugPrint('Failed to update order status: $e');
+      }
+    }
+
+    // Start listening to position changes with optimized timing
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -352,11 +381,14 @@ class AcceptMapsController extends GetxController {
       final newPosition = LatLng(position.latitude, position.longitude);
       partnerPosition.value = newPosition;
 
-      // Update marker position
+      // Update marker position immediately for smooth UI
       _updatePartnerMarker();
 
-      // Move camera to follow ambulance when live tracking
-      _animateCameraToPosition(newPosition);
+      // Debounced Firestore update (every 3 seconds)
+      _scheduleFirestoreUpdate(position);
+
+      // Conditional camera update (every 5 seconds and minimum distance)
+      _scheduleCameraUpdate(position);
 
       debugPrint('Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
     });
@@ -370,12 +402,84 @@ class AcceptMapsController extends GetxController {
     );
   }
 
+  void _scheduleFirestoreUpdate(Position position) {
+    // Check if position has changed significantly (at least 10 meters)
+    if (_lastFirestorePosition != null &&
+        _calculateDistance(_lastFirestorePosition!, position) < 10) {
+      return; // Skip update if not moved enough
+    }
+
+    // Cancel existing timer
+    _firestoreUpdateTimer?.cancel();
+
+    // Schedule new update
+    _firestoreUpdateTimer = Timer(_firestoreUpdateInterval, () async {
+      if (requestData.value != null && isLiveTracking.value) {
+        final requestId = requestData.value!['id'];
+        try {
+          await FirebaseFirestore.instance
+              .collection('orders')
+              .doc(requestId)
+              .update({
+            'partnerLiveLocation': {
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'timestamp': Timestamp.now(),
+            },
+          });
+          _lastFirestorePosition = position;
+          debugPrint('Firestore location updated');
+        } catch (e) {
+          debugPrint('Failed to update live location: $e');
+          // Retry after delay if failed
+          Future.delayed(Duration(seconds: 2), () => _scheduleFirestoreUpdate(position));
+        }
+      }
+    });
+  }
+
+  void _scheduleCameraUpdate(Position position) {
+    // Only update camera if moved significant distance or enough time passed
+    final shouldUpdateCamera = _lastCameraPosition == null ||
+        _calculateDistance(_lastCameraPosition!, position) >= _minDistanceForCameraUpdate;
+
+    if (shouldUpdateCamera) {
+      // Cancel existing timer
+      _cameraUpdateTimer?.cancel();
+
+      // Schedule camera update
+      _cameraUpdateTimer = Timer(_cameraUpdateInterval, () {
+        if (isLiveTracking.value) {
+          _animateCameraToPosition(LatLng(position.latitude, position.longitude));
+          _lastCameraPosition = position;
+        }
+      });
+    }
+  }
+
+  double _calculateDistance(Position pos1, Position pos2) {
+    const double earthRadius = 6371000; // meters
+    final double dLat = (pos2.latitude - pos1.latitude) * (pi / 180);
+    final double dLng = (pos2.longitude - pos1.longitude) * (pi / 180);
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(pos1.latitude * (pi / 180)) * cos(pos2.latitude * (pi / 180)) *
+        sin(dLng / 2) * sin(dLng / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
   void stopLiveTracking() {
     if (!isLiveTracking.value) return;
 
     isLiveTracking.value = false;
     _positionSubscription?.cancel();
     _positionSubscription = null;
+
+    // Cancel any pending timers
+    _firestoreUpdateTimer?.cancel();
+    _firestoreUpdateTimer = null;
+    _cameraUpdateTimer?.cancel();
+    _cameraUpdateTimer = null;
 
     debugPrint('Stopped live location tracking');
   }

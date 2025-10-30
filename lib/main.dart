@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/splash_page/splash_page.dart';
+import 'package:saver/accept_maps/accept_maps.dart';
 
 
 
@@ -46,6 +47,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home:  SplashPage(),
+      getPages: [
+        GetPage(name: '/accept-maps', page: () => AcceptMapsPage()),
+      ],
     );
   }
 }

@@ -162,8 +162,8 @@ class AcceptMapsPage extends StatelessWidget {
 
               // Sliding panel with ride details
               SlidingUpPanel(
-                minHeight: 130,
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
+                minHeight: 100, // Reduced from 130
+                maxHeight: MediaQuery.of(context).size.height * 0.49, // Reduced from 0.9
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 panelBuilder: (scrollController) => _buildSlidePanel(scrollController, controller),
                 body: Container(), // Empty body since map is already full screen
@@ -180,15 +180,23 @@ class AcceptMapsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Panel header
+          // Panel handle
           Container(
-            padding: EdgeInsets.symmetric(vertical: 12),
+            padding: EdgeInsets.symmetric(vertical: 8),
             child: Center(
               child: Container(
-                width: 40,
+                width: 32,
                 height: 4,
                 decoration: BoxDecoration(
                   color: Colors.grey.shade300,
@@ -198,340 +206,270 @@ class AcceptMapsPage extends StatelessWidget {
             ),
           ),
 
-          // Ride details
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scrollController,
-              padding: EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Status
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green.shade300),
-                    ),
-                    child: Text(
-                      'Ride in Progress',
-                      style: TextStyle(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 8),
-
-                  // Request ID (for debugging/verification)
-                  Text(
-                    'Request ID: ${controller.requestData.value?['id'] ?? 'N/A'}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-
-                  SizedBox(height: 20),
-
-                  // Patient info
-                  Text(
-                    'Patient Details',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-
-                  SizedBox(height: 12),
-
-                  _buildDetailRow(
-                    icon: Icons.person,
-                    title: 'Name',
-                    value: controller.requestData.value?['patientName'] ?? 'Name not provided',
-                  ),
-
-                  _buildDetailRow(
-                    icon: Icons.phone,
-                    title: 'Phone',
-                    value: controller.requestData.value?['phone'] ?? 'Phone not provided',
-                  ),
-
-                  _buildDetailRow(
-                    icon: Icons.location_on,
-                    title: 'Pickup Location',
-                    value: controller.formatAddress(controller.requestData.value?['pickupAddress']),
-                  ),
-
-                  if (controller.requestData.value?['email'] != null &&
-                      controller.requestData.value!['email'].toString().isNotEmpty) ...[
-                    SizedBox(height: 12),
-                    _buildDetailRow(
-                      icon: Icons.email,
-                      title: 'Email',
-                      value: controller.requestData.value!['email'],
-                    ),
-                  ],
-
-                  if (controller.requestData.value?['notes'] != null &&
-                      controller.requestData.value!['notes'].toString().isNotEmpty) ...[
-                    SizedBox(height: 12),
-                    _buildDetailRow(
-                      icon: Icons.note,
-                      title: 'Notes',
-                      value: controller.requestData.value!['notes'],
-                    ),
-                  ],
-
-                  SizedBox(height: 24),
-
-                  // Emergency contact section
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: lightGreen,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: primaryGreen.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.emergency,
-                          color: primaryGreen,
-                          size: 24,
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Emergency Contact',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: primaryGreen,
-                                ),
-                              ),
-                              Text(
-                                'Call emergency services if needed',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            // Call emergency number
-                          },
-                          icon: Icon(
-                            Icons.call,
-                            color: primaryGreen,
-                            size: 28,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Live tracking status indicator
-                  Obx(() {
-                    if (controller.isLiveTracking.value) {
-                      return Container(
-                        padding: EdgeInsets.all(12),
-                        margin: EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.blue.shade600,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Live tracking active - Your location is being updated in real-time',
-                                style: TextStyle(
-                                  color: Colors.blue.shade800,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return SizedBox.shrink();
-                  }),
-
-                  // Complete ride button (shown when live tracking is active)
-                  Obx(() {
-                    if (controller.isLiveTracking.value) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: controller.completeRide,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryGreen,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: Text(
-                            'Complete Ride',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    } else {
-                      // Pick up patient button (shown initially)
-                      return SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: controller.startLiveTracking,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryGreen,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: Text(
-                            'Picked Up Patient - Start Live Tracking',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                  }),
-
-                  SizedBox(height: 12),
-
-                  // Cancel ride button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // Show cancel confirmation dialog
-                        Get.dialog(
-                          AlertDialog(
-                            title: Text('Cancel Ride'),
-                            content: Text('Are you sure you want to cancel this ride?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Get.back(),
-                                child: Text('No'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Get.back();
-                                  controller.goBack();
-                                },
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                ),
-                                child: Text('Yes, Cancel'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.red.shade300),
-                        foregroundColor: Colors.red.shade600,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel Ride',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: lightGreen,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: primaryGreen,
-              size: 20,
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
+          // Compact content
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w500,
+                // Status and patient info in a compact card
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      // Status badge and patient name in one row
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: primaryGreen.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.local_shipping,
+                                  color: primaryGreen,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'In Progress',
+                                  style: TextStyle(
+                                    color: primaryGreen,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Spacer(),
+                          Obx(() {
+                            String statusText;
+                            Color statusColor;
+                            
+                            if (controller.isLiveTracking.value) {
+                              statusText = 'TRACKING';
+                              statusColor = Colors.blue.shade600;
+                            } else {
+                              statusText = 'READY';
+                              statusColor = primaryGreen;
+                            }
+                            
+                            return Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: statusColor.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                statusText,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: statusColor,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+
+                      SizedBox(height: 12),
+
+                      // Patient name (prominent)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            color: primaryGreen,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              controller.requestData.value?['patientName'] ?? 'Patient',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 8),
+
+                      // Phone and location in compact rows
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.phone,
+                            color: Colors.grey.shade600,
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              controller.requestData.value?['phone'] ?? 'No phone',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 6),
+
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              controller.formatAddress(controller.requestData.value?['pickupAddress']),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w500,
-                  ),
+
+                SizedBox(height: 16),
+
+                // Live tracking indicator (compact)
+                Obx(() {
+                  if (controller.isLiveTracking.value) {
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.gps_fixed,
+                            color: Colors.blue.shade600,
+                            size: 16,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Live tracking active',
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return SizedBox.shrink();
+                }),
+
+                // Action buttons (compact)
+                Row(
+                  children: [
+                    // Primary action button
+                    Expanded(
+                      child: Obx(() {
+                        return ElevatedButton(
+                          onPressed: controller.isLiveTracking.value
+                              ? controller.completeRide
+                              : controller.startLiveTracking,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: controller.isLiveTracking.value
+                                ? Colors.orange.shade500
+                                : primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            controller.isLiveTracking.value
+                                ? 'Complete'
+                                : 'Start Tracking',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+
+                    SizedBox(width: 12),
+
+                    // Cancel button (compact)
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          Get.dialog(
+                            AlertDialog(
+                              title: Text('Cancel Ride'),
+                              content: Text('Are you sure you want to cancel this ride?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Get.back(),
+                                  child: Text('No'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Get.back();
+                                    controller.goBack();
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                  ),
+                                  child: Text('Yes, Cancel'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.red.shade600,
+                          size: 20,
+                        ),
+                        tooltip: 'Cancel Ride',
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -540,4 +478,6 @@ class AcceptMapsPage extends StatelessWidget {
       ),
     );
   }
+
+
 }
