@@ -207,7 +207,41 @@ class HomePage extends StatelessWidget {
                 SafeArea(
                   child: Column(
                     children: [
-                   
+                      // Ambulance status indicator
+                      Obx(() {
+                        if (controller.showAmbulances.value) {
+                          return Container(
+                            margin: EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 8),
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.local_hospital,
+                                  color: Colors.green.shade700,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Nearby ambulances visible',
+                                  style: TextStyle(
+                                    color: Colors.green.shade800,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return SizedBox.shrink();
+                      }),
+
                       // Destination input container
                       Container(
                         margin: EdgeInsets.all(16),
@@ -430,12 +464,13 @@ class HomePage extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _buildEmergencyButton(
+                            Obx(() => _buildEmergencyButton(
                               icon: Icons.local_hospital,
-                              label: 'Ambulance',
-                              color: Colors.green.shade600,
+                              label: controller.showAmbulances.value ? 'Ambulances On' : 'Ambulance',
+                              color: controller.showAmbulances.value ? Colors.green.shade700 : Colors.green.shade600,
                               onPressed: controller.navigateToAmbulanceServices,
-                            ),
+                              isActive: controller.showAmbulances.value,
+                            )),
                             Container(
                               width: 1,
                               height: 40,
@@ -574,6 +609,7 @@ class HomePage extends StatelessWidget {
     required String label,
     required Color color,
     required VoidCallback onPressed,
+    bool isActive = false,
   }) {
     return Expanded(
       child: Material(
@@ -582,14 +618,29 @@ class HomePage extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: EdgeInsets.symmetric( horizontal: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  color: color,
-                  size: 24,
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Icon(
+                      icon,
+                      color: color,
+                      size: 24,
+                    ),
+                    if (isActive)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade500,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                      ),
+                  ],
                 ),
                 SizedBox(height: 4),
                 Text(

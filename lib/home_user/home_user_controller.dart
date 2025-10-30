@@ -58,7 +58,7 @@ class HomeController extends GetxController {
   var destinationQuery = ''.obs;
 
   // Ambulance visibility control
-  var showAmbulances = false.obs;
+  var showAmbulances = true.obs; // Show ambulances by default
 
   // Search history variables
   var searchHistory = <String>[].obs;
@@ -1452,6 +1452,15 @@ class HomeController extends GetxController {
             'An ambulance is on the way! Track its live location.',
             backgroundColor: Colors.green.shade100,
             colorText: Colors.green.shade800,
+            duration: const Duration(seconds: 5),
+          );
+        } else if (status == 'in_transit') {
+          isTrackingPartner.value = true;
+          Get.snackbar(
+            'Patient Picked Up',
+            'The ambulance has picked up the patient and is now moving. Track its live location.',
+            backgroundColor: Colors.blue.shade100,
+            colorText: Colors.blue.shade800,
             duration: const Duration(seconds: 5),
           );
         } else if (status == 'completed') {
