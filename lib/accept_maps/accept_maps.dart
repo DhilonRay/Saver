@@ -450,7 +450,7 @@ class AcceptMapsPage extends StatelessWidget {
                                 TextButton(
                                   onPressed: () {
                                     Get.back();
-                                    controller.goBack();
+                                    controller.cancelRide();
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.red,

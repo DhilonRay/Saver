@@ -24,10 +24,15 @@ class PartnersOrdersPage extends StatelessWidget {
               iconTheme: IconThemeData(color: colorScheme.onPrimary),
               titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
               bottom: TabBar(
-                isScrollable: true,
+                // Make tabs expand evenly to fill the available width
+                isScrollable: false,
                 indicatorColor: Colors.white,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicatorWeight: 3.0,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white70,
+                // ensure equal spacing inside each tab
+                labelPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 0),
                 tabs: const [
                   Tab(text: 'Activity', icon: Icon(Icons.work)),
                   Tab(text: 'Completed', icon: Icon(Icons.done_all)),
