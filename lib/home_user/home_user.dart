@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_user_controller.dart';
+import '../feedback/feedback.dart';
 
 class HomePage extends StatelessWidget {
   HomePage({super.key});
@@ -89,14 +90,10 @@ class HomePage extends StatelessWidget {
                           SizedBox(height: 20),
                           _buildDrawerItem(
                             icon: Icons.person_outline,
-                            title: 'User Profile',
+                            title: 'Profile',
                             onTap: controller.navigateToUserId,
                           ),
-                          _buildDrawerItem(
-                            icon: Icons.assignment_ind_outlined,
-                            title: 'Partner Orders',
-                            onTap: controller.navigateToPartnersOrders,
-                          ),
+                  
                           _buildDrawerItem(
                             icon: Icons.assignment_outlined,
                             title: 'Your Orders',
@@ -116,7 +113,13 @@ class HomePage extends StatelessWidget {
                           _buildDrawerItem(
                             icon: Icons.feedback_outlined,
                             title: 'Feedback',
-                            onTap: () {},
+                            onTap: () {
+                              // Close the drawer and navigate to Feedback page
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              Get.to(() => const FeedbackPage());
+                            },
                           ),
                         ],
                       ),

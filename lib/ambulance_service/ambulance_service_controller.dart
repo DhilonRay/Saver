@@ -76,34 +76,36 @@ class AmbulanceServiceController extends GetxController {
       AlertDialog(
         title: Text('Book Ambulance - $companyName'),
         content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Select urgency level:'),
-              const SizedBox(height: 10),
-              DropdownButton<String>(
-                value: selectedUrgency,
-                items: const [
-                  DropdownMenuItem(value: 'normal', child: Text('Normal')),
-                  DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
-                  DropdownMenuItem(value: 'emergency', child: Text('Emergency')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => selectedUrgency = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Additional Notes (optional)',
-                  border: OutlineInputBorder(),
+          builder: (context, setState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Select urgency level:'),
+                const SizedBox(height: 10),
+                DropdownButton<String>(
+                  value: selectedUrgency,
+                  items: const [
+                    DropdownMenuItem(value: 'normal', child: Text('Normal')),
+                    DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
+                    DropdownMenuItem(value: 'emergency', child: Text('Emergency')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedUrgency = value);
+                    }
+                  },
                 ),
-                maxLines: 3,
-                onChanged: (value) => additionalNotes = value,
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Additional Notes (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  onChanged: (value) => additionalNotes = value,
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
