@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
+import '../help_support/help_support.dart';
+import '../feedback/feedback.dart';
 
 class HomePartnerPage extends StatelessWidget {
   HomePartnerPage({super.key});
@@ -135,12 +137,24 @@ class HomePartnerPage extends StatelessWidget {
                           _buildDrawerItem(
                             icon: Icons.help_outline,
                             title: 'Help & Support',
-                            onTap: () {},
+                            onTap: () {
+                              // Close the drawer and navigate to Help & Support page
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              Get.to(() => const HelpSupportPage());
+                            },
                           ),
                           _buildDrawerItem(
                             icon: Icons.feedback_outlined,
                             title: 'Feedback',
-                            onTap: () {},
+                            onTap: () {
+                              // Close the drawer and navigate to Feedback page
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              Get.to(() => const FeedbackPage());
+                            },
                           ),
                         ],
                       ),
