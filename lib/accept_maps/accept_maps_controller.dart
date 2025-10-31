@@ -519,6 +519,43 @@ class AcceptMapsController extends GetxController {
     }
   }
 
+  Future<void> cancelRide() async {
+    try {
+      if (requestData.value != null) {
+        final requestId = requestData.value!['id'];
+        debugPrint('AcceptMaps: Cancelling ride with request ID: $requestId');
+
+        // Stop live tracking if active
+        if (isLiveTracking.value) {
+          stopLiveTracking();
+        }
+
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(requestId)
+            .update({
+          'status': 'cancelled',
+          'cancelledAt': Timestamp.now(),
+        });
+
+        Get.back(); // Go back to home partner page
+        Get.snackbar(
+          'Ride Cancelled',
+          'The ride has been cancelled successfully',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to cancel ride: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
   // Navigate back
   void goBack() {
     Get.back();
