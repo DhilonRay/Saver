@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../home_user/home_user.dart';
 import '../../home_partner/home_partner.dart';
+import '../../services/notification_service.dart';
 import '../sign_up/signup.dart';
 
 class LoginController extends GetxController {
@@ -121,6 +122,10 @@ class LoginController extends GetxController {
           );
           Future.delayed(const Duration(milliseconds: 500), () {
             Get.offAll(() => HomePartnerPage());
+            // Initialize FCM after navigation
+            Future.delayed(const Duration(seconds: 1), () {
+              NotificationService.ensureFCMInitialized();
+            });
           });
         } else {
           debugPrint('Navigating to HomePage (user)');
@@ -135,6 +140,10 @@ class LoginController extends GetxController {
           );
           Future.delayed(const Duration(milliseconds: 500), () {
             Get.offAll(() => HomePage());
+            // Initialize FCM after navigation
+            Future.delayed(const Duration(seconds: 1), () {
+              NotificationService.ensureFCMInitialized();
+            });
           });
         }
       } else {

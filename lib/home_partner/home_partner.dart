@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
 import '../help_support/help_support.dart';
 import '../feedback/feedback.dart';
+import '../services/notification_service.dart';
 
 class HomePartnerPage extends StatelessWidget {
   HomePartnerPage({super.key});
@@ -154,6 +155,38 @@ class HomePartnerPage extends StatelessWidget {
                                 Get.back();
                               } catch (_) {}
                               Get.to(() => const FeedbackPage());
+                            },
+                          ),
+                          Divider(height: 40, thickness: 1),
+                          _buildDrawerItem(
+                            icon: Icons.notifications_active_outlined,
+                            title: 'Test Notification',
+                            onTap: () async {
+                              // Close the drawer
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              
+                              // Test local notification
+                              await NotificationService.testLocalNotification();
+                              
+                              // Check FCM token
+                              final token = await NotificationService.initializeFCMToken();
+                              if (token != null) {
+                                Get.snackbar(
+                                  'FCM Token',
+                                  'Token saved successfully',
+                                  backgroundColor: Colors.green.shade100,
+                                  colorText: Colors.green.shade800,
+                                );
+                              } else {
+                                Get.snackbar(
+                                  'FCM Token Error',
+                                  'Failed to get FCM token',
+                                  backgroundColor: Colors.red.shade100,
+                                  colorText: Colors.red.shade800,
+                                );
+                              }
                             },
                           ),
                         ],
@@ -345,6 +378,44 @@ class HomePartnerPage extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+
+                      // Test Notification Button (for debugging)
+                      Positioned(
+                        bottom: 120,
+                        right: 16,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            onPressed: () async {
+                              await NotificationService.testLocalNotification();
+                              Get.snackbar(
+                                'Test',
+                                'Local notification sent!',
+                                backgroundColor: Colors.orange.shade100,
+                                colorText: Colors.orange.shade800,
+                              );
+                            },
+                            icon: Icon(
+                              Icons.notifications,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            tooltip: 'Test Notification',
+                          ),
                         ),
                       ),
                     ],

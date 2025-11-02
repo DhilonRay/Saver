@@ -11,12 +11,14 @@ import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
+import '../services/notification_service.dart';
 
 class HomeController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -1596,6 +1598,38 @@ class HomeController extends GetxController {
         colorText: Colors.green.shade800,
       );
       
+      // Send notification to ambulance partner
+      final requestData = {
+        'orderId': docRef.id,
+        'partnerId': partnerId,
+        'companyName': companyName,
+        'urgency': urgency,
+        'notes': notes,
+        'status': 'pending',
+        'type': 'ambulance',
+        'userLocation': {
+          'latitude': currentPosition.value?.latitude,
+          'longitude': currentPosition.value?.longitude,
+        },
+        'patientName': userData['name'] ?? 'Name not provided',
+        'phone': userData['phone'] ?? 'Phone not provided',
+        'email': userData['email'] ?? _auth.currentUser?.email ?? 'Email not provided',
+        'pickupAddress': pickupAddress,
+        'pickupLat': currentPosition.value?.latitude,
+        'pickupLng': currentPosition.value?.longitude,
+      };
+
+      try {
+        await NotificationService.sendAmbulanceNotificationDirect(
+          partnerId: partnerId,
+          requestData: requestData,
+        );
+        debugPrint('✅ Ambulance notification sent to partner: $partnerId');
+      } catch (notificationError) {
+        debugPrint('❌ Failed to send ambulance notification: $notificationError');
+        // Don't fail the entire request if notification fails
+      }
+      
       // Listen for status updates
       listenForRequestUpdates(docRef.id);
       
@@ -1869,6 +1903,373 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Error',
         'Failed to set destination: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  // FCM Push Notification Methods
+  
+  /// Sends push notification to a specific driver using their FCM token
+  /// This method directly sends notification to individual driver
+  Future<void> sendNotificationToDriver({
+    required String driverId,
+    required String fcmToken,
+    required Map<String, dynamic> requestData,
+  }) async {
+    try {
+      // You can get this server key from Firebase Console > Project Settings > Cloud Messaging
+      // For production, this should be stored securely on backend server
+      const String serverKey = 'YOUR_FCM_SERVER_KEY_HERE'; // Replace with actual server key
+      
+      // Get current user info
+      final currentUser = _auth.currentUser;
+      final userId = currentUser?.uid ?? '';
+      
+      // Get user data from Firestore
+      DocumentSnapshot? userDoc;
+      String userName = 'User';
+      String userPhone = '';
+      String userAddress = '';
+      
+      if (userId.isNotEmpty) {
+        userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>?;
+          userName = userData?['name'] ?? currentUser?.displayName ?? 'User';
+          userPhone = userData?['phone'] ?? currentUser?.phoneNumber ?? '';
+          userAddress = userData?['address'] ?? '';
+        }
+      }
+      
+      // Prepare notification data
+      final Map<String, dynamic> notificationData = {
+        'title': 'নতুন রাইড রিকুয়েস্ট',
+        'body': '$userName আপনার কাছে একটি রাইড রিকুয়েস্ট পাঠিয়েছেন',
+        'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+        'sound': 'default',
+      };
+
+      // Prepare data payload that will be sent with notification
+      final Map<String, dynamic> dataPayload = {
+        'type': 'ride_request',
+        'requestId': requestData['requestId'] ?? '',
+        'userId': userId,
+        'userName': userName,
+        'userPhone': userPhone,
+        'userAddress': userAddress,
+        'pickupLocation': jsonEncode(requestData['pickupLocation'] ?? {}),
+        'destinationLocation': jsonEncode(requestData['destinationLocation'] ?? {}),
+        'pickupAddress': requestData['pickupAddress'] ?? '',
+        'destinationAddress': requestData['destinationAddress'] ?? '',
+        'fare': requestData['fare'] ?? '',
+        'distance': requestData['distance'] ?? '',
+        'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+        'urgency': requestData['urgency'] ?? 'normal',
+      };
+
+      // Prepare FCM message
+      final Map<String, dynamic> message = {
+        'to': fcmToken,
+        'notification': notificationData,
+        'data': dataPayload,
+        'priority': 'high',
+        'android': {
+          'priority': 'high',
+          'notification': {
+            'channel_id': 'ride_requests',
+            'sound': 'default',
+            'priority': 'high',
+          }
+        },
+        'apns': {
+          'payload': {
+            'aps': {
+              'sound': 'default',
+              'badge': 1,
+            }
+          }
+        }
+      };
+
+      // Send FCM notification
+      final response = await http.post(
+        Uri.parse('https://fcm.googleapis.com/fcm/send'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'key=$serverKey',
+        },
+        body: jsonEncode(message),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Push notification sent successfully to driver: $driverId');
+        print('📱 FCM Response: ${response.body}');
+        
+        // Show success message to user
+        Get.snackbar(
+          'সফল',
+          'ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে',
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.green.shade800,
+          duration: const Duration(seconds: 3),
+        );
+      } else {
+        print('❌ Failed to send push notification: ${response.statusCode}');
+        print('📱 FCM Error Response: ${response.body}');
+        
+        Get.snackbar(
+          'ত্রুটি',
+          'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (e) {
+      print('❌ Error sending push notification: $e');
+      Get.snackbar(
+        'ত্রুটি',
+        'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  /// Sends notification to multiple drivers based on proximity
+  Future<void> sendNotificationToNearbyDrivers({
+    required LatLng userLocation,
+    required Map<String, dynamic> requestData,
+    double radiusInKm = 5.0,
+  }) async {
+    try {
+      print('🔍 Looking for nearby drivers within ${radiusInKm}km radius...');
+      
+      // Query nearby drivers from Firestore
+      final driversSnapshot = await FirebaseFirestore.instance
+          .collection('partners')
+          .where('role', isEqualTo: 'driver')
+          .where('isOnline', isEqualTo: true)
+          .get();
+
+      int notificationsSent = 0;
+      
+      for (var driverDoc in driversSnapshot.docs) {
+        final driverData = driverDoc.data();
+        final driverLocation = driverData['currentLocation'];
+        final fcmToken = driverData['fcmToken'];
+        
+        if (driverLocation != null && fcmToken != null && fcmToken.isNotEmpty) {
+          final driverLat = driverLocation['latitude'] as double?;
+          final driverLng = driverLocation['longitude'] as double?;
+          
+          if (driverLat != null && driverLng != null) {
+            // Calculate distance between user and driver
+            final distance = Geolocator.distanceBetween(
+              userLocation.latitude,
+              userLocation.longitude,
+              driverLat,
+              driverLng,
+            ) / 1000; // Convert to kilometers
+            
+            // Send notification if driver is within radius
+            if (distance <= radiusInKm) {
+              print('📍 Found nearby driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
+              
+              await sendNotificationToDriver(
+                driverId: driverDoc.id,
+                fcmToken: fcmToken,
+                requestData: requestData,
+              );
+              
+              notificationsSent++;
+            }
+          }
+        }
+      }
+      
+      if (notificationsSent > 0) {
+        print('✅ Sent notifications to $notificationsSent nearby drivers');
+        Get.snackbar(
+          'সফল',
+          '$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.green.shade800,
+          duration: const Duration(seconds: 4),
+        );
+      } else {
+        print('⚠️ No nearby drivers found');
+        Get.snackbar(
+          'তথ্য',
+          'আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+          duration: const Duration(seconds: 4),
+        );
+      }
+      
+    } catch (e) {
+      print('❌ Error sending notifications to nearby drivers: $e');
+      Get.snackbar(
+        'ত্রুটি',
+        'আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  /// Example method to send ride request to a specific driver
+  Future<void> sendRideRequestToDriver({
+    required String driverId,
+    String? destinationAddress,
+    String? notes,
+    String urgency = 'normal',
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন');
+        return;
+      }
+
+      // Get driver's FCM token from Firestore
+      final driverDoc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(driverId)
+          .get();
+
+      if (!driverDoc.exists) {
+        Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি');
+        return;
+      }
+
+      final driverData = driverDoc.data();
+      final fcmToken = driverData?['fcmToken'] as String?;
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
+        return;
+      }
+
+      // Create ride request data
+      final requestData = {
+        'requestId': DateTime.now().millisecondsSinceEpoch.toString(),
+        'driverId': driverId,
+        'pickupLocation': {
+          'latitude': currentPosition.value?.latitude,
+          'longitude': currentPosition.value?.longitude,
+        },
+        'destinationLocation': {
+          'latitude': destinationPosition.value?.latitude,
+          'longitude': destinationPosition.value?.longitude,
+        },
+        'pickupAddress': 'Current Location', // You can get actual address using geocoding
+        'destinationAddress': destinationAddress ?? 'Selected Destination',
+        'notes': notes ?? '',
+        'urgency': urgency,
+        'timestamp': Timestamp.now(),
+        'status': 'pending',
+      };
+
+      // Save request to Firestore
+      final requestId = requestData['requestId'] as String;
+      await FirebaseFirestore.instance
+          .collection('ride_requests')
+          .doc(requestId)
+          .set({
+        ...requestData,
+        'userId': currentUser.uid,
+        'createdAt': Timestamp.now(),
+      });
+
+      // Send push notification to driver
+      await sendNotificationToDriver(
+        driverId: driverId,
+        fcmToken: fcmToken,
+        requestData: requestData,
+      );
+
+    } catch (e) {
+      print('❌ Error sending ride request: $e');
+      Get.snackbar(
+        'ত্রুটি',
+        'রাইড রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  /// Example method to send request to nearby drivers
+  Future<void> sendRideRequestToNearbyDrivers({
+    String? destinationAddress,
+    String? notes,
+    String urgency = 'normal',
+    double radiusInKm = 5.0,
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন');
+        return;
+      }
+
+      if (currentPosition.value == null) {
+        Get.snackbar('ত্রুটি', 'আপনার বর্তমান অবস্থান পাওয়া যায়নি');
+        return;
+      }
+
+      // Create ride request data
+      final requestData = {
+        'requestId': DateTime.now().millisecondsSinceEpoch.toString(),
+        'pickupLocation': {
+          'latitude': currentPosition.value!.latitude,
+          'longitude': currentPosition.value!.longitude,
+        },
+        'destinationLocation': {
+          'latitude': destinationPosition.value?.latitude,
+          'longitude': destinationPosition.value?.longitude,
+        },
+        'pickupAddress': 'Current Location', // You can get actual address using geocoding
+        'destinationAddress': destinationAddress ?? 'Selected Destination',
+        'notes': notes ?? '',
+        'urgency': urgency,
+        'timestamp': Timestamp.now(),
+        'status': 'pending',
+      };
+
+      // Save request to Firestore
+      final requestId2 = requestData['requestId'] as String;
+      await FirebaseFirestore.instance
+          .collection('ride_requests')
+          .doc(requestId2)
+          .set({
+        ...requestData,
+        'userId': currentUser.uid,
+        'createdAt': Timestamp.now(),
+      });
+
+      // Send notifications to nearby drivers
+      await sendNotificationToNearbyDrivers(
+        userLocation: currentPosition.value!,
+        requestData: requestData,
+        radiusInKm: radiusInKm,
+      );
+
+    } catch (e) {
+      print('❌ Error sending ride request to nearby drivers: $e');
+      Get.snackbar(
+        'ত্রুটি',
+        'আশেপাশের ড্রাইভারদের রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );

@@ -21,6 +21,8 @@ dependencies:
   firebase_auth: ^4.17.4
   cloud_firestore: ^4.15.4
   firebase_messaging: ^14.7.4
+  cloud_functions: ^4.6.4
+  flutter_local_notifications: ^17.2.1
   intl: ^0.18.1
   google_places_flutter: ^2.0.5
   http: ^0.13.5
@@ -29,6 +31,10 @@ dependencies:
   url_launcher: ^6.3.1
   country_code_picker: ^3.4.1
   sliding_up_panel: ^2.0.0+1
+  dart_jsonwebtoken: ^3.3.1
+  pointycastle: ^4.0.0
+  jwt_decoder: ^2.0.1
+  googleapis_auth: ^1.4.1
 
 dev_dependencies:
   flutter_test:

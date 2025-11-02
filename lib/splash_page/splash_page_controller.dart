@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
 import '../home_user/home_user.dart';
 import '../home_partner/home_partner.dart';
+import '../services/notification_service.dart';
 import 'package:get/get.dart';
 
 
@@ -26,6 +27,11 @@ class SplashPageController {
             // Default to user home
             Get.offAll(() => HomePage());
           }
+
+          // Ensure FCM token is initialized after navigation
+          Future.delayed(const Duration(seconds: 1), () {
+            NotificationService.ensureFCMInitialized();
+          });
         } catch (e) {
           // On error, default to user home or fallback to login
           print('Error fetching user role: $e');

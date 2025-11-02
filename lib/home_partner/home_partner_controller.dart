@@ -30,6 +30,7 @@ class HomePartnerController extends GetxController {
   // Ambulance requests
   var pendingRequests = <Map<String, dynamic>>[].obs;
   var showRequestBottomSheet = false.obs;
+  var shownRequestIds = <String>{}.obs; // Track requests that have already been shown
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
 
   // Helper function to format address display
@@ -76,7 +77,14 @@ class HomePartnerController extends GetxController {
   @override
   void onClose() {
     _requestsSubscription?.cancel();
+    shownRequestIds.clear(); // Clear shown requests when controller closes
     super.onClose();
+  }
+
+  /// Reset shown requests (useful when driver logs out and logs back in)
+  void resetShownRequests() {
+    shownRequestIds.clear();
+    showRequestBottomSheet.value = false;
   }
 
   Future<void> _getCurrentLocation() async {
@@ -184,10 +192,15 @@ class HomePartnerController extends GetxController {
           };
         }).toList();
 
-        // Show bottom sheet if there are pending requests
-        if (pendingRequests.isNotEmpty && !showRequestBottomSheet.value) {
+        // Show bottom sheet if there are pending requests that haven't been shown yet
+        final newRequests = pendingRequests.where((request) => !shownRequestIds.contains(request['id'])).toList();
+        
+        if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
+          final firstNewRequest = newRequests.first;
+          shownRequestIds.add(firstNewRequest['id']); // Mark as shown
           showRequestBottomSheet.value = true;
-          _showRequestBottomSheet(pendingRequests.first);
+          debugPrint('🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
+          _showRequestBottomSheet(firstNewRequest);
         }
       });
     } catch (e) {
@@ -285,6 +298,7 @@ class HomePartnerController extends GetxController {
 
       Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
+      debugPrint('✅ Request accepted: $requestId');
 
       // Navigate to accept maps page with request data
       Get.to(() => AcceptMapsPage(), arguments: request);
@@ -308,6 +322,7 @@ class HomePartnerController extends GetxController {
 
       Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
+      debugPrint('❌ Request declined: $requestId');
 
       Get.snackbar(
         'Success',
