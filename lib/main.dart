@@ -46,6 +46,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // Show local notification for background messages
   await NotificationService.showBackgroundNotification(message);
+
+  // Also handle the notification data for partner app
+  if (message.data['type'] == 'ambulance_request') {
+    print('🚑 Ambulance request received in background: ${message.data['orderId']}');
+    // Partner app will handle this when opened
+  }
 }
 
 class MyApp extends StatelessWidget {
