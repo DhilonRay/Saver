@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'splash_page_controller.dart';
+import 'package:saver/services/notification_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -44,14 +45,14 @@ class _SplashPageState extends State<SplashPage> {
           ],
         ),
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () async {
-      //     // Test FCM V1 notification
-      //     await NotificationService.testFCMV1Notification();
-      //   },
-      //   child: const Icon(Icons.notifications),
-      //   tooltip: 'Test FCM V1',
-      // ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Test FCM V1 notification
+          await NotificationService.testFCMV1Notification();
+        },
+        child: const Icon(Icons.notifications),
+        tooltip: 'Test FCM V1',
+      ),
     );
   }
 }

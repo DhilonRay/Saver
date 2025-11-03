@@ -4,8 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
 import '../help_support/help_support.dart';
 import '../feedback/feedback.dart';
-import '../partner_details/partner_details_page.dart';
-import '../partner_profile/partner_profile.dart';
+import '../services/notification_service.dart';
 
 class HomePartnerPage extends StatelessWidget {
   HomePartnerPage({super.key});
@@ -101,14 +100,22 @@ class HomePartnerPage extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 16),
-                          Obx(() => Text(
-                            controller.partnerName.value ?? 'Partner',
+                          Text(
+                            'NeoSaver Partner',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 24,
                               color: primaryBlue,
                               fontWeight: FontWeight.bold,
                             ),
-                          )),
+                          ),
+                          Text(
+                            'Emergency Response',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: primaryBlue.withValues(alpha: 0.8),
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -126,28 +133,6 @@ class HomePartnerPage extends StatelessWidget {
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
-                          ),
-                          _buildDrawerItem(
-                            icon: Icons.account_circle_outlined,
-                            title: 'Partner Details',
-                            onTap: () {
-                              // Close the drawer and navigate to Partner Details page
-                              try {
-                                Get.back();
-                              } catch (_) {}
-                              Get.to(() => const PartnerDetailsPage());
-                            },
-                          ),
-                          _buildDrawerItem(
-                            icon: Icons.person_outline,
-                            title: 'My Profile',
-                            onTap: () {
-                              // Close the drawer and navigate to Partner Profile page
-                              try {
-                                Get.back();
-                              } catch (_) {}
-                              Get.to(() => const PartnerProfilePage());
-                            },
                           ),
                           Divider(height: 40, thickness: 1),
                           _buildDrawerItem(
@@ -173,6 +158,37 @@ class HomePartnerPage extends StatelessWidget {
                             },
                           ),
                           Divider(height: 40, thickness: 1),
+                          _buildDrawerItem(
+                            icon: Icons.notifications_active_outlined,
+                            title: 'Test Notification',
+                            onTap: () async {
+                              // Close the drawer
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              
+                              // Test local notification
+                              await NotificationService.testLocalNotification();
+                              
+                              // Check FCM token
+                              final token = await NotificationService.initializeFCMToken();
+                              if (token != null) {
+                                Get.snackbar(
+                                  'FCM Token',
+                                  'Token saved successfully',
+                                  backgroundColor: Colors.green.shade100,
+                                  colorText: Colors.green.shade800,
+                                );
+                              } else {
+                                Get.snackbar(
+                                  'FCM Token Error',
+                                  'Failed to get FCM token',
+                                  backgroundColor: Colors.red.shade100,
+                                  colorText: Colors.red.shade800,
+                                );
+                              }
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -366,7 +382,7 @@ class HomePartnerPage extends StatelessWidget {
                       ),
 
                       // Test Notification Button (for debugging)
-                      /* Positioned(
+                      Positioned(
                         bottom: 120,
                         right: 16,
                         child: Container(
@@ -401,7 +417,7 @@ class HomePartnerPage extends StatelessWidget {
                             tooltip: 'Test Notification',
                           ),
                         ),
-                      ), */
+                      ),
                     ],
                   ),
                 ),
