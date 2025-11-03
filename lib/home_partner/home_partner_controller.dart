@@ -16,6 +16,14 @@ class HomePartnerController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
 
+  // Dynamic ambulance rates (can be changed by partner)
+  var indoorCityRate = 2500.obs; // Default 2500 TK for indoor city
+  var outdoorCityRate = 10000.obs; // Default 10000 TK for outdoor city
+
+  // Default rates (fallback values)
+  static const int defaultIndoorCityRate = 2500;
+  static const int defaultOutdoorCityRate = 10000;
+
   // Custom marker icons
   BitmapDescriptor currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
   BitmapDescriptor userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
@@ -66,12 +74,189 @@ class HomePartnerController extends GetxController {
     }
   }
 
+  Future<void> _loadPartnerRates() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance.collection('partners').doc(user.uid).get();
+      
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        indoorCityRate.value = data['indoorCityRate'] ?? defaultIndoorCityRate;
+        outdoorCityRate.value = data['outdoorCityRate'] ?? defaultOutdoorCityRate;
+        debugPrint('✅ Loaded partner rates: Indoor=${indoorCityRate.value}, Outdoor=${outdoorCityRate.value}');
+      } else {
+        // Use default rates if no custom rates set
+        indoorCityRate.value = defaultIndoorCityRate;
+        outdoorCityRate.value = defaultOutdoorCityRate;
+        debugPrint('ℹ️ Using default rates for new partner');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading partner rates: $e');
+      // Use default rates on error
+      indoorCityRate.value = defaultIndoorCityRate;
+      outdoorCityRate.value = defaultOutdoorCityRate;
+    }
+  }
+
+  Future<void> updatePartnerRates(int newIndoorRate, int newOutdoorRate) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        Get.snackbar(
+          'Error',
+          'You must be logged in to update rates',
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+        );
+        return;
+      }
+
+      // Validate rates
+      if (newIndoorRate < 1000 || newOutdoorRate < 2000) {
+        Get.snackbar(
+          'Invalid Rates',
+          'Indoor rate must be at least ৳1,000 and outdoor rate at least ৳2,000',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+        return;
+      }
+
+      if (newIndoorRate >= newOutdoorRate) {
+        Get.snackbar(
+          'Invalid Rates',
+          'Outdoor rate must be higher than indoor rate',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+        return;
+      }
+
+      // Update Firestore
+      await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+        'indoorCityRate': newIndoorRate,
+        'outdoorCityRate': newOutdoorRate,
+        'ratesLastUpdated': Timestamp.now(),
+      });
+
+      // Update local reactive variables
+      indoorCityRate.value = newIndoorRate;
+      outdoorCityRate.value = newOutdoorRate;
+
+      Get.snackbar(
+        'Success',
+        'Rates updated successfully!',
+        backgroundColor: Colors.green.shade100,
+        colorText: Colors.green.shade800,
+      );
+
+      debugPrint('✅ Partner rates updated: Indoor=${newIndoorRate}, Outdoor=${newOutdoorRate}');
+    } catch (e) {
+      debugPrint('❌ Error updating partner rates: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to update rates: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  void showRateChangeDialog() {
+    int tempIndoorRate = indoorCityRate.value;
+    int tempOutdoorRate = outdoorCityRate.value;
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Update Ambulance Rates'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Set your ambulance rates. These will be shown to users when they book your services.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Indoor City Rate (৳)',
+                  hintText: 'Minimum 1000',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                controller: TextEditingController(text: tempIndoorRate.toString()),
+                onChanged: (value) {
+                  tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Outdoor City Rate (৳)',
+                  hintText: 'Minimum 2000',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                controller: TextEditingController(text: tempOutdoorRate.toString()),
+                onChanged: (value) {
+                  tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
+                },
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '💡 Tips:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('• Indoor: Within city limits', style: TextStyle(fontSize: 12)),
+                    Text('• Outdoor: Outside city or long distance', style: TextStyle(fontSize: 12)),
+                    Text('• Rates should reflect distance and urgency', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              updatePartnerRates(tempIndoorRate, tempOutdoorRate);
+              Get.back();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Update Rates'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void onInit() {
     super.onInit();
     _loadCustomIcons();
     _getCurrentLocation();
     _listenForRequests();
+    _loadPartnerRates(); // Load partner's custom rates
   }
 
   @override
@@ -334,6 +519,68 @@ class HomePartnerController extends GetxController {
       Get.snackbar(
         'Error',
         'Failed to decline request: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  /// Fetch request from Firestore and show bottom sheet
+  Future<void> _fetchAndShowRequest(String orderId) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('orders').doc(orderId).get();
+      
+      if (doc.exists) {
+        final request = {
+          'id': doc.id,
+          ...doc.data()!,
+        };
+
+        // Mark as shown and show bottom sheet
+        shownRequestIds.add(orderId);
+        showRequestBottomSheet.value = true;
+        _showRequestBottomSheet(request);
+        debugPrint('🔔 Showing bottom sheet for fetched request: $orderId');
+      } else {
+        Get.snackbar(
+          'Request Not Found',
+          'The requested ambulance request could not be found',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching request $orderId: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to load request details: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  /// Show bottom sheet for a specific request (used when notification is clicked)
+  void showBottomSheetForRequest(String orderId) {
+    try {
+      // Find the request in pending requests
+      final request = pendingRequests.firstWhereOrNull((req) => req['id'] == orderId);
+
+      if (request != null) {
+        // Mark as shown and show bottom sheet
+        shownRequestIds.add(orderId);
+        showRequestBottomSheet.value = true;
+        _showRequestBottomSheet(request);
+        debugPrint('🔔 Showing bottom sheet for notification-clicked request: $orderId');
+      } else {
+        // Request not found in pending requests, try to fetch it from Firestore
+        _fetchAndShowRequest(orderId);
+      }
+    } catch (e) {
+      debugPrint('❌ Error showing bottom sheet for request $orderId: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to show request details: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );

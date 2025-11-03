@@ -62,6 +62,9 @@ class HomeController extends GetxController {
   // Ambulance visibility control
   var showAmbulances = true.obs; // Show ambulances by default
 
+  // Partner rates cache
+  var partnerRates = <String, Map<String, int>>{}.obs; // partnerId -> {indoorCityRate, outdoorCityRate}
+
   // Search history variables
   var searchHistory = <String>[].obs;
   static const int _maxHistoryItems = 10;
@@ -1073,86 +1076,128 @@ class HomeController extends GetxController {
                       final latitude = data['latitude'] as double?;
                       final longitude = data['longitude'] as double?;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: InkWell(
-                          onTap: () => _showAmbulanceBookingDialog(
-                            ambulance.id,
-                            name,
-                            phone,
-                            address,
-                            ambulanceType,
-                            latitude,
-                            longitude,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1976D2).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.local_hospital,
-                                    color: Color(0xFF1976D2),
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '🚑 $ambulanceType',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '📍 $address',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '📞 $phone',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Color(0xFF1976D2),
-                                ),
-                              ],
+                      return FutureBuilder<Map<String, int>>(
+                        future: _fetchPartnerRates(ambulance.id),
+                        builder: (context, rateSnapshot) {
+                          final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                        ),
+                            child: InkWell(
+                              onTap: () => _showAmbulanceBookingDialog(
+                                ambulance.id,
+                                name,
+                                phone,
+                                address,
+                                ambulanceType,
+                                latitude,
+                                longitude,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF1976D2).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(
+                                            Icons.local_hospital,
+                                            color: Color(0xFF1976D2),
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                name,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '🚑 $ambulanceType',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '📍 $address',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '📞 $phone',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Color(0xFF1976D2),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // Rates Display
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1976D2).withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.2)),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Indoor: ৳${rates['indoorCityRate']}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF1976D2),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Outdoor: ৳${rates['outdoorCityRate']}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF1976D2),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );
@@ -1165,6 +1210,50 @@ class HomeController extends GetxController {
       isScrollControlled: true,
       enableDrag: true,
     );
+  }
+
+  Future<Map<String, int>> _fetchPartnerRates(String partnerId) async {
+    try {
+      // Check cache first
+      if (partnerRates.containsKey(partnerId)) {
+        return partnerRates[partnerId]!;
+      }
+
+      // Fetch from Firestore
+      final doc = await FirebaseFirestore.instance.collection('partners').doc(partnerId).get();
+      
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final rates = {
+          'indoorCityRate': (data['indoorCityRate'] as int?) ?? 2500,
+          'outdoorCityRate': (data['outdoorCityRate'] as int?) ?? 10000,
+        };
+        
+        // Cache the rates
+        partnerRates[partnerId] = rates;
+        
+        debugPrint('✅ Fetched partner rates for $partnerId: $rates');
+        return rates;
+      } else {
+        // Use default rates if partner not found
+        final defaultRates = {
+          'indoorCityRate': 2500,
+          'outdoorCityRate': 10000,
+        };
+        partnerRates[partnerId] = defaultRates;
+        debugPrint('ℹ️ Using default rates for partner $partnerId');
+        return defaultRates;
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching partner rates for $partnerId: $e');
+      // Return default rates on error
+      final defaultRates = {
+        'indoorCityRate': 2500,
+        'outdoorCityRate': 10000,
+      };
+      partnerRates[partnerId] = defaultRates;
+      return defaultRates;
+    }
   }
 
   void _bookSpecificAmbulance(Map<String, dynamic> ambulanceData) async {
@@ -1192,6 +1281,9 @@ class HomeController extends GetxController {
       return;
     }
 
+    // Fetch partner rates first
+    final rates = await _fetchPartnerRates(partnerId);
+    
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
 
@@ -1203,6 +1295,74 @@ class HomeController extends GetxController {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Ambulance Rates Display
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1976D2).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '🚑 Ambulance Rates',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1976D2),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Indoor City:',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '৳${rates['indoorCityRate']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Outdoor City:',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '৳${rates['outdoorCityRate']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '* Rates may vary based on distance and urgency',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Text('Select urgency level:'),
                 const SizedBox(height: 10),
                 DropdownButton<String>(
@@ -1255,6 +1415,8 @@ class HomeController extends GetxController {
   }
 
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
+    final partnerId = ambulanceData['id'] as String?;
+    
     // Show ambulance provider details in a bottom sheet
     Get.bottomSheet(
       Container(
@@ -1366,6 +1528,121 @@ class HomeController extends GetxController {
               ],
             ),
             SizedBox(height: 16),
+            // Ambulance Rates Display
+            if (partnerId != null) ...[
+              FutureBuilder<Map<String, int>>(
+                future: _fetchPartnerRates(partnerId),
+                builder: (context, rateSnapshot) {
+                  if (rateSnapshot.connectionState == ConnectionState.waiting) {
+                    return Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 8),
+                          Text('Loading rates...'),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+                  
+                  return Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.attach_money, color: Colors.blue.shade700, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Service Rates',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Indoor City',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                Text(
+                                  '৳${rates['indoorCityRate']}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Outdoor City',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                Text(
+                                  '৳${rates['outdoorCityRate']}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '* Final rate may vary based on distance and urgency',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 16),
+            ],
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1778,6 +2055,9 @@ class HomeController extends GetxController {
     double? latitude,
     double? longitude,
   ) async {
+    // Fetch partner rates first
+    final rates = await _fetchPartnerRates(partnerId);
+    
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
 
@@ -1789,6 +2069,74 @@ class HomeController extends GetxController {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Ambulance Rates Display
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1976D2).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '🚑 Ambulance Rates',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1976D2),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Indoor City:',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '৳${rates['indoorCityRate']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Outdoor City:',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '৳${rates['outdoorCityRate']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1976D2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '* Rates may vary based on distance and urgency',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Text('Select urgency level:'),
                 const SizedBox(height: 10),
                 DropdownButton<String>(

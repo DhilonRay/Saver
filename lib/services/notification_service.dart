@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
+import '../home_partner/home_partner_controller.dart';
 
 class NotificationService {
   static final FirebaseFunctions _functions = FirebaseFunctions.instance;
@@ -839,9 +840,9 @@ class NotificationService {
         // Get.toNamed('/ride-requests', arguments: data);
         break;
       case 'ambulance_request':
-        // Navigate to ambulance requests page
+        // Navigate to home partner page and show bottom sheet for the request
         print('🚑 Opening ambulance request: ${data['orderId']}');
-        // Get.toNamed('/ambulance-requests', arguments: data);
+        _navigateToHomePartnerWithRequest(data['orderId']);
         break;
       case 'emergency':
         // Navigate to emergency response page
@@ -850,6 +851,28 @@ class NotificationService {
         break;
       default:
         print('Unknown notification type: $type');
+    }
+  }
+
+  /// Navigate to home partner page and show bottom sheet for specific request
+  static void _navigateToHomePartnerWithRequest(String? orderId) {
+    if (orderId == null || orderId.isEmpty) {
+      print('❌ No orderId provided for notification navigation');
+      return;
+    }
+
+    try {
+      // Navigate to home partner page
+      Get.offAllNamed('/home-partner'); // Use offAll to clear navigation stack
+
+      // Wait for navigation to complete, then show bottom sheet
+      Future.delayed(const Duration(milliseconds: 500), () {
+        // Get the HomePartnerController and show bottom sheet for the request
+        final controller = Get.find<HomePartnerController>();
+        controller.showBottomSheetForRequest(orderId);
+      });
+    } catch (e) {
+      print('❌ Error navigating to home partner with request: $e');
     }
   }
 

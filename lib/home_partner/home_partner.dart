@@ -130,6 +130,17 @@ class HomePartnerPage extends StatelessWidget {
                             onTap: controller.navigateToPartnersOrders,
                           ),
                           _buildDrawerItem(
+                            icon: Icons.attach_money,
+                            title: 'Change Rates',
+                            onTap: () {
+                              // Close the drawer and show rate change dialog
+                              try {
+                                Get.back();
+                              } catch (_) {}
+                              controller.showRateChangeDialog();
+                            },
+                          ),
+                          _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
