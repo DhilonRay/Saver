@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
 import '../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../chat_page/sos_chat_page.dart';
@@ -26,6 +25,9 @@ class HomePartnerController extends GetxController {
   var isLoadingLocation = true.obs;
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
+
+  // Partner data
+  var partnerName = Rx<String?>('Loading...');
 
   // Ambulance requests
   var pendingRequests = <Map<String, dynamic>>[].obs;
@@ -70,6 +72,7 @@ class HomePartnerController extends GetxController {
   void onInit() {
     super.onInit();
     _loadCustomIcons();
+    _loadPartnerData();
     _getCurrentLocation();
     _listenForRequests();
   }
@@ -170,6 +173,25 @@ class HomePartnerController extends GetxController {
       }
     } catch (e) {
       debugPrint('Failed to update partner location: $e');
+    }
+  }
+
+  Future<void> _loadPartnerData() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // Get partner name from users collection where the full name is stored
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final userData = userDoc.data();
+          partnerName.value = userData?['name'] ?? 'Partner';
+        } else {
+          partnerName.value = 'Partner';
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load partner data: $e');
+      partnerName.value = 'Partner';
     }
   }
 
