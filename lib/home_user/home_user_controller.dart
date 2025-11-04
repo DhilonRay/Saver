@@ -1417,344 +1417,253 @@ class HomeController extends GetxController {
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
     final partnerId = ambulanceData['id'] as String?;
     
-    // Show ambulance provider details in a bottom sheet
+    // Show ambulance provider details in a very simple bottom sheet
     Get.bottomSheet(
       Container(
-        padding: EdgeInsets.all(20),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.local_hospital, color: Colors.green, size: 30),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ambulanceData['name'] ?? 'Ambulance Provider',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Icon(Icons.circle, color: Colors.green, size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'Online & Available',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            if (ambulanceData['address'] != null) ...[
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_on, color: Colors.grey, size: 20),
-                  SizedBox(width: 8),
+                  Icon(Icons.local_hospital, color: Colors.green, size: 28),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      ambulanceData['address'],
+                      ambulanceData['name'] ?? 'Ambulance Provider',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
-            ],
-            if (ambulanceData['ambulanceType'] != null) ...[
+              SizedBox(height: 8),
+              // Availability Status
               Row(
                 children: [
-                  Icon(Icons.directions_car, color: Colors.grey, size: 20),
+                  Icon(Icons.circle, color: Colors.green, size: 12),
                   SizedBox(width: 8),
                   Text(
-                    'Type: ${ambulanceData['ambulanceType']}',
+                    'Online & Available',
                     style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
+                      color: Colors.green,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                Icon(Icons.phone, color: Colors.grey, size: 20),
-                SizedBox(width: 8),
-                Column(
+              SizedBox(height: 16),
+       
+              if (ambulanceData['address'] != null) ...[
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Contact Number:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      ambulanceData['phone'] ?? '+8801581822846',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
+                    Icon(Icons.location_on, color: Colors.grey, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ambulanceData['address'],
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ],
                 ),
+                SizedBox(height: 8),
               ],
-            ),
-            SizedBox(height: 16),
-            // Ambulance Rates Display
-            if (partnerId != null) ...[
-              FutureBuilder<Map<String, int>>(
-                future: _fetchPartnerRates(partnerId),
-                builder: (context, rateSnapshot) {
-                  if (rateSnapshot.connectionState == ConnectionState.waiting) {
-                    return Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
+              if (ambulanceData['ambulanceType'] != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.directions_car, color: Colors.grey, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Type: ${ambulanceData['ambulanceType']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
                       ),
-                      child: Row(
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+              ],
+              Row(
+                children: [
+                  Icon(Icons.phone, color: Colors.grey, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    ambulanceData['phone'] ?? '+8801581822846',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              
+              // Rates
+              if (partnerId != null) ...[
+                FutureBuilder<Map<String, int>>(
+                  future: _fetchPartnerRates(partnerId),
+                  builder: (context, rateSnapshot) {
+                    if (rateSnapshot.connectionState == ConnectionState.waiting) {
+                      return Row(
                         children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                          CircularProgressIndicator(strokeWidth: 2),
                           SizedBox(width: 8),
                           Text('Loading rates...'),
                         ],
-                      ),
-                    );
-                  }
-                  
-                  final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
-                  
-                  return Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Column(
+                      );
+                    }
+                    
+                    final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+                    
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.attach_money, color: Colors.blue.shade700, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Service Rates',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade700,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Service Rates',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                         SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Indoor City',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  '৳${rates['indoorCityRate']}',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Indoor City: ৳${rates['indoorCityRate']}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Outdoor City',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  '৳${rates['outdoorCityRate']}',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Outdoor City: ৳${rates['outdoorCityRate']}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(height: 4),
                         Text(
                           '* Final rate may vary based on distance and urgency',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: Colors.grey,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
+                SizedBox(height: 20),
+              ],
+              
+              // Primary Action Button - Book Now (full width, prominent)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Get.back();
+                    _bookSpecificAmbulance(ambulanceData);
+                  },
+                  icon: Icon(Icons.book_online),
+                  label: Text('Book Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
               ),
-              SizedBox(height: 16),
-            ],
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Row(
+              SizedBox(height: 12),
+              
+              // Secondary Actions - Call and Directions side by side
+              Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final String numberToCall = ambulanceData['phone'] ?? '+8801581822846';
+                        final Uri launchUri = Uri(
+                          scheme: 'tel',
+                          path: numberToCall,
+                        );
+                        try {
+                          await launchUrl(launchUri);
+                          Get.snackbar(
+                            'Call Ambulance',
+                            'Calling ${ambulanceData['name']}...',
+                            backgroundColor: Colors.green.shade100,
+                            colorText: Colors.green.shade800,
+                          );
+                        } catch (e) {
+                          Get.snackbar(
+                            'Error',
+                            'Unable to make call. Please dial $numberToCall manually.',
+                            backgroundColor: Colors.red.shade100,
+                            colorText: Colors.red.shade800,
+                          );
+                        }
+                        Get.back();
+                      },
+                      icon: Icon(Icons.call),
+                      label: Text('Call Now'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'This ambulance driver is currently online and available for immediate service.',
-                      style: TextStyle(
-                        color: Colors.green.shade800,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        final lat = ambulanceData['latitude'] as double?;
+                        final lng = ambulanceData['longitude'] as double?;
+                        if (lat != null && lng != null) {
+                          destinationPosition.value = LatLng(lat, lng);
+                          _addDestinationMarkerAndRoute();
+                          Get.back();
+                          Get.snackbar(
+                            'Navigation',
+                            'Navigating to ${ambulanceData['name']}...',
+                            backgroundColor: Colors.blue.shade100,
+                            colorText: Colors.blue.shade800,
+                          );
+                        }
+                      },
+                      icon: Icon(Icons.directions),
+                      label: Text('Directions'),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Get.back(); // Close bottom sheet
-                      _bookSpecificAmbulance(ambulanceData);
-                    },
-                    icon: Icon(Icons.book_online),
-                    label: Text('Book Now'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final String numberToCall = ambulanceData['phone'] ?? '+8801581822846';
-                      final Uri launchUri = Uri(
-                        scheme: 'tel',
-                        path: numberToCall,
-                      );
-                      try {
-                        await launchUrl(launchUri);
-                        Get.snackbar(
-                          'Call Ambulance',
-                          'Calling ${ambulanceData['name']}...',
-                          backgroundColor: Colors.green.shade100,
-                          colorText: Colors.green.shade800,
-                        );
-                      } catch (e) {
-                        Get.snackbar(
-                          'Error',
-                          'Unable to make call. Please dial $numberToCall manually.',
-                          backgroundColor: Colors.red.shade100,
-                          colorText: Colors.red.shade800,
-                        );
-                      }
-                      Get.back(); // Close bottom sheet
-                    },
-                    icon: Icon(Icons.call),
-                    label: Text('Call Now'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      // Navigate to ambulance location
-                      final lat = ambulanceData['latitude'] as double?;
-                      final lng = ambulanceData['longitude'] as double?;
-                      if (lat != null && lng != null) {
-                        // Set destination and navigate
-                        destinationPosition.value = LatLng(lat, lng);
-                        _addDestinationMarkerAndRoute();
-                        Get.back(); // Close bottom sheet
-                        Get.snackbar(
-                          'Navigation',
-                          'Navigating to ${ambulanceData['name']}...',
-                          backgroundColor: Colors.blue.shade100,
-                          colorText: Colors.blue.shade800,
-                        );
-                      }
-                    },
-                    icon: Icon(Icons.directions),
-                    label: Text('Directions'),
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       isScrollControlled: true,

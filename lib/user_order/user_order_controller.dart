@@ -34,10 +34,11 @@ class UserOrderController extends GetxController {
   Stream<QuerySnapshot> getOrdersStream() {
     if (userId.isEmpty) return Stream.empty();
 
+    // Show only accepted orders (simplified query to avoid index requirement)
     return _firestore
         .collection('orders')
         .where('userId', isEqualTo: userId.value)
-        .orderBy('createdAt', descending: true)
+        .where('status', isEqualTo: 'accepted')
         .snapshots();
   }
 
@@ -51,10 +52,18 @@ class UserOrderController extends GetxController {
       final snapshot = await _firestore
           .collection('orders')
           .where('userId', isEqualTo: userId.value)
-          .orderBy('createdAt', descending: true)
+          .where('status', isEqualTo: 'accepted')
           .get();
 
-      orders.value = snapshot.docs.map((doc) => doc.data()).toList();
+      // Sort in memory since we can't use orderBy in query
+      final ordersList = snapshot.docs.map((doc) => doc.data()).toList();
+      ordersList.sort((a, b) {
+        final aTime = (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final bTime = (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        return bTime.compareTo(aTime); // Descending order
+      });
+
+      orders.value = ordersList;
     } catch (e) {
       error.value = 'Failed to fetch orders: ${e.toString()}';
       Get.snackbar(
