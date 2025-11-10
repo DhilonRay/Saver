@@ -5,10 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import '../about/about.dart';
+import '../../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
-import '../chat_page/sos_chat_page.dart';
-import '../auth/log_in/login_screen.dart';
+import '../../chat_page/sos_chat_page.dart';
+import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
 
 class HomePartnerController extends GetxController {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'partner_profile_controller.dart';
-import '../loader/loader.dart';
+import '../../loader/loader.dart';
 
 class PartnerProfilePage extends StatelessWidget {
   const PartnerProfilePage({super.key});

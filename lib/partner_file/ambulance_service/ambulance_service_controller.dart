@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../user_id/userid.dart';
+import '../../user_id/userid.dart';
 
 class AmbulanceServiceController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

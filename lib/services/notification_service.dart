@@ -9,7 +9,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:flutter/services.dart' as services;
-import '../home_partner/home_partner_controller.dart';
+import '../partner_file/home_partner/home_partner_controller.dart';
 
 class NotificationService {
   static final FirebaseFunctions _functions = FirebaseFunctions.instance;

@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'partner_orders_controller.dart';
-import '../loader/loader.dart';
+import '../../loader/loader.dart';
 
 class PartnersOrdersPage extends StatelessWidget {
   const PartnersOrdersPage({super.key});

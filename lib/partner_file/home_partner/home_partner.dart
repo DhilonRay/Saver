@@ -4,7 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
 import '../partner_notification/partner_notification.dart';
 import '../partner_notification/partner_notification_controller.dart';
-import '../loader/loader.dart';
+import '../../loader/loader.dart';
 
 class HomePartnerPage extends StatelessWidget {
   HomePartnerPage({super.key});

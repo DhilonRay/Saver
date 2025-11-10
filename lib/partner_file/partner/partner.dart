@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'partner_controller.dart';
-import '../loader/loader.dart';
+import '../../loader/loader.dart';
 
 class PartnerPage extends StatelessWidget {
   final String uid;

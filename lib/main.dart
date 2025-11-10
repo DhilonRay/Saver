@@ -3,12 +3,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/splash_page/splash_page.dart';
-import 'package:saver/accept_maps/accept_maps.dart';
+import 'package:saver/partner_file/accept_maps/accept_maps.dart';
 import 'package:saver/services/notification_service.dart';
 import 'package:saver/privacy_policy/privacy_policy.dart';
 import 'package:saver/terms_condition/terms_condition.dart';
 import 'package:saver/feedback/feedback.dart';
-import 'package:saver/partner_profile/partner_profile.dart';
+import 'package:saver/partner_file/partner_profile/partner_profile.dart';
 
 
 

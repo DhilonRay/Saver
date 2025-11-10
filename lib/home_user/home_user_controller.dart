@@ -12,11 +12,12 @@ import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart' as lottie hide Marker;
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
-import '../partner_orders/partners_orders_page.dart';
+import '../partner_file/partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
 import '../services/notification_service.dart';
 
@@ -1430,12 +1431,15 @@ class HomeController extends GetxController {
     );
 
     if (result == true) {
-      await _createDirectAmbulanceRequest(
+      String? orderId = await _createDirectAmbulanceRequest(
         partnerId: partnerId,
         companyName: companyName,
         urgency: selectedUrgency,
         notes: additionalNotes,
       );
+      if (orderId != null) {
+        _showSuccessDialog(orderId);
+      }
     }
   }
 
@@ -2113,12 +2117,15 @@ class HomeController extends GetxController {
     );
 
     if (result == true) {
-      await _createDirectAmbulanceRequest(
+      String? orderId = await _createDirectAmbulanceRequest(
         partnerId: partnerId,
         companyName: companyName,
         urgency: selectedUrgency,
         notes: additionalNotes,
       );
+      if (orderId != null) {
+        _showSuccessDialog(orderId);
+      }
     }
   }
 
@@ -2293,35 +2300,35 @@ class HomeController extends GetxController {
         print('✅ Push notification sent successfully to driver: $driverId');
         print('📱 FCM Response: ${response.body}');
         
-        // Show success message to user
+     /*    // Show success message to user
         Get.snackbar(
           'সফল',
           'ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে',
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
           duration: const Duration(seconds: 3),
-        );
+        ); */
       } else {
         print('❌ Failed to send push notification: ${response.statusCode}');
         print('📱 FCM Error Response: ${response.body}');
         
-        Get.snackbar(
+       /*  Get.snackbar(
           'ত্রুটি',
           'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে',
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
           duration: const Duration(seconds: 3),
-        );
+        ); */
       }
     } catch (e) {
       print('❌ Error sending push notification: $e');
-      Get.snackbar(
+    /*   Get.snackbar(
         'ত্রুটি',
         'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
         duration: const Duration(seconds: 3),
-      );
+      ); */
     }
   }
 
@@ -2379,13 +2386,13 @@ class HomeController extends GetxController {
       
       if (notificationsSent > 0) {
         print('✅ Sent notifications to $notificationsSent nearby drivers');
-        Get.snackbar(
+       /*  Get.snackbar(
           'সফল',
           '$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
           backgroundColor: Colors.green.shade100,
           colorText: Colors.green.shade800,
           duration: const Duration(seconds: 4),
-        );
+        ); */
       } else {
         print('⚠️ No nearby drivers found');
         Get.snackbar(
@@ -2419,7 +2426,7 @@ class HomeController extends GetxController {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-        Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন');
+      /*   Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন'); */
         return;
       }
 
@@ -2430,7 +2437,7 @@ class HomeController extends GetxController {
           .get();
 
       if (!driverDoc.exists) {
-        Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি');
+       /*  Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি'); */
         return;
       }
 
@@ -2438,7 +2445,7 @@ class HomeController extends GetxController {
       final fcmToken = driverData?['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
-        Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
+        /* Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি'); */
         return;
       }
 
@@ -2549,12 +2556,27 @@ class HomeController extends GetxController {
 
     } catch (e) {
       print('❌ Error sending ride request to nearby drivers: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'আশেপাশের ড্রাইভারদের রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+    
     }
+  }
+
+  void _showSuccessDialog(String orderId) {
+    Get.dialog(
+      AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            lottie.Lottie.asset('assets/success.json', width: 130, height: 130),
+            SizedBox(height: 16),
+            Text('Order successfully created!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            
+          ],
+        ),
+      ),
+    );
+    // Auto close after 3 seconds
+    Future.delayed(Duration(seconds: 3), () {
+      Get.back();
+    });
   }
 }

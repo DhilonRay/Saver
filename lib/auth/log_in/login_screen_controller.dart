@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../home_user/home_user.dart';
-import '../../home_partner/home_partner.dart';
+import '../../partner_file/home_partner/home_partner.dart';
 import '../../services/notification_service.dart';
 import '../sign_up/signup.dart';
 
