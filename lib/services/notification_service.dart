@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
+import 'package:flutter/services.dart' as services;
 import '../home_partner/home_partner_controller.dart';
 
 class NotificationService {
@@ -19,24 +20,20 @@ class NotificationService {
   static const String _fcmProjectId = 'neosaver-f06e9';
   static const String _fcmUrl = 'https://fcm.googleapis.com/v1/projects/$_fcmProjectId/messages:send';
 
-  // Service Account Credentials for FCM V1
+  // Load Service Account Credentials for FCM V1 from assets
+  static Future<Map<String, dynamic>> _loadServiceAccount() async {
+    final String jsonString = await services.rootBundle.loadString('assets/service_account.json');
+    return json.decode(jsonString);
+  }
   
   /// Generate JWT access token for FCM V1 API using googleapis_auth
   static Future<String> _getAccessToken() async {
     try {
-      // Create service account credentials from our embedded data
-      final serviceAccountCredentials = auth.ServiceAccountCredentials.fromJson({
-        'type': _serviceAccount['type'],
-        'project_id': _serviceAccount['project_id'],
-        'private_key_id': _serviceAccount['private_key_id'],
-        'private_key': _serviceAccount['private_key'],
-        'client_email': _serviceAccount['client_email'],
-        'client_id': _serviceAccount['client_id'],
-        'auth_uri': _serviceAccount['auth_uri'],
-        'token_uri': _serviceAccount['token_uri'],
-        'auth_provider_x509_cert_url': _serviceAccount['auth_provider_x509_cert_url'],
-        'client_x509_cert_url': _serviceAccount['client_x509_cert_url'],
-      });
+      // Load service account credentials from assets
+      final serviceAccount = await _loadServiceAccount();
+
+      // Create service account credentials from loaded data
+      final serviceAccountCredentials = auth.ServiceAccountCredentials.fromJson(serviceAccount);
 
       // Create authenticated client
       final client = await auth.clientViaServiceAccount(

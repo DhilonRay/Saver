@@ -45,3 +45,6 @@ app.*.map.json
 # Firebase CLI
 firebase.exe
 
+# Service account keys
+assets/service_account.json
+
