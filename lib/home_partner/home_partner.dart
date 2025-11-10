@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_partner_controller.dart';
-import '../help_support/help_support.dart';
-import '../feedback/feedback.dart';
-import '../services/notification_service.dart';
+import '../partner_notification/partner_notification.dart';
+import '../partner_notification/partner_notification_controller.dart';
+import '../loader/loader.dart';
 
 class HomePartnerPage extends StatelessWidget {
   HomePartnerPage({super.key});
@@ -20,6 +20,11 @@ class HomePartnerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize PartnerNotificationController if not already initialized
+    if (!Get.isRegistered<PartnerNotificationController>()) {
+      Get.put(PartnerNotificationController());
+    }
+
     return GetBuilder<HomePartnerController>(
       init: HomePartnerController(),
       builder: (controller) {
@@ -34,14 +39,14 @@ class HomePartnerPage extends StatelessWidget {
           child: Scaffold(
             key: _scaffoldKey,
             appBar: AppBar(
-              title: Text(
-                'NeoSaver Partner',
+              title: Obx(() => Text(
+                controller.partnerName.value,
                 style: TextStyle(
                   color: primaryBlue,
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                 ),
-              ),
+              )),
               backgroundColor: Colors.white,
               elevation: 0,
               leading: IconButton(
@@ -60,7 +65,7 @@ class HomePartnerPage extends StatelessWidget {
                     size: 28,
                   ),
                   onPressed: () {
-                    // Handle notifications
+                    Get.to(() => const PartnerNotificationPage());
                   },
                 ),
               ],
@@ -100,14 +105,14 @@ class HomePartnerPage extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 16),
-                          Text(
-                            'NeoSaver Partner',
+                          Obx(() => Text(
+                            controller.partnerName.value,
                             style: TextStyle(
                               fontSize: 24,
                               color: primaryBlue,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
+                          )),
                           Text(
                             'Emergency Response',
                             style: TextStyle(
@@ -130,76 +135,69 @@ class HomePartnerPage extends StatelessWidget {
                             onTap: controller.navigateToPartnersOrders,
                           ),
                           _buildDrawerItem(
-                            icon: Icons.attach_money,
-                            title: 'Change Rates',
+                            icon: Icons.person,
+                            title: 'Profile',
                             onTap: () {
-                              // Close the drawer and show rate change dialog
+                              /* // Close the drawer and navigate to Profile page
                               try {
                                 Get.back();
-                              } catch (_) {}
-                              controller.showRateChangeDialog();
+                              } catch (_) {} */
+                              Get.toNamed('/partner-profile');
                             },
                           ),
                           _buildDrawerItem(
+                            icon: Icons.attach_money,
+                            title: 'Change Rates',
+                            onTap: () {
+                            /*   // Close the drawer and show rate change dialog
+                              try {
+                                Get.back();
+                              } catch (_) {} */
+                              controller.showRateChangeDialog();
+                            },
+                          ),
+                         
+                          Divider(height: 40, thickness: 1),
+                           _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
                           ),
-                          Divider(height: 40, thickness: 1),
                           _buildDrawerItem(
-                            icon: Icons.help_outline,
-                            title: 'Help & Support',
+                            icon: Icons.privacy_tip,
+                            title: 'Privacy Policy',
                             onTap: () {
-                              // Close the drawer and navigate to Help & Support page
+                            /*   // Close the drawer and navigate to Privacy Policy page
                               try {
                                 Get.back();
-                              } catch (_) {}
-                              Get.to(() => const HelpSupportPage());
+                              } catch (_) {} */
+                              Get.toNamed('/privacy-policy');
                             },
                           ),
+                          _buildDrawerItem(
+                            icon: Icons.description,
+                            title: 'Terms & Conditions',
+                            onTap: () {
+                             /*  // Close the drawer and navigate to Terms & Conditions page
+                              try {
+                                Get.back();
+                              } catch (_) {} */
+                              Get.toNamed('/terms-conditions');
+                            },
+                          ),
+                        
                           _buildDrawerItem(
                             icon: Icons.feedback_outlined,
                             title: 'Feedback',
                             onTap: () {
-                              // Close the drawer and navigate to Feedback page
+                              /* // Close the drawer and navigate to Feedback page
                               try {
                                 Get.back();
-                              } catch (_) {}
-                              Get.to(() => const FeedbackPage());
+                              } catch (_) {} */
+                              Get.toNamed('/feedback');
                             },
                           ),
-                          Divider(height: 40, thickness: 1),
-                          _buildDrawerItem(
-                            icon: Icons.notifications_active_outlined,
-                            title: 'Test Notification',
-                            onTap: () async {
-                              // Close the drawer
-                              try {
-                                Get.back();
-                              } catch (_) {}
-                              
-                              // Test local notification
-                              await NotificationService.testLocalNotification();
-                              
-                              // Check FCM token
-                              final token = await NotificationService.initializeFCMToken();
-                              if (token != null) {
-                                Get.snackbar(
-                                  'FCM Token',
-                                  'Token saved successfully',
-                                  backgroundColor: Colors.green.shade100,
-                                  colorText: Colors.green.shade800,
-                                );
-                              } else {
-                                Get.snackbar(
-                                  'FCM Token Error',
-                                  'Failed to get FCM token',
-                                  backgroundColor: Colors.red.shade100,
-                                  colorText: Colors.red.shade800,
-                                );
-                              }
-                            },
-                          ),
+                          
                         ],
                       ),
                     ),
@@ -245,23 +243,11 @@ class HomePartnerPage extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(
-                              width: 56,
-                              height: 56,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                              ),
+                            HorizontalRotatingDots(
+                              size: 56,
+                              colors: [primaryBlue, secondaryBlue, accentBlue],
                             ),
-                            SizedBox(height: 12),
-                            Text(
-                              'Locating your ambulance...',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.blueGrey.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            
                           ],
                         ),
                       ),
@@ -288,43 +274,45 @@ class HomePartnerPage extends StatelessWidget {
                     children: [
                       // Status indicator
                       Positioned(
-                        top: 0,
-                        left: 16,
-                        right: 16,
-                        child: Container(
-                          margin: EdgeInsets.only(top: 16),
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                blurRadius: 20,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
+                        top: 16,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w600,
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: 6),
+                                Text(
+                                  'Online',
+                                  style: TextStyle(
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -392,43 +380,7 @@ class HomePartnerPage extends StatelessWidget {
                         ),
                       ),
 
-                      // Test Notification Button (for debugging)
-                      Positioned(
-                        bottom: 120,
-                        right: 16,
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            onPressed: () async {
-                              await NotificationService.testLocalNotification();
-                              Get.snackbar(
-                                'Test',
-                                'Local notification sent!',
-                                backgroundColor: Colors.orange.shade100,
-                                colorText: Colors.orange.shade800,
-                              );
-                            },
-                            icon: Icon(
-                              Icons.notifications,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            tooltip: 'Test Notification',
-                          ),
-                        ),
-                      ),
+                     
                     ],
                   ),
                 ),

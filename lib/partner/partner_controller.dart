@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../partner_orders/partners_orders_page.dart';
+import '../home_partner/home_partner.dart';
 
 class PartnerController extends GetxController {
   final TextEditingController vehicleNumber = TextEditingController();
@@ -78,8 +78,8 @@ class PartnerController extends GetxController {
         );
 
         clearForm();
-        // Navigate to partners orders page after successful registration
-        Get.offAll(() => PartnersOrdersPage());
+        // Navigate to home partner page after successful registration
+        Get.offAll(() => HomePartnerPage());
       } else {
         throw Exception('Data verification failed - document not found after save');
       }

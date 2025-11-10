@@ -120,6 +120,21 @@ class NotificationService {
       return false;
     }
   }
+
+  static Future<bool> sendFCMNotification({
+    required String token,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    return await _sendFCMNotification(
+      fcmToken: token,
+      title: title,
+      body: body,
+      data: data ?? {},
+    );
+  }
+
   static Future<bool> sendNotificationToDriver({
     required String driverId,
     required Map<String, dynamic> requestData,
@@ -353,30 +368,77 @@ class NotificationService {
       final userData = userDoc.data();
       final patientName = requestData['patientName'] ?? userData?['name'] ?? 'রোগী';
 
-      // Prepare notification data
+      // Prepare comprehensive notification data with full user details
       final notificationData = {
         'type': 'ambulance_request',
         'orderId': requestData['orderId'] ?? '',
         'userId': currentUser.uid,
+        'partnerId': partnerId, // Add partner ID for background notification storage
+        'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+
+        // Patient Information
         'patientName': patientName,
+        'patientAge': requestData['patientAge'] ?? userData?['age'] ?? '',
+        'patientGender': requestData['patientGender'] ?? userData?['gender'] ?? '',
+        'bloodType': requestData['bloodType'] ?? userData?['bloodType'] ?? '',
+
+        // Contact Information
         'userPhone': userData?['phone'] ?? '',
+        'userEmail': userData?['email'] ?? currentUser.email ?? '',
+        'emergencyContact': requestData['emergencyContact'] ?? userData?['emergencyContact'] ?? '',
+        'emergencyPhone': requestData['emergencyPhone'] ?? userData?['emergencyPhone'] ?? '',
+
+        // Location Information
         'pickupLocation': json.encode(requestData['userLocation'] ?? {}),
         'pickupAddress': requestData['pickupAddress'] ?? '',
+        'destinationAddress': requestData['destinationAddress'] ?? '',
+
+        // Medical Information
         'urgency': requestData['urgency'] ?? 'high',
+        'medicalCondition': requestData['medicalCondition'] ?? userData?['medicalCondition'] ?? '',
+        'allergies': requestData['allergies'] ?? userData?['allergies'] ?? '',
+        'medications': requestData['medications'] ?? userData?['medications'] ?? '',
+        'specialNeeds': requestData['specialNeeds'] ?? userData?['specialNeeds'] ?? '',
+
+        // Request Details
         'notes': requestData['notes'] ?? '',
         'companyName': requestData['companyName'] ?? '',
-        'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+        'requestType': requestData['requestType'] ?? 'ambulance',
+        'estimatedDistance': requestData['estimatedDistance'] ?? '',
+        'estimatedTime': requestData['estimatedTime'] ?? '',
+
+        // Additional User Profile Data
+        'userType': userData?['userType'] ?? 'patient',
+        'membershipStatus': userData?['membershipStatus'] ?? 'regular',
+        'insuranceInfo': userData?['insuranceInfo'] ?? '',
+        'preferredHospital': userData?['preferredHospital'] ?? '',
       };
+
+      // Create detailed notification message
+      final urgencyText = requestData['urgency'] == 'critical' ? 'জরুরি' :
+                         requestData['urgency'] == 'high' ? 'উচ্চ' :
+                         requestData['urgency'] == 'medium' ? 'মাঝারি' : 'সাধারণ';
+
+      final notificationBody = 'রোগী: $patientName | জরুরি: $urgencyText | ফোন: ${userData?['phone'] ?? 'N/A'}';
 
       // Send FCM notification
       print('🚑 Calling _sendFCMNotification with token: ${fcmToken.substring(0, 20)}...');
       final success = await _sendFCMNotification(
         fcmToken: fcmToken,
         title: '🚑 জরুরি অ্যাম্বুলেন্স রিকুয়েস্ট',
-        body: 'রোগী: $patientName | জরুরি মাত্রা: ${requestData['urgency'] ?? 'উচ্চ'}',
+        body: notificationBody,
         data: notificationData,
       );
       print('🚑 FCM notification result: $success');
+
+      // Store notification in partner's notifications collection (for both background and foreground display)
+      await addPartnerNotification(
+        partnerId: partnerId,
+        title: '🚑 জরুরি অ্যাম্বুলেন্স রিকুয়েস্ট',
+        message: notificationBody,
+        type: 'emergency',
+        data: notificationData,
+      );
 
       // Save notification log
       await FirebaseFirestore.instance.collection('notification_logs').add({
@@ -734,6 +796,28 @@ class NotificationService {
     // Initialize local notifications if not already done
     await _initializeLocalNotifications();
     await _showLocalNotification(message);
+
+    // Try to store notification in partner's collection if we can determine the partner ID
+    // For ambulance requests, the partner ID should be in the data
+    final data = message.data;
+    final partnerId = data['partnerId'] ?? data['toPartnerId'];
+
+    if (partnerId != null && partnerId.isNotEmpty && message.notification != null) {
+      try {
+        await addPartnerNotification(
+          partnerId: partnerId,
+          title: message.notification!.title ?? 'Background Notification',
+          message: message.notification!.body ?? '',
+          type: data['type'] ?? 'info',
+          data: data,
+        );
+        print('✅ Background notification stored for partner: $partnerId');
+      } catch (e) {
+        print('❌ Error storing background notification: $e');
+      }
+    } else {
+      print('⚠️ Could not determine partner ID for background notification storage');
+    }
   }
 
   /// Initialize local notifications for background handler (separate from main initialization)
@@ -807,6 +891,23 @@ class NotificationService {
       // Show local notification for foreground messages
       await _showLocalNotification(message);
 
+      // Add notification to partner's notification list for UI display
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && message.notification != null) {
+        try {
+          await addPartnerNotification(
+            partnerId: currentUser.uid,
+            title: message.notification!.title ?? 'Notification',
+            message: message.notification!.body ?? '',
+            type: message.data['type'] ?? 'info',
+            data: message.data,
+          );
+          print('✅ Foreground notification added to partner list');
+        } catch (e) {
+          print('❌ Error adding foreground notification to partner list: $e');
+        }
+      }
+
       // Handle the notification when app is in foreground
       if (message.notification != null) {
         Get.snackbar(
@@ -825,6 +926,24 @@ class NotificationService {
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print('📱 App opened from notification: ${message.notification?.title}');
+
+      // Add notification to partner's notification list if not already added
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && message.notification != null) {
+        try {
+          addPartnerNotification(
+            partnerId: currentUser.uid,
+            title: message.notification!.title ?? 'Notification',
+            message: message.notification!.body ?? '',
+            type: message.data['type'] ?? 'info',
+            data: message.data,
+          );
+          print('✅ Background notification added to partner list when app opened');
+        } catch (e) {
+          print('❌ Error adding background notification to partner list: $e');
+        }
+      }
+
       handleNotificationTap(message.data);
     });
   }
@@ -959,6 +1078,77 @@ class NotificationService {
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+    }
+  }
+
+  /// Add a notification to a partner's notification collection
+  static Future<void> addPartnerNotification({
+    required String partnerId,
+    required String title,
+    required String message,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final notificationData = {
+        'title': title,
+        'message': message,
+        'type': type,
+        'timestamp': Timestamp.now(),
+        'isRead': false,
+        'data': data ?? {},
+      };
+
+      await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(partnerId)
+          .collection('notifications')
+          .add(notificationData);
+
+      debugPrint('✅ Partner notification added: $title');
+    } catch (e) {
+      debugPrint('❌ Failed to add partner notification: $e');
+    }
+  }
+
+  /// Send notification to all online partners (for new orders, etc.)
+  static Future<void> notifyAllOnlinePartners({
+    required String title,
+    required String message,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final partnersSnapshot = await FirebaseFirestore.instance
+          .collection('partners')
+          .where('isOnline', isEqualTo: true)
+          .get();
+
+      for (final partnerDoc in partnersSnapshot.docs) {
+        final partnerId = partnerDoc.id;
+        await addPartnerNotification(
+          partnerId: partnerId,
+          title: title,
+          message: message,
+          type: type,
+          data: data,
+        );
+
+        // Also send push notification if FCM token exists
+        final fcmToken = partnerDoc.data()['fcmToken'];
+        if (fcmToken != null) {
+          await sendFCMNotification(
+            token: fcmToken,
+            title: title,
+            body: message,
+            data: data,
+          );
+        }
+      }
+
+      debugPrint('✅ Notified ${partnersSnapshot.docs.length} online partners');
+    } catch (e) {
+      debugPrint('❌ Failed to notify partners: $e');
     }
   }
 }

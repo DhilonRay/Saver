@@ -79,6 +79,16 @@ class UserIdController extends GetxController {
           colorText: Colors.white,
         );
       }
+    } else {
+      // Handle case when user is not authenticated
+      userData.value = null;
+      Get.snackbar(
+        'Authentication Required',
+        'Please log in to view your profile',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
     }
     isLoading.value = false;
   }

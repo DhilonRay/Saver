@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'feedback_controller.dart';
+import '../loader/loader.dart';
 
 class FeedbackPage extends StatelessWidget {
   const FeedbackPage({super.key});
@@ -26,6 +27,7 @@ class FeedbackPage extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            centerTitle: true,
             backgroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
@@ -192,7 +194,7 @@ class FeedbackPage extends StatelessWidget {
                             elevation: 3,
                           ),
                           child: controller.isSubmitting.value
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? HorizontalRotatingDots(size: 30, colors: [Colors.white, Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.6)])
                               : const Text(
                                   'Submit Feedback',
                                   style: TextStyle(

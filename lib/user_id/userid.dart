@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'user_id_controller.dart';
+import '../loader/loader.dart';
 
 class UserIdPage extends StatelessWidget {
   const UserIdPage({super.key});
@@ -13,13 +14,15 @@ class UserIdPage extends StatelessWidget {
       init: UserIdController(),
       builder: (controller) {
         return Scaffold(
-          backgroundColor: Colors.grey.shade100,
+        
           appBar: AppBar(
             title: Obx(() => Text(
               controller.isEditing.value ? 'Edit Profile' : 'Your Profile',
               style: const TextStyle(fontWeight: FontWeight.w500)
-            )),
-            backgroundColor: Colors.blueGrey.shade800,
+            )
+            ),
+            centerTitle: true,
+            
             elevation: 2,
             actions: [
               Obx(() {
@@ -41,9 +44,10 @@ class UserIdPage extends StatelessWidget {
           ),
           body: Obx(() {
             if (controller.isLoading.value) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blueGrey)
+              return Center(
+                child: HorizontalRotatingDots(
+                  size: 60,
+                  colors: [Colors.blueGrey, Colors.blueGrey.shade300, Colors.blueGrey.shade600]
                 )
               );
             }

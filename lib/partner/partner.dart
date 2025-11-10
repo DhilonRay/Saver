@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'partner_controller.dart';
+import '../loader/loader.dart';
 
 class PartnerPage extends StatelessWidget {
   final String uid;
@@ -52,14 +53,7 @@ class PartnerPage extends StatelessWidget {
                         ? null
                         : () => controller.savePartnerDetails(uid),
                     icon: controller.isLoading.value
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
+                        ? HorizontalRotatingDots(size: 20, colors: [Colors.white, Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.6)])
                         : const Icon(Icons.save_outlined, color: Colors.white),
                     label: Text(
                       controller.isLoading.value ? "Saving..." : "Submit",

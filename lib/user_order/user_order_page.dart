@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'user_order_controller.dart';
+import '../loader/loader.dart';
 
 class OrderSkeletonLoader extends StatelessWidget {
   const OrderSkeletonLoader({super.key});
@@ -220,16 +221,16 @@ class UserOrdersPage extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Your Orders', style: TextStyle(fontWeight: FontWeight.w600)),
+            centerTitle: true,
             backgroundColor: colorScheme.primary,
             elevation: 2,
             iconTheme: IconThemeData(color: colorScheme.onPrimary),
             titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
-           
           ),
           backgroundColor: colorScheme.surface,
           body: Obx(() {
             if (controller.isLoading.value) {
-              return const OrderSkeletonLoader();
+              return Center(child: HorizontalRotatingDots(size: 60, colors: [colorScheme.primary, colorScheme.secondary, colorScheme.tertiary]));
             }
 
             if (controller.error.value.isNotEmpty) {

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'home_user_controller.dart';
 import '../feedback/feedback.dart';
+import '../loader/loader.dart';
 
 class HomePage extends StatelessWidget {
   HomePage({super.key});
@@ -48,7 +49,7 @@ class HomePage extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     Container(
-                      padding: const EdgeInsets.only(top: 50, bottom: 30),
+                      padding: const EdgeInsets.only(top: 20, bottom: 30),
                       child: Column(
                         children: [
                           Container(
@@ -64,14 +65,14 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 16),
-                          Text(
-                            'NeoSaver',
+                          Obx(() => Text(
+                            controller.userName.value,
                             style: TextStyle(
                               fontSize: 24,
                               color: Colors.blueGrey,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
+                          )),
                           Text(
                             'Every Second Matters',
                             style: TextStyle(
@@ -87,7 +88,7 @@ class HomePage extends StatelessWidget {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          SizedBox(height: 20),
+                          
                           _buildDrawerItem(
                             icon: Icons.person_outline,
                             title: 'Profile',
@@ -99,16 +100,27 @@ class HomePage extends StatelessWidget {
                             title: 'Your Orders',
                             onTap: controller.navigateToUserOrders,
                           ),
-                          _buildDrawerItem(
+                          Divider(height: 40, thickness: 1),
+                           _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
                           ),
-                          Divider(height: 40, thickness: 1),
                           _buildDrawerItem(
                             icon: Icons.help_outline,
-                            title: 'Help & Support',
-                            onTap: () {},
+                            title: 'Privacy Policy',
+                            onTap: () {
+                              // Navigate to Privacy Policy page
+                              Get.toNamed('/privacy-policy');
+                            },
+                          ),
+                          _buildDrawerItem(
+                            icon: Icons.description,
+                            title: 'Terms & Conditions',
+                            onTap: () {
+                              // Navigate to Terms & Conditions page
+                              Get.toNamed('/terms-conditions');
+                            },
                           ),
                           _buildDrawerItem(
                             icon: Icons.feedback_outlined,
@@ -168,22 +180,9 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(
-                              width: 56,
-                              height: 56,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                              ),
-                            ),
-                            SizedBox(height: 12),
-                            Text(
-                              'Locating you...',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.blueGrey.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            HorizontalRotatingDots(
+                              size: 60,
+                              colors: [primaryBlue, secondaryBlue, accentBlue],
                             ),
                           ],
                         ),
@@ -210,7 +209,7 @@ class HomePage extends StatelessWidget {
                 SafeArea(
                   child: Column(
                     children: [
-                      // Ambulance status indicator
+                      /* // Ambulance status indicator
                       Obx(() {
                         if (controller.showAmbulances.value) {
                           return Container(
@@ -244,7 +243,7 @@ class HomePage extends StatelessWidget {
                         }
                         return SizedBox.shrink();
                       }),
-
+ */
                       // Destination input container
                       Container(
                         margin: EdgeInsets.all(16),
@@ -347,15 +346,9 @@ class HomePage extends StatelessWidget {
                                       padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                                       child: Row(
                                         children: [
-                                          SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                primaryBlue
-                                              ),
-                                            ),
+                                          HorizontalRotatingDots(
+                                            size: 20,
+                                            colors: [primaryBlue, secondaryBlue, accentBlue],
                                           ),
                                        
                                         ],

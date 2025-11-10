@@ -5,6 +5,10 @@ import 'package:get/get.dart';
 import 'package:saver/splash_page/splash_page.dart';
 import 'package:saver/accept_maps/accept_maps.dart';
 import 'package:saver/services/notification_service.dart';
+import 'package:saver/privacy_policy/privacy_policy.dart';
+import 'package:saver/terms_condition/terms_condition.dart';
+import 'package:saver/feedback/feedback.dart';
+import 'package:saver/partner_profile/partner_profile.dart';
 
 
 
@@ -47,10 +51,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Show local notification for background messages
   await NotificationService.showBackgroundNotification(message);
 
-  // Also handle the notification data for partner app
-  if (message.data['type'] == 'ambulance_request') {
-    print('🚑 Ambulance request received in background: ${message.data['orderId']}');
-    // Partner app will handle this when opened
+  // Add notification to partner's notification list for when app is opened
+  if (message.notification != null) {
+    try {
+      // We can't get current user in background, so we'll handle this when app opens
+      // The notification will be added when FirebaseMessaging.onMessageOpenedApp is triggered
+      print('📱 Background notification will be added to partner list when app opens');
+    } catch (e) {
+      print('❌ Error handling background notification: $e');
+    }
   }
 }
 
@@ -69,6 +78,11 @@ class MyApp extends StatelessWidget {
       home:  SplashPage(),
       getPages: [
         GetPage(name: '/accept-maps', page: () => AcceptMapsPage()),
+     
+        GetPage(name: '/feedback', page: () => const FeedbackPage()),
+        GetPage(name: '/partner-profile', page: () => const PartnerProfilePage()),
+        GetPage(name: '/privacy-policy', page: () => const PrivacyPolicyPage()),
+        GetPage(name: '/terms-conditions', page: () => const TermsConditionPage()),
       ],
     );
   }

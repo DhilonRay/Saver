@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'signup_controller.dart';
+import '../../loader/loader.dart';
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
@@ -420,14 +421,7 @@ class SignUpPage extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: controller.isLoading.value ? null : controller.registerUser,
               icon: Obx(() => controller.isLoading.value
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
+                  ? HorizontalRotatingDots(size: 20, colors: [Colors.white, Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.6)])
                   : const Icon(
                       Icons.app_registration_outlined,
                       color: Colors.white,

@@ -36,6 +36,7 @@ dependencies:
   jwt_decoder: ^2.0.1
   googleapis_auth: ^1.4.1
   shimmer: ^3.0.0
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:

@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart' as geocoding;
 import '../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../chat_page/sos_chat_page.dart';
@@ -34,6 +33,7 @@ class HomePartnerController extends GetxController {
   var isLoadingLocation = true.obs;
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
+  var partnerName = 'NeoSaver Partner'.obs;
 
   // Ambulance requests
   var pendingRequests = <Map<String, dynamic>>[].obs;
@@ -97,6 +97,27 @@ class HomePartnerController extends GetxController {
       // Use default rates on error
       indoorCityRate.value = defaultIndoorCityRate;
       outdoorCityRate.value = defaultOutdoorCityRate;
+    }
+  }
+
+  Future<void> _loadPartnerName() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        partnerName.value = data['name'] ?? user.displayName ?? 'NeoSaver Partner';
+        debugPrint('✅ Loaded partner name: ${partnerName.value}');
+      } else {
+        partnerName.value = user.displayName ?? 'NeoSaver Partner';
+        debugPrint('ℹ️ Using display name or default for partner name');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading partner name: $e');
+      partnerName.value = _auth.currentUser?.displayName ?? 'NeoSaver Partner';
     }
   }
 
@@ -172,61 +193,63 @@ class HomePartnerController extends GetxController {
       AlertDialog(
         title: const Text('Update Ambulance Rates'),
         content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Set your ambulance rates. These will be shown to users when they book your services.',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Indoor City Rate (৳)',
-                  hintText: 'Minimum 1000',
-                  border: OutlineInputBorder(),
+          builder: (context, setState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Set your ambulance rates. These will be shown to users when they book your services.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                keyboardType: TextInputType.number,
-                controller: TextEditingController(text: tempIndoorRate.toString()),
-                onChanged: (value) {
-                  tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Outdoor City Rate (৳)',
-                  hintText: 'Minimum 2000',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 20),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Indoor City Rate (৳)',
+                    hintText: 'Minimum 1000',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: tempIndoorRate.toString()),
+                  onChanged: (value) {
+                    tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
+                  },
                 ),
-                keyboardType: TextInputType.number,
-                controller: TextEditingController(text: tempOutdoorRate.toString()),
-                onChanged: (value) {
-                  tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
-                },
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Outdoor City Rate (৳)',
+                    hintText: 'Minimum 2000',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: tempOutdoorRate.toString()),
+                  onChanged: (value) {
+                    tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
+                  },
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '💡 Tips:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text('• Indoor: Within city limits', style: TextStyle(fontSize: 12)),
-                    Text('• Outdoor: Outside city or long distance', style: TextStyle(fontSize: 12)),
-                    Text('• Rates should reflect distance and urgency', style: TextStyle(fontSize: 12)),
-                  ],
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '💡 Tips:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('• Indoor: Within city limits', style: TextStyle(fontSize: 12)),
+                      Text('• Outdoor: Outside city or long distance', style: TextStyle(fontSize: 12)),
+                      Text('• Rates should reflect distance and urgency', style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -257,6 +280,7 @@ class HomePartnerController extends GetxController {
     _getCurrentLocation();
     _listenForRequests();
     _loadPartnerRates(); // Load partner's custom rates
+    _loadPartnerName(); // Load partner's name
   }
 
   @override
@@ -396,74 +420,368 @@ class HomePartnerController extends GetxController {
   void _showRequestBottomSheet(Map<String, dynamic> request) {
     Get.bottomSheet(
       Container(
-        padding: EdgeInsets.all(20),
+        constraints: BoxConstraints(maxHeight: Get.height * 0.7),
+        padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'New Ambulance Request',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade800,
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Location: ${_formatAddress(request['pickupAddress'])}',
-              style: TextStyle(fontSize: 16),
-            ),
-            Text(
-              'Patient: ${request['patientName'] ?? 'Name not provided'}',
-              style: TextStyle(fontSize: 16),
-            ),
-            Text(
-              'Phone: ${request['phone'] ?? 'Phone not provided - check user email'}',
-              style: TextStyle(fontSize: 16),
-            ),
-            if (request['email'] != null && request['email'].toString().isNotEmpty) ...[
-              SizedBox(height: 8),
-              Text(
-                'Email: ${request['email']}',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
-            ],
-            SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => acceptRequest(request['id']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with emergency icon
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade600, Colors.red.shade800],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.emergency,
+                      color: Colors.white,
+                      size: 32,
                     ),
-                    child: Text('Accept'),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'অ্যাম্বুলেন্স অনুরোধ',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'জরুরী সেবা প্রয়োজন',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 24),
+
+              // Patient Information Card
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.blue.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.person, color: Colors.blue.shade700, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'রোগীর তথ্য',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    _buildInfoRow(
+                      Icons.person_outline,
+                      'নাম',
+                      request['patientName'] ?? 'নাম প্রদান করা হয়নি',
+                      Colors.blue.shade700,
+                    ),
+                    _buildInfoRow(
+                      Icons.phone,
+                      'ফোন',
+                      request['phone'] ?? 'ফোন নম্বর নেই - ইমেইল চেক করুন',
+                      Colors.green.shade700,
+                    ),
+                    if (request['email'] != null && request['email'].toString().isNotEmpty)
+                      _buildInfoRow(
+                        Icons.email,
+                        'ইমেইল',
+                        request['email'],
+                        Colors.orange.shade700,
+                      ),
+                    if (request['patientAge'] != null)
+                      _buildInfoRow(
+                        Icons.calendar_today,
+                        'বয়স',
+                        '${request['patientAge']} বছর',
+                        Colors.purple.shade700,
+                      ),
+                    if (request['bloodGroup'] != null)
+                      _buildInfoRow(
+                        Icons.bloodtype,
+                        'রক্তের গ্রুপ',
+                        request['bloodGroup'],
+                        Colors.red.shade700,
+                      ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Location Information Card
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.green.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, color: Colors.green.shade700, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'অবস্থান তথ্য',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    _buildInfoRow(
+                      Icons.location_city,
+                      'অবস্থান',
+                      _formatAddress(request['pickupAddress']),
+                      Colors.green.shade700,
+                    ),
+                    if (request['detailedAddress'] != null && request['detailedAddress'].toString().isNotEmpty)
+                      _buildInfoRow(
+                        Icons.home,
+                        'বিস্তারিত ঠিকানা',
+                        request['detailedAddress'],
+                        Colors.green.shade600,
+                      ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Medical Information Card (if available)
+              if (request['currentCondition'] != null || request['medicalHistory'] != null || request['allergies'] != null)
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.orange.shade200, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.medical_services, color: Colors.orange.shade700, size: 24),
+                          SizedBox(width: 12),
+                          Text(
+                            'চিকিৎসা তথ্য',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      if (request['currentCondition'] != null)
+                        _buildInfoRow(
+                          Icons.warning,
+                          'বর্তমান অসুস্থতা',
+                          request['currentCondition'],
+                          Colors.red.shade700,
+                        ),
+                      if (request['medicalHistory'] != null)
+                        _buildInfoRow(
+                          Icons.history,
+                          'চিকিৎসা ইতিহাস',
+                          request['medicalHistory'],
+                          Colors.orange.shade700,
+                        ),
+                      if (request['allergies'] != null)
+                        _buildInfoRow(
+                          Icons.warning_amber,
+                          'অ্যালার্জি',
+                          request['allergies'],
+                          Colors.red.shade600,
+                        ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => declineRequest(request['id']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12),
+
+              SizedBox(height: 24),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => acceptRequest(request['id']),
+                        icon: Icon(Icons.check_circle, size: 24),
+                        label: Text(
+                          'গ্রহণ করুন',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shadowColor: Colors.green.shade200,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text('Decline'),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => declineRequest(request['id']),
+                        icon: Icon(Icons.cancel, size: 24),
+                        label: Text(
+                          'প্রত্যাখ্যান',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shadowColor: Colors.red.shade200,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 16),
+
+              // Emergency Contact Info
+              if (request['emergencyContact'] != null)
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade200, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.contact_emergency, color: Colors.red.shade700, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'জরুরী যোগাযোগ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                            Text(
+                              request['emergencyContact'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      isDismissible: false,
+      enableDrag: false,
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value, Color iconColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      isDismissible: false,
     );
   }
 

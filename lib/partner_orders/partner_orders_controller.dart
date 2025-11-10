@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,11 +9,49 @@ class PartnerOrdersController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxString partnerId = ''.obs;
+  final RxList<QueryDocumentSnapshot> activeOrders = <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> completedOrders = <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> cancelledOrders = <QueryDocumentSnapshot>[].obs;
+  final RxBool isLoading = true.obs;
+
+  StreamSubscription<QuerySnapshot>? _ordersSubscription;
 
   @override
   void onInit() {
     super.onInit();
     partnerId.value = _auth.currentUser?.uid ?? '';
+    if (partnerId.value.isNotEmpty) {
+      _setupOrdersStream();
+    }
+  }
+
+  @override
+  void onClose() {
+    _ordersSubscription?.cancel();
+    super.onClose();
+  }
+
+  void _setupOrdersStream() {
+    _ordersSubscription = getOrdersStream().listen((snapshot) {
+      final docs = snapshot.docs;
+      
+      activeOrders.value = docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return data['status'] == 'active' || data['status'] == 'accepted';
+      }).toList();
+      
+      completedOrders.value = docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return data['status'] == 'completed';
+      }).toList();
+      
+      cancelledOrders.value = docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return data['status'] == 'cancelled';
+      }).toList();
+      
+      isLoading.value = false;
+    });
   }
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {

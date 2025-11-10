@@ -62,6 +62,9 @@ class HomeController extends GetxController {
   // Ambulance visibility control
   var showAmbulances = true.obs; // Show ambulances by default
 
+  // User name
+  var userName = 'NeoSaver'.obs;
+
   // Partner rates cache
   var partnerRates = <String, Map<String, int>>{}.obs; // partnerId -> {indoorCityRate, outdoorCityRate}
 
@@ -225,6 +228,7 @@ class HomeController extends GetxController {
     _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _getCurrentLocation();
+    _loadUserName();
   }
 
   @override
@@ -232,6 +236,27 @@ class HomeController extends GetxController {
     destinationController.dispose();
     _debounceTimer?.cancel();
     super.onClose();
+  }
+
+  Future<void> _loadUserName() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final userData = userDoc.data();
+          userName.value = userData?['name'] ?? user.displayName ?? 'NeoSaver';
+        } else {
+          userName.value = user.displayName ?? 'NeoSaver';
+        }
+        debugPrint('✅ Loaded user name: ${userName.value}');
+      } else {
+        userName.value = 'NeoSaver';
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading user name: $e');
+      userName.value = _auth.currentUser?.displayName ?? 'NeoSaver';
+    }
   }
 
   Future<void> _getCurrentLocation() async {
