@@ -79,7 +79,7 @@ class PartnerController extends GetxController {
 
         clearForm();
         // Navigate to home partner page after successful registration
-        Get.offAll(() => HomePartnerPage());
+        Get.offAll(() => HomePartnerPage(isNewSignup: true));
       } else {
         throw Exception('Data verification failed - document not found after save');
       }

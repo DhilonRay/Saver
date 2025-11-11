@@ -12,7 +12,6 @@ import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
-import 'package:lottie/lottie.dart' as lottie hide Marker;
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
@@ -20,8 +19,13 @@ import '../chat_page/sos_chat_page.dart';
 import '../partner_file/partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
 import '../services/notification_service.dart';
+import '../components/success_dialog.dart';
 
 class HomeController extends GetxController {
+  final bool isNewSignup;
+  
+  HomeController({this.isNewSignup = false});
+  
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
   
@@ -230,6 +234,16 @@ class HomeController extends GetxController {
     _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _getCurrentLocation();
     _loadUserName();
+    
+    // Show success dialog for new signups
+    if (isNewSignup) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        SuccessDialog.show(
+          title: 'Welcome to NeoSaver!',
+          message: 'Your account has been created successfully. You can now request ambulance services.',
+        );
+      });
+    }
   }
 
   @override
@@ -537,13 +551,9 @@ class HomeController extends GetxController {
         }
 
         // Show route information with distance and time
-        Get.snackbar(
-          'Navigation Ready',
-          routeInfo,
-          backgroundColor: Colors.blue.shade100,
-          colorText: Colors.blue.shade800,
-          duration: Duration(seconds: 4),
-          icon: Icon(Icons.directions, color: Colors.blue.shade800),
+        SuccessDialog.show(
+          title: 'Navigation Ready',
+          message: routeInfo,
         );
 
         // Update polylines reactively. If the directions response did not
@@ -1438,7 +1448,10 @@ class HomeController extends GetxController {
         notes: additionalNotes,
       );
       if (orderId != null) {
-        _showSuccessDialog(orderId);
+        SuccessDialog.show(
+          title: 'Order Created',
+          message: 'Your ambulance request has been submitted successfully.',
+        );
       }
     }
   }
@@ -1639,11 +1652,9 @@ class HomeController extends GetxController {
                         );
                         try {
                           await launchUrl(launchUri);
-                          Get.snackbar(
-                            'Call Ambulance',
-                            'Calling ${ambulanceData['name']}...',
-                            backgroundColor: Colors.green.shade100,
-                            colorText: Colors.green.shade800,
+                          SuccessDialog.show(
+                            title: 'Call Ambulance',
+                            message: 'Calling ${ambulanceData['name']}...',
                           );
                         } catch (e) {
                           Get.snackbar(
@@ -1674,11 +1685,9 @@ class HomeController extends GetxController {
                           destinationPosition.value = LatLng(lat, lng);
                           _addDestinationMarkerAndRoute();
                           Get.back();
-                          Get.snackbar(
-                            'Navigation',
-                            'Navigating to ${ambulanceData['name']}...',
-                            backgroundColor: Colors.blue.shade100,
-                            colorText: Colors.blue.shade800,
+                          SuccessDialog.show(
+                            title: 'Navigation',
+                            message: 'Navigating to ${ambulanceData['name']}...',
                           );
                         }
                       },
@@ -1806,12 +1815,6 @@ class HomeController extends GetxController {
         'pickupLat': currentPosition.value?.latitude,
         'pickupLng': currentPosition.value?.longitude,
       });
-      Get.snackbar(
-        'Success',
-        'Ambulance request sent successfully',
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-      );
       
       // Send notification to ambulance partner
       final requestData = {
@@ -1877,21 +1880,15 @@ class HomeController extends GetxController {
         // Handle status updates
         if (status == 'accepted') {
           isTrackingPartner.value = true;
-          Get.snackbar(
-            'Request Accepted',
-            'An ambulance is on the way! Track its live location.',
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            duration: const Duration(seconds: 5),
+          SuccessDialog.show(
+            title: 'Request Accepted',
+            message: 'An ambulance is on the way! Track its live location.',
           );
         } else if (status == 'in_transit') {
           isTrackingPartner.value = true;
-          Get.snackbar(
-            'Patient Picked Up',
-            'The ambulance has picked up the patient and is now moving. Track its live location.',
-            backgroundColor: Colors.blue.shade100,
-            colorText: Colors.blue.shade800,
-            duration: const Duration(seconds: 5),
+          SuccessDialog.show(
+            title: 'Patient Picked Up',
+            message: 'The ambulance has picked up the patient and is now moving. Track its live location.',
           );
         } else if (status == 'completed') {
           isTrackingPartner.value = false;
@@ -1902,12 +1899,9 @@ class HomeController extends GetxController {
           markers.removeWhere((marker) => marker.markerId.value == 'partner_live');
           polylines.removeWhere((polyline) => polyline.polylineId.value == 'partner_trail');
 
-          Get.snackbar(
-            'Service Completed',
-            'Your ambulance service has been completed.',
-            backgroundColor: Colors.blue.shade100,
-            colorText: Colors.blue.shade800,
-            duration: const Duration(seconds: 5),
+          SuccessDialog.show(
+            title: 'Service Completed',
+            message: 'Your ambulance service has been completed.',
           );
         }
 
@@ -2124,7 +2118,10 @@ class HomeController extends GetxController {
         notes: additionalNotes,
       );
       if (orderId != null) {
-        _showSuccessDialog(orderId);
+        SuccessDialog.show(
+          title: 'Order Created',
+          message: 'Your ambulance request has been submitted successfully.',
+        );
       }
     }
   }
@@ -2558,25 +2555,5 @@ class HomeController extends GetxController {
       print('❌ Error sending ride request to nearby drivers: $e');
     
     }
-  }
-
-  void _showSuccessDialog(String orderId) {
-    Get.dialog(
-      AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            lottie.Lottie.asset('assets/success.json', width: 130, height: 130),
-            SizedBox(height: 16),
-            Text('Order successfully created!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            
-          ],
-        ),
-      ),
-    );
-    // Auto close after 3 seconds
-    Future.delayed(Duration(seconds: 3), () {
-      Get.back();
-    });
   }
 }

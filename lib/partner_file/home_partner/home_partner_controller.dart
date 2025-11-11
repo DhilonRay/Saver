@@ -10,8 +10,13 @@ import '../partner_orders/partners_orders_page.dart';
 import '../../chat_page/sos_chat_page.dart';
 import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
+import '../../components/success_dialog.dart';
 
 class HomePartnerController extends GetxController {
+  final bool isNewSignup;
+  
+  HomePartnerController({this.isNewSignup = false});
+  
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
 
@@ -281,6 +286,16 @@ class HomePartnerController extends GetxController {
     _listenForRequests();
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
+    
+    // Show success dialog for new driver signups
+    if (isNewSignup) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        SuccessDialog.show(
+          title: 'Welcome to NeoSaver Partner!',
+          message: 'Your driver account has been created successfully. You can now start accepting ambulance requests.',
+        );
+      });
+    }
   }
 
   @override

@@ -7,7 +7,9 @@ import '../partner_notification/partner_notification_controller.dart';
 import '../../loader/loader.dart';
 
 class HomePartnerPage extends StatelessWidget {
-  HomePartnerPage({super.key});
+  final bool isNewSignup;
+  
+  HomePartnerPage({super.key, this.isNewSignup = false});
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -26,7 +28,7 @@ class HomePartnerPage extends StatelessWidget {
     }
 
     return GetBuilder<HomePartnerController>(
-      init: HomePartnerController(),
+      init: HomePartnerController(isNewSignup: isNewSignup),
       builder: (controller) {
         return Container(
           decoration: BoxDecoration(

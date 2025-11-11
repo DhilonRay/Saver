@@ -6,7 +6,9 @@ import '../feedback/feedback.dart';
 import '../loader/loader.dart';
 
 class HomePage extends StatelessWidget {
-  HomePage({super.key});
+  final bool isNewSignup;
+  
+  HomePage({super.key, this.isNewSignup = false});
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -20,7 +22,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<HomeController>(
-      init: HomeController(),
+      init: HomeController(isNewSignup: isNewSignup),
       builder: (controller) {
         return Container(
           decoration: BoxDecoration(

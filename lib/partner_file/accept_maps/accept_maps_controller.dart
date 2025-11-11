@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
+import 'package:lottie/lottie.dart' as lottie hide Marker;
 
 class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -110,12 +111,7 @@ class AcceptMapsController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          Get.snackbar(
-            'Permission Denied',
-            'Location permission is required',
-            backgroundColor: Colors.orange[600],
-            colorText: Colors.white,
-          );
+          _showSuccessDialog('Permission Denied', 'Location permission is required');
           isLoadingLocation.value = false;
           return;
         }
@@ -331,20 +327,10 @@ class AcceptMapsController extends GetxController {
         });
 
         Get.back(); // Go back to home partner page
-        Get.snackbar(
-          'Success',
-          'Ride completed successfully',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-        );
+        _showSuccessDialog('Success', 'Ride completed successfully');
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to complete ride: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      _showSuccessDialog('Error', 'Failed to complete ride: $e');
     }
   }
 
@@ -393,13 +379,7 @@ class AcceptMapsController extends GetxController {
       debugPrint('Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
     });
 
-    Get.snackbar(
-      'Live Tracking Started',
-      'Your location is now being tracked in real-time',
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-      duration: Duration(seconds: 3),
-    );
+    _showSuccessDialog('Live Tracking Started', 'Your location is now being tracked in real-time');
   }
 
   void _scheduleFirestoreUpdate(Position position) {
@@ -539,21 +519,32 @@ class AcceptMapsController extends GetxController {
         });
 
         Get.back(); // Go back to home partner page
-        Get.snackbar(
-          'Ride Cancelled',
-          'The ride has been cancelled successfully',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        _showSuccessDialog('Ride Cancelled', 'The ride has been cancelled successfully');
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to cancel ride: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      _showSuccessDialog('Error', 'Failed to cancel ride: $e');
     }
+  }
+
+  void _showSuccessDialog(String title, String message, {String? orderId}) {
+    Get.dialog(
+      AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            lottie.Lottie.asset('assets/success.json', width: 130, height: 130),
+            SizedBox(height: 16),
+            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(message),
+            if (orderId != null) Text('Order ID: $orderId'),
+          ],
+        ),
+      ),
+    );
+    // Auto close after 3 seconds
+    Future.delayed(Duration(seconds: 3), () {
+      Get.back();
+    });
   }
 
   // Navigate back

@@ -34,11 +34,10 @@ class UserOrderController extends GetxController {
   Stream<QuerySnapshot> getOrdersStream() {
     if (userId.isEmpty) return Stream.empty();
 
-    // Show only accepted orders (simplified query to avoid index requirement)
+    // Show all orders for the user
     return _firestore
         .collection('orders')
         .where('userId', isEqualTo: userId.value)
-        .where('status', isEqualTo: 'accepted')
         .snapshots();
   }
 
@@ -52,7 +51,6 @@ class UserOrderController extends GetxController {
       final snapshot = await _firestore
           .collection('orders')
           .where('userId', isEqualTo: userId.value)
-          .where('status', isEqualTo: 'accepted')
           .get();
 
       // Sort in memory since we can't use orderBy in query

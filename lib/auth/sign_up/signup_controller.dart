@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/partner/partner.dart';
+import '../../components/success_dialog.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -89,18 +90,13 @@ class SignUpController extends GetxController {
       if (selectedRole.value == 'driver') {
         Get.offAll(() => PartnerPage(uid: userCredential.user!.uid));
       } else {
-        Get.snackbar(
-          'Success',
-          'User registered successfully',
-          backgroundColor: Colors.green[600],
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          borderRadius: 10,
-          margin: const EdgeInsets.all(10),
+        SuccessDialog.show(
+          title: 'Account Created',
+          message: 'Your account has been created successfully!',
         );
         // Navigate directly to home page since user is already authenticated
         Future.delayed(const Duration(milliseconds: 100), () {
-          Get.offAll(() => HomePage());
+          Get.offAll(() => HomePage(isNewSignup: true));
         });
       }
     } catch (e) {
