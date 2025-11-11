@@ -62,24 +62,76 @@ class UserIdPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundColor: Colors.blueGrey,
-                            child: Icon(Icons.account_circle, size: 70, color: Colors.white),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.teal,
-                              child: Icon(Icons.verified, size: 20, color: Colors.white),
-                            ),
-                          ),
-                        ],
+                    Center(
+                      child: GestureDetector(
+                        onTap: controller.showProfileImageOptions,
+                        child: Obx(() {
+                          final imageUrl = controller.profileImageUrl.value;
+                          final isUploading = controller.isUploadingImage.value;
+                          final progress = controller.uploadProgress.value;
+                          
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: Colors.blueGrey.withValues(alpha: 0.3),
+                                    width: 3,
+                                  ),
+                                  image: imageUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(imageUrl),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                ),
+                                child: imageUrl == null
+                                  ? Icon(
+                                      Icons.account_circle,
+                                      color: Colors.blueGrey,
+                                      size: 80,
+                                    )
+                                  : null,
+                              ),
+                              if (isUploading)
+                                Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                  ),
+                                  child: CircularProgressIndicator(
+                                    value: progress > 0 ? progress : null,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -120,7 +172,7 @@ class UserIdPage extends StatelessWidget {
                     _buildProfileSection(
                       title: 'Account Details',
                       children: [
-                        _buildProfileRow(Icons.badge_outlined, 'User ID', controller.userData.value?['uid'], false, null),
+                       /*  _buildProfileRow(Icons.badge_outlined, 'User ID', controller.userData.value?['uid'], false, null), */
                         _buildProfileRow(
                           Icons.calendar_today_outlined,
                           'Created At',
