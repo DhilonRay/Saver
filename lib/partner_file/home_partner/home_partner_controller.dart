@@ -159,14 +159,43 @@ class HomePartnerController extends GetxController {
     try {
       debugPrint('🖼️ Starting gallery image selection');
 
-      // Request storage permission first
-      final status = await Permission.photos.request();
-      if (status.isDenied || status.isPermanentlyDenied) {
+      // Request photo library permissions (different for iOS/Android)
+      PermissionStatus status;
+
+      if (GetPlatform.isIOS) {
+        // iOS: Request photos permission
+        status = await Permission.photos.request();
+      } else {
+        // Android: Request storage permission (works for most Android versions)
+        status = await Permission.storage.request();
+        // If storage is denied, try photos permission for Android 13+
+        if (status.isDenied || status.isPermanentlyDenied) {
+          status = await Permission.photos.request();
+        }
+      }
+
+      if (status.isDenied) {
         Get.snackbar(
           'Permission Required',
-          'Photo library access is required to select images. Please grant permission in settings.',
+          'Photo library access is required to select images. Please grant permission when prompted.',
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      if (status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Photo library access is permanently denied. Please enable it in app settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+          mainButton: TextButton(
+            onPressed: () {
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
         );
         return;
       }
@@ -583,7 +612,7 @@ class HomePartnerController extends GetxController {
         return;
       }
 
-      // Validate rates
+      // Validate rateshome
       if (newIndoorRate < 1000 || newOutdoorRate < 2000) {
         Get.snackbar(
           'Invalid Rates',
