@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../about/about.dart';
@@ -39,6 +45,11 @@ class HomePartnerController extends GetxController {
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
   var partnerName = 'NeoSaver Partner'.obs;
+
+  // Profile image
+  var profileImageUrl = Rx<String?>(null);
+  var isUploadingImage = false.obs;
+  var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
   // Ambulance requests
   var pendingRequests = <Map<String, dynamic>>[].obs;
@@ -123,6 +134,439 @@ class HomePartnerController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error loading partner name: $e');
       partnerName.value = _auth.currentUser?.displayName ?? 'NeoSaver Partner';
+    }
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance.collection('partners').doc(user.uid).get();
+      
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        profileImageUrl.value = data['profileImageUrl'];
+        debugPrint('✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading profile image: $e');
+    }
+  }
+
+  // Profile Image Methods
+  Future<void> pickAndUploadProfileImage() async {
+    try {
+      debugPrint('🖼️ Starting gallery image selection');
+
+      // Request storage permission first
+      final status = await Permission.photos.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Photo library access is required to select images. Please grant permission in settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 256,  // Reduced from 512 for faster upload
+        maxHeight: 256, // Reduced from 512 for faster upload
+        imageQuality: 60, // Reduced from 75 for faster upload
+      );
+
+      if (image != null) {
+        debugPrint('📁 Image selected from gallery: ${image.path}');
+        // Check file size and compress further if needed
+        final compressedImage = await _ultraFastCompress(File(image.path));
+        await uploadProfileImage(compressedImage);
+      } else {
+        debugPrint('❌ No image selected from gallery');
+      }
+    } catch (e) {
+      debugPrint('❌ Error picking image from gallery: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to pick image from gallery. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> pickAndUploadProfileImageFromCamera() async {
+    try {
+      debugPrint('📷 Starting camera image capture');
+
+      // Request camera permission first
+      final status = await Permission.camera.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Camera access is required to take photos. Please grant permission in settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 256,  // Reduced from 512 for faster upload
+        maxHeight: 256, // Reduced from 512 for faster upload
+        imageQuality: 60, // Reduced from 75 for faster upload
+      );
+
+      if (image != null) {
+        debugPrint('📸 Image captured from camera: ${image.path}');
+        // Check file size and compress further if needed
+        final compressedImage = await _ultraFastCompress(File(image.path));
+        await uploadProfileImage(compressedImage);
+      } else {
+        debugPrint('❌ No image captured from camera');
+      }
+    } catch (e) {
+      debugPrint('❌ Error taking photo: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to take photo. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> uploadProfileImage(File imageFile) async {
+    try {
+      isUploadingImage.value = true;
+      uploadProgress.value = 0.0; // Reset progress
+
+      // Check network connectivity first
+      final isConnected = await _isConnected();
+      if (!isConnected) {
+        Get.snackbar(
+          'No Internet',
+          'Please check your internet connection and try again.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw 'User not authenticated';
+      }
+      
+      // Create a unique filename
+      final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
+
+      debugPrint('📤 Starting profile image upload: $fileName');
+
+      // Upload the file with progress monitoring
+      final uploadTask = storageRef.putFile(imageFile);
+
+      // Monitor upload progress
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        uploadProgress.value = progress;
+        debugPrint('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+      });
+
+      final snapshot = await uploadTask.whenComplete(() => debugPrint('✅ Upload task completed'));
+
+      // Check if upload was successful
+      if (snapshot.state == TaskState.success) {
+        uploadProgress.value = 1.0; // Complete progress
+        
+        // Get the download URL
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+
+        // Update Firestore with the new image URL
+        await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+          'profileImageUrl': downloadUrl,
+        });
+
+        // Update local state
+        profileImageUrl.value = downloadUrl;
+
+        debugPrint('✅ Profile image updated successfully');
+        SuccessDialog.show(
+          title: 'Profile Updated',
+          message: 'Your profile image has been updated successfully!',
+        );
+      } else {
+        throw 'Upload failed with state: ${snapshot.state}';
+      }
+
+    } catch (e) {
+      debugPrint('❌ Error uploading profile image: $e');
+
+      // Provide more specific error messages
+      String errorMessage = 'Failed to upload profile image. Please try again.';
+      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+        // Offer retry option for network errors
+        Get.snackbar(
+          'Upload Failed',
+          'Network error occurred. Tap to retry.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+          onTap: (snack) {
+            debugPrint('🔄 User tapped retry for network error');
+            _retryUpload(imageFile);
+          },
+        );
+        return; // Don't show the default error snackbar
+      } else if (e.toString().contains('permission') || e.toString().contains('denied')) {
+        errorMessage = 'Permission denied. Please grant storage permissions and try again.';
+      } else if (e.toString().contains('cancelled')) {
+        errorMessage = 'Upload was cancelled.';
+        return; // Don't show error snackbar for cancelled uploads
+      }
+
+      Get.snackbar(
+        'Error',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      isUploadingImage.value = false;
+      uploadProgress.value = 0.0; // Reset progress
+    }
+  }
+
+  void showProfileImageOptions() {
+    debugPrint('🔄 Opening profile image options bottom sheet');
+    Get.bottomSheet(
+      Container(
+        height: profileImageUrl.value != null ? 280 : 240, // Dynamic height based on content
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const Text(
+                  'Change Profile Picture',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // 2 Column Grid Layout
+                Row(
+                  children: [
+                    // Camera Option
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.camera_alt,
+                        title: 'Take Photo',
+                        color: Colors.blue,
+                        onTap: () {
+                          debugPrint('📷 Camera option selected');
+                          Get.back();
+                          pickAndUploadProfileImageFromCamera();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Gallery Option
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.photo_library,
+                        title: 'Gallery',
+                        color: Colors.green,
+                        onTap: () {
+                          debugPrint('🖼️ Gallery option selected');
+                          Get.back();
+                          pickAndUploadProfileImage();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Remove Option (full width if exists)
+                if (profileImageUrl.value != null)
+                  _buildOptionCard(
+                    icon: Icons.delete,
+                    title: 'Remove Picture',
+                    color: Colors.red,
+                    onTap: () {
+                      debugPrint('🗑️ Remove option selected');
+                      Get.back();
+                      removeProfileImage();
+                    },
+                    fullWidth: true,
+                  ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: () {
+                    debugPrint('❌ Cancel pressed');
+                    Get.back();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      isScrollControlled: false, // Set to false since we have fixed height
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+    ).then((value) => debugPrint('📱 Bottom sheet closed'));
+  }
+
+  Widget _buildOptionCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    bool fullWidth = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> removeProfileImage() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      // Remove from Firestore
+      await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+        'profileImageUrl': FieldValue.delete(),
+      });
+
+      // Update local state
+      profileImageUrl.value = null;
+
+      debugPrint('🗑️ Profile image removed successfully');
+      SuccessDialog.show(
+        title: 'Profile Updated',
+        message: 'Your profile image has been removed successfully!',
+      );
+
+    } catch (e) {
+      debugPrint('❌ Error removing profile image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove profile image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  // Helper method to check network connectivity
+  Future<bool> _isConnected() async {
+    try {
+      // Simple connectivity check by trying to reach a reliable host
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Ultra-fast compression for all images
+  Future<File> _ultraFastCompress(File imageFile) async {
+    try {
+      debugPrint('⚡ Starting ultra-fast compression');
+
+      // Always compress with aggressive settings for speed
+      final compressedBytes = await FlutterImageCompress.compressWithFile(
+        imageFile.absolute.path,
+        minWidth: 180,  // Optimized size for speed vs quality
+        minHeight: 180,
+        quality: 45,    // Aggressive compression for speed
+        rotate: 0,      // Skip rotation for speed
+      );
+
+      if (compressedBytes != null) {
+        // Create a temporary file with compressed data
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(compressedBytes);
+
+        final originalSize = await imageFile.length();
+        final compressedSize = await tempFile.length();
+        final compressionRatio = ((originalSize - compressedSize) / originalSize * 100);
+        debugPrint('✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
+
+        return tempFile;
+      }
+
+      return imageFile; // Return original if compression fails
+    } catch (e) {
+      debugPrint('❌ Error in ultra-fast compression: $e');
+      return imageFile; // Return original on error
+    }
+  }
+
+  // Retry upload with exponential backoff
+  Future<void> _retryUpload(File imageFile, {int retryCount = 0, int maxRetries = 3}) async {
+    const baseDelay = Duration(seconds: 1);
+
+    try {
+      await uploadProfileImage(imageFile);
+    } catch (e) {
+      if (retryCount < maxRetries && (e.toString().contains('network') || e.toString().contains('unavailable'))) {
+        final delay = baseDelay * (1 << retryCount); // Exponential backoff
+        debugPrint('🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
+
+        await Future.delayed(delay);
+        return _retryUpload(imageFile, retryCount: retryCount + 1, maxRetries: maxRetries);
+      } else {
+        rethrow; // Re-throw if max retries reached or non-network error
+      }
     }
   }
 
@@ -286,6 +730,7 @@ class HomePartnerController extends GetxController {
     _listenForRequests();
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
+    _loadProfileImage(); // Load partner's profile image
     
     // Show success dialog for new driver signups
     if (isNewSignup) {

@@ -8,6 +8,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
@@ -76,6 +78,7 @@ class HomeController extends GetxController {
   // Profile image
   var profileImageUrl = Rx<String?>(null);
   var isUploadingImage = false.obs;
+  var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
   // Partner rates cache
   var partnerRates = <String, Map<String, int>>{}.obs; // partnerId -> {indoorCityRate, outdoorCityRate}
@@ -2599,13 +2602,18 @@ class HomeController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 75,
+        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxHeight: 200, // Further reduced for ultra-fast upload
+        imageQuality: 50, // Further reduced for ultra-fast upload
       );
 
       if (image != null) {
-        await uploadProfileImage(File(image.path));
+        debugPrint('📁 Image selected from gallery: ${image.path}');
+        // Always compress image for ultra-fast upload
+        final compressedImage = await _ultraFastCompress(File(image.path));
+        await uploadProfileImage(compressedImage);
+      } else {
+        debugPrint('❌ No image selected from gallery');
       }
     } catch (e) {
       debugPrint('❌ Error picking image: $e');
@@ -2634,13 +2642,18 @@ class HomeController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 75,
+        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxHeight: 200, // Further reduced for ultra-fast upload
+        imageQuality: 50, // Further reduced for ultra-fast upload
       );
 
       if (image != null) {
-        await uploadProfileImage(File(image.path));
+        debugPrint('📸 Image captured from camera: ${image.path}');
+        // Always compress image for ultra-fast upload
+        final compressedImage = await _ultraFastCompress(File(image.path));
+        await uploadProfileImage(compressedImage);
+      } else {
+        debugPrint('❌ No image captured from camera');
       }
     } catch (e) {
       debugPrint('❌ Error taking photo: $e');
@@ -2655,7 +2668,29 @@ class HomeController extends GetxController {
   Future<void> uploadProfileImage(File imageFile) async {
     try {
       isUploadingImage.value = true;
-      
+      uploadProgress.value = 0.0; // Reset progress
+
+      // Show immediate feedback
+      Get.snackbar(
+        'Uploading...',
+        'Please wait while we upload your profile image',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+        showProgressIndicator: true,
+      );
+
+      // Check network connectivity first
+      final isConnected = await _isConnected();
+      if (!isConnected) {
+        Get.snackbar(
+          'No Internet',
+          'Please check your internet connection and try again.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
       final user = _auth.currentUser;
       if (user == null) {
         throw 'User not authenticated';
@@ -2665,35 +2700,92 @@ class HomeController extends GetxController {
       final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
 
-      // Upload the file
-      final uploadTask = storageRef.putFile(imageFile);
-      final snapshot = await uploadTask.whenComplete(() => null);
+      debugPrint('📤 Starting profile image upload: $fileName');
 
-      // Get the download URL
-      final downloadUrl = await snapshot.ref.getDownloadURL();
+      // Upload the file with optimized settings
+      final uploadTask = storageRef.putFile(
+        imageFile,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {
+            'uploadedAt': DateTime.now().toIso8601String(),
+            'userId': user.uid,
+          },
+        ),
+      );
 
-      // Update Firestore with the new image URL
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'profileImageUrl': downloadUrl,
+      // Monitor upload progress with optimized updates
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        // Only update progress if it's significant change (>1%) to reduce UI updates
+        if ((progress - uploadProgress.value).abs() > 0.01) {
+          uploadProgress.value = progress;
+          debugPrint('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+        }
       });
 
-      // Update local state
-      profileImageUrl.value = downloadUrl;
+      final snapshot = await uploadTask.whenComplete(() => debugPrint('✅ Upload task completed'));
 
-      SuccessDialog.show(
-        title: 'Profile Updated',
-        message: 'Your profile image has been updated successfully!',
-      );
+      // Check if upload was successful
+      if (snapshot.state == TaskState.success) {
+        uploadProgress.value = 1.0; // Complete progress
+
+        // Get the download URL
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+
+        // Update Firestore with the new image URL
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'profileImageUrl': downloadUrl,
+        });
+
+        // Update local state
+        profileImageUrl.value = downloadUrl;
+
+        debugPrint('✅ Profile image updated successfully');
+        SuccessDialog.show(
+          title: 'Profile Updated',
+          message: 'Your profile image has been updated successfully!',
+        );
+      } else {
+        throw 'Upload failed with state: ${snapshot.state}';
+      }
 
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
+
+      // Provide more specific error messages
+      String errorMessage = 'Failed to upload profile image. Please try again.';
+      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+        // Offer retry option for network errors
+        Get.snackbar(
+          'Upload Failed',
+          'Network error occurred. Tap to retry.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+          onTap: (snack) {
+            debugPrint('🔄 User tapped retry for network error');
+            _retryUpload(imageFile);
+          },
+        );
+        return; // Don't show the default error snackbar
+      } else if (e.toString().contains('permission') || e.toString().contains('denied')) {
+        errorMessage = 'Permission denied. Please grant storage permissions and try again.';
+      } else if (e.toString().contains('cancelled')) {
+        errorMessage = 'Upload was cancelled.';
+        return; // Don't show error snackbar for cancelled uploads
+      }
+
       Get.snackbar(
         'Error',
-        'Failed to upload profile image. Please try again.',
+        errorMessage,
         snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
       );
     } finally {
       isUploadingImage.value = false;
+      uploadProgress.value = 0.0; // Reset progress
     }
   }
 
@@ -2856,6 +2948,71 @@ class HomeController extends GetxController {
         'Failed to remove profile image. Please try again.',
         snackPosition: SnackPosition.BOTTOM,
       );
+    }
+  }
+
+  // Helper method to check network connectivity
+  Future<bool> _isConnected() async {
+    try {
+      // Simple connectivity check by trying to reach a reliable host
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Ultra-fast compression for all images
+  Future<File> _ultraFastCompress(File imageFile) async {
+    try {
+      debugPrint('⚡ Starting ultra-fast compression');
+
+      // Always compress with aggressive settings for speed
+      final compressedBytes = await FlutterImageCompress.compressWithFile(
+        imageFile.absolute.path,
+        minWidth: 180,  // Optimized size for speed vs quality
+        minHeight: 180,
+        quality: 45,    // Aggressive compression for speed
+        rotate: 0,      // Skip rotation for speed
+      );
+
+      if (compressedBytes != null) {
+        // Create a temporary file with compressed data
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(compressedBytes);
+
+        final originalSize = await imageFile.length();
+        final compressedSize = await tempFile.length();
+        final compressionRatio = ((originalSize - compressedSize) / originalSize * 100);
+        debugPrint('✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
+
+        return tempFile;
+      }
+
+      return imageFile; // Return original if compression fails
+    } catch (e) {
+      debugPrint('❌ Error in ultra-fast compression: $e');
+      return imageFile; // Return original on error
+    }
+  }
+
+  // Retry upload with exponential backoff
+  Future<void> _retryUpload(File imageFile, {int retryCount = 0, int maxRetries = 3}) async {
+    const baseDelay = Duration(seconds: 1);
+
+    try {
+      await uploadProfileImage(imageFile);
+    } catch (e) {
+      if (retryCount < maxRetries && (e.toString().contains('network') || e.toString().contains('unavailable'))) {
+        final delay = baseDelay * (1 << retryCount); // Exponential backoff
+        debugPrint('🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
+
+        await Future.delayed(delay);
+        return _retryUpload(imageFile, retryCount: retryCount + 1, maxRetries: maxRetries);
+      } else {
+        rethrow; // Re-throw if max retries reached or non-network error
+      }
     }
   }
 }

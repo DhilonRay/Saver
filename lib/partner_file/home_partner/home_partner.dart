@@ -84,27 +84,100 @@ class HomePartnerPage extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     Container(
-                      padding: const EdgeInsets.only(top: 50, bottom: 30),
+                      padding: const EdgeInsets.only(top: 20, bottom: 30),
                       child: Column(
                         children: [
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blue.shade200,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.local_shipping,
-                              color: primaryBlue,
-                              size: 40,
-                            ),
+                          // Profile Image with Upload Functionality
+                          GestureDetector(
+                            onTap: controller.showProfileImageOptions,
+                            child: Obx(() {
+                              final imageUrl = controller.profileImageUrl.value;
+                              final isUploading = controller.isUploadingImage.value;
+                              final progress = controller.uploadProgress.value;
+                              
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white,
+                                      border: Border.all(
+                                        color: primaryBlue.withValues(alpha: 0.3),
+                                        width: 2,
+                                      ),
+                                      image: imageUrl != null
+                                        ? DecorationImage(
+                                            image: NetworkImage(imageUrl),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                    ),
+                                    child: imageUrl == null
+                                      ? Icon(
+                                          Icons.local_shipping,
+                                          color: primaryBlue,
+                                          size: 40,
+                                        )
+                                      : null,
+                                  ),
+                                  if (isUploading)
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withValues(alpha: 0.7),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 30,
+                                            height: 30,
+                                            child: CircularProgressIndicator(
+                                              value: progress > 0 ? progress : null, // Show progress if available
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                              backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          if (progress > 0)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                '${(progress * 100).toInt()}%',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        color: primaryBlue,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
                           ),
                           SizedBox(height: 16),
                           Obx(() => Text(

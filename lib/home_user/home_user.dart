@@ -60,6 +60,7 @@ class HomePage extends StatelessWidget {
                             child: Obx(() {
                               final imageUrl = controller.profileImageUrl.value;
                               final isUploading = controller.isUploadingImage.value;
+                              final progress = controller.uploadProgress.value;
                               
                               return Stack(
                                 alignment: Alignment.center,
@@ -95,11 +96,46 @@ class HomePage extends StatelessWidget {
                                       height: 80,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: Colors.black.withValues(alpha: 0.5),
+                                        color: Colors.black.withValues(alpha: 0.7),
                                       ),
-                                      child: const CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 30,
+                                            height: 30,
+                                            child: CircularProgressIndicator(
+                                              value: progress > 0 ? progress : null, // Show progress if available
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                              backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          if (progress > 0)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                '${(progress * 100).toInt()}%',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                'Uploading...',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   Positioned(
