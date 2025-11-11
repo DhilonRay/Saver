@@ -54,17 +54,73 @@ class HomePage extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 20, bottom: 30),
                       child: Column(
                         children: [
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                             
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.shield,
-                              color: Colors.blueGrey,
-                              size: 40,
-                            ),
+                          // Profile Image with Upload Functionality
+                          GestureDetector(
+                            onTap: controller.showProfileImageOptions,
+                            child: Obx(() {
+                              final imageUrl = controller.profileImageUrl.value;
+                              final isUploading = controller.isUploadingImage.value;
+                              
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white,
+                                      border: Border.all(
+                                        color: primaryBlue.withValues(alpha: 0.3),
+                                        width: 2,
+                                      ),
+                                      image: imageUrl != null
+                                        ? DecorationImage(
+                                            image: NetworkImage(imageUrl),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                    ),
+                                    child: imageUrl == null
+                                      ? Icon(
+                                          Icons.person,
+                                          color: primaryBlue,
+                                          size: 40,
+                                        )
+                                      : null,
+                                  ),
+                                  if (isUploading)
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withValues(alpha: 0.5),
+                                      ),
+                                      child: const CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        color: primaryBlue,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
                           ),
                           SizedBox(height: 16),
                           Obx(() => Text(

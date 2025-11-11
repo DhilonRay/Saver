@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
@@ -69,6 +72,10 @@ class HomeController extends GetxController {
 
   // User name
   var userName = 'NeoSaver'.obs;
+
+  // Profile image
+  var profileImageUrl = Rx<String?>(null);
+  var isUploadingImage = false.obs;
 
   // Partner rates cache
   var partnerRates = <String, Map<String, int>>{}.obs; // partnerId -> {indoorCityRate, outdoorCityRate}
@@ -234,6 +241,7 @@ class HomeController extends GetxController {
     _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _getCurrentLocation();
     _loadUserName();
+    _loadProfileImage();
     
     // Show success dialog for new signups
     if (isNewSignup) {
@@ -271,6 +279,22 @@ class HomeController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error loading user name: $e');
       userName.value = _auth.currentUser?.displayName ?? 'NeoSaver';
+    }
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final userData = userDoc.data();
+          profileImageUrl.value = userData?['profileImageUrl'];
+        }
+        debugPrint('✅ Loaded profile image URL: ${profileImageUrl.value}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading profile image: $e');
     }
   }
 
@@ -2554,6 +2578,284 @@ class HomeController extends GetxController {
     } catch (e) {
       print('❌ Error sending ride request to nearby drivers: $e');
     
+    }
+  }
+
+  // Profile Image Methods
+  Future<void> pickAndUploadProfileImage() async {
+    try {
+      // Request storage permission first
+      final status = await Permission.photos.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Photo library access is required to select images. Please grant permission in settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+
+      if (image != null) {
+        await uploadProfileImage(File(image.path));
+      }
+    } catch (e) {
+      debugPrint('❌ Error picking image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to pick image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> pickAndUploadProfileImageFromCamera() async {
+    try {
+      // Request camera permission first
+      final status = await Permission.camera.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Camera access is required to take photos. Please grant permission in settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+
+      if (image != null) {
+        await uploadProfileImage(File(image.path));
+      }
+    } catch (e) {
+      debugPrint('❌ Error taking photo: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to take photo. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> uploadProfileImage(File imageFile) async {
+    try {
+      isUploadingImage.value = true;
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw 'User not authenticated';
+      }
+
+      // Create a unique filename
+      final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
+
+      // Upload the file
+      final uploadTask = storageRef.putFile(imageFile);
+      final snapshot = await uploadTask.whenComplete(() => null);
+
+      // Get the download URL
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // Update Firestore with the new image URL
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'profileImageUrl': downloadUrl,
+      });
+
+      // Update local state
+      profileImageUrl.value = downloadUrl;
+
+      SuccessDialog.show(
+        title: 'Profile Updated',
+        message: 'Your profile image has been updated successfully!',
+      );
+
+    } catch (e) {
+      debugPrint('❌ Error uploading profile image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to upload profile image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isUploadingImage.value = false;
+    }
+  }
+
+  void showProfileImageOptions() {
+    debugPrint('🔄 Opening profile image options bottom sheet');
+    Get.bottomSheet(
+      Container(
+        height: profileImageUrl.value != null ? 280 : 240, // Dynamic height based on content
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const Text(
+                  'Change Profile Picture',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // 2 Column Grid Layout
+                Row(
+                  children: [
+                    // Camera Option
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.camera_alt,
+                        title: 'Take Photo',
+                        color: Colors.blue,
+                        onTap: () {
+                          debugPrint('📷 Camera option selected');
+                          Get.back();
+                          pickAndUploadProfileImageFromCamera();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Gallery Option
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.photo_library,
+                        title: 'Gallery',
+                        color: Colors.green,
+                        onTap: () {
+                          debugPrint('🖼️ Gallery option selected');
+                          Get.back();
+                          pickAndUploadProfileImage();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Remove Option (full width if exists)
+                if (profileImageUrl.value != null)
+                  _buildOptionCard(
+                    icon: Icons.delete,
+                    title: 'Remove Picture',
+                    color: Colors.red,
+                    onTap: () {
+                      debugPrint('🗑️ Remove option selected');
+                      Get.back();
+                      removeProfileImage();
+                    },
+                    fullWidth: true,
+                  ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: () {
+                    debugPrint('❌ Cancel pressed');
+                    Get.back();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      isScrollControlled: false, // Set to false since we have fixed height
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+    ).then((value) => debugPrint('📱 Bottom sheet closed'));
+  }
+
+  Widget _buildOptionCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    bool fullWidth = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> removeProfileImage() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      // Remove from Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'profileImageUrl': FieldValue.delete(),
+      });
+
+      // Update local state
+      profileImageUrl.value = null;
+
+      SuccessDialog.show(
+        title: 'Profile Updated',
+        message: 'Your profile image has been removed successfully!',
+      );
+
+    } catch (e) {
+      debugPrint('❌ Error removing profile image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove profile image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 }
