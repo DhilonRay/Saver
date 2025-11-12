@@ -1135,6 +1135,45 @@ class HomePartnerController extends GetxController {
                   ),
                 ),
 
+              SizedBox(height: 16),
+
+              // Destination Information Card
+              if (request['destinationAddress'] != null && request['destinationAddress'].toString().isNotEmpty)
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.purple.shade200, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.flag, color: Colors.purple.shade700, size: 24),
+                          SizedBox(width: 12),
+                          Text(
+                            'গন্তব্য তথ্য',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      _buildInfoRow(
+                        Icons.location_on,
+                        'গন্তব্য ঠিকানা',
+                        request['destinationAddress'],
+                        Colors.purple.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+
               SizedBox(height: 24),
 
               // Action Buttons

@@ -17,6 +17,7 @@ import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
@@ -25,6 +26,7 @@ import '../partner_file/partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
 import '../services/notification_service.dart';
 import '../components/success_dialog.dart';
+import '../user_tracking/user_tracking_page.dart';
 
 class HomeController extends GetxController {
   final bool isNewSignup;
@@ -66,6 +68,7 @@ class HomeController extends GetxController {
   var partnerLocationTrail = <LatLng>[].obs;
   var isTrackingPartner = false.obs;
   StreamSubscription<DocumentSnapshot>? _orderSubscription;
+  var currentTrackingOrderId = Rx<String?>(null);
 
   // Autocomplete variables
   var placeSuggestions = <Map<String, dynamic>>[].obs;
@@ -95,6 +98,10 @@ class HomeController extends GetxController {
   static const int _maxHistoryItems = 10;
   var hasStartedTyping =
       false.obs; // Track if user has started typing in current session
+
+  // Acknowledged tracking orders (orders where user has clicked "Track" in dialog)
+  var acknowledgedTrackingOrders = <String>{}.obs;
+  static const String _acknowledgedOrdersKey = 'acknowledged_tracking_orders';
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -263,6 +270,7 @@ class HomeController extends GetxController {
     _getCurrentLocation();
     _loadUserName();
     _loadProfileImage();
+    _loadAcknowledgedOrders();
 
     // Show success dialog for new signups
     if (isNewSignup) {
@@ -324,6 +332,32 @@ class HomeController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error loading profile image: $e');
     }
+  }
+
+  Future<void> _loadAcknowledgedOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final acknowledgedList = prefs.getStringList(_acknowledgedOrdersKey) ?? [];
+      acknowledgedTrackingOrders.assignAll(acknowledgedList.toSet());
+      debugPrint('✅ Loaded acknowledged orders: ${acknowledgedTrackingOrders.length}');
+    } catch (e) {
+      debugPrint('❌ Error loading acknowledged orders: $e');
+    }
+  }
+
+  Future<void> _saveAcknowledgedOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_acknowledgedOrdersKey, acknowledgedTrackingOrders.toList());
+      debugPrint('✅ Saved acknowledged orders: ${acknowledgedTrackingOrders.length}');
+    } catch (e) {
+      debugPrint('❌ Error saving acknowledged orders: $e');
+    }
+  }
+
+  void _addAcknowledgedOrder(String orderId) {
+    acknowledgedTrackingOrders.add(orderId);
+    _saveAcknowledgedOrders();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -1422,6 +1456,23 @@ class HomeController extends GetxController {
     // Fetch partner rates first
     final rates = await _fetchPartnerRates(partnerId);
 
+    // Check if destination is selected
+    if (destinationPosition.value == null) {
+      Get.dialog(
+        AlertDialog(
+          title: Text('Destination Required'),
+          content: Text('Please select a destination before booking an ambulance.'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
 
@@ -1433,6 +1484,32 @@ class HomeController extends GetxController {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Destination Display
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on, color: Colors.green, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Destination: ${_selectedPlaceName ?? destinationQuery.value}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16),
                 // Ambulance Rates Display
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1930,6 +2007,10 @@ class HomeController extends GetxController {
         'pickupAddress': pickupAddress,
         'pickupLat': currentPosition.value?.latitude,
         'pickupLng': currentPosition.value?.longitude,
+        // Include destination information
+        'destinationAddress': _selectedPlaceName ?? destinationQuery.value,
+        'destinationLat': destinationPosition.value?.latitude,
+        'destinationLng': destinationPosition.value?.longitude,
       });
 
       debugPrint('✅ Order created successfully with ID: ${docRef.id}');
@@ -1961,6 +2042,10 @@ class HomeController extends GetxController {
         'pickupAddress': pickupAddress,
         'pickupLat': currentPosition.value?.latitude,
         'pickupLng': currentPosition.value?.longitude,
+        // Include destination information
+        'destinationAddress': _selectedPlaceName ?? destinationQuery.value,
+        'destinationLat': destinationPosition.value?.latitude,
+        'destinationLng': destinationPosition.value?.longitude,
       };
 
       try {
@@ -1994,6 +2079,9 @@ class HomeController extends GetxController {
   void listenForRequestUpdates(String orderId) {
     // Cancel any existing subscription
     _orderSubscription?.cancel();
+    
+    // Set current tracking order ID
+    currentTrackingOrderId.value = orderId;
 
     // Listen for order updates
     _orderSubscription = FirebaseFirestore.instance
@@ -2008,19 +2096,13 @@ class HomeController extends GetxController {
         // Handle status updates
         if (status == 'accepted') {
           isTrackingPartner.value = true;
-          SuccessDialog.show(
-            title: 'Request Accepted',
-            message: 'An ambulance is on the way! Track its live location.',
-          );
+          // Don't show dialog automatically - user will see it when navigating to tracking
         } else if (status == 'in_transit') {
           isTrackingPartner.value = true;
-          SuccessDialog.show(
-            title: 'Patient Picked Up',
-            message:
-                'The ambulance has picked up the patient and is now moving. Track its live location.',
-          );
+          // Don't show dialog automatically - user will see it when navigating to tracking
         } else if (status == 'completed') {
           isTrackingPartner.value = false;
+          currentTrackingOrderId.value = null;
           partnerLiveLocation.value = null;
           partnerLocationTrail.clear();
 
@@ -2110,6 +2192,169 @@ class HomeController extends GetxController {
 
   void navigateToSOSChat() {
     Get.to(() => const SOSChatPage());
+  }
+
+  void navigateToTrackingPage() async {
+    final orderId = currentTrackingOrderId.value;
+    if (orderId != null && isTrackingPartner.value) {
+      // Check if this order has been acknowledged before
+      if (acknowledgedTrackingOrders.contains(orderId)) {
+        // Already acknowledged, go directly to tracking
+        navigateToUserTracking(orderId);
+      } else {
+        // Not acknowledged yet, show the tracking dialog first
+        _showTrackingDialog(
+          'Ambulance is on the way!',
+          'Your ambulance has been dispatched and is heading to your location. Track its live location.',
+          orderId,
+        );
+      }
+    } else {
+      // No active tracking, navigate to orders page or show message
+      Get.snackbar(
+        'No Active Tracking',
+        'You don\'t have any active ambulance tracking at the moment.',
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+      );
+      // Or navigate to orders page
+      navigateToUserOrders();
+    }
+  }
+
+  void navigateToUserTracking(String orderId) async {
+    try {
+      // Fetch the complete order data from Firestore
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+
+      if (doc.exists) {
+        final orderData = {'id': orderId, ...doc.data()!};
+        Get.to(() => const UserTrackingPage(), arguments: orderData);
+      } else {
+        Get.snackbar(
+          'Error',
+          'Order data not found',
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching order data: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to load tracking data',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  void _showTrackingDialog(String title, String message, String orderId) {
+    Get.dialog(
+      
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              // Close button at top right
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: () => Get.back(),
+                  icon: Icon(Icons.close, color: Colors.grey.shade500),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                ),
+              ),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.local_shipping,
+                  color: Colors.blue.shade700,
+                  size: 40,
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.blue.shade300),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        'পরে দেখব',
+                        style: TextStyle(color: Colors.blue.shade700),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back(); // Close dialog
+                        _addAcknowledgedOrder(orderId); // Mark as acknowledged
+                        navigateToUserTracking(orderId); // Navigate to tracking
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        'ট্র্যাক করুন',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
   }
 
   void _showAmbulanceBookingDialog(

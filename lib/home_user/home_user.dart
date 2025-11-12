@@ -194,6 +194,11 @@ class HomePage extends StatelessWidget {
                             title: 'Your Orders',
                             onTap: controller.navigateToUserOrders,
                           ),
+                          _buildDrawerItem(
+                            icon: Icons.track_changes_outlined,
+                            title: 'Tracking',
+                            onTap: controller.navigateToTrackingPage,
+                          ),
                           Divider(height: 40, thickness: 1),
                            _buildDrawerItem(
                             icon: Icons.info_outline,

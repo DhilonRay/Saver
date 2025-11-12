@@ -166,7 +166,7 @@ class AcceptMapsPage extends StatelessWidget {
               SlidingUpPanel(
                 minHeight: 100, // Reduced from 130
                 maxHeight: MediaQuery.of(context).size.height *
-                    0.49, // Reduced from 0.9
+                    0.7, // Increased from 0.49 to 0.6 to accommodate all content
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 panelBuilder: (scrollController) =>
                     _buildSlidePanel(scrollController, controller),
@@ -361,6 +361,120 @@ class AcceptMapsPage extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+
+                      // Destination information
+                      if (controller.requestData.value?['destinationAddress'] != null &&
+                          (controller.requestData.value?['destinationAddress'] as String).isNotEmpty) ...[
+                        SizedBox(height: 8),
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.purple.shade200, width: 1),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.flag,
+                                color: Colors.purple.shade600,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'গন্তব্য',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.purple.shade800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      controller.requestData.value?['destinationAddress'] ?? '',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.purple.shade700,
+                                        height: 1.3,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // ETA information
+                      SizedBox(height: 8),
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200, width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              color: Colors.blue.shade600,
+                              size: 16,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'আনুমানিক সময়',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Obx(() => Text(
+                                    controller.estimatedTime.value,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.blue.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  )),
+                                ],
+                              ),
+                            ),
+                            if (controller.estimatedDistance.value > 0) ...[
+                              SizedBox(width: 8),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Obx(() => Text(
+                                  '${controller.estimatedDistance.value.toStringAsFixed(1)} km',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue.shade800,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

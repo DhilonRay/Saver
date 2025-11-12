@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'user_order_controller.dart';
 import '../loader/loader.dart';
+import '../home_user/home_user_controller.dart';
 
 class OrderSkeletonLoader extends StatelessWidget {
   const OrderSkeletonLoader({super.key});
@@ -323,6 +324,8 @@ class UserOrdersPage extends StatelessWidget {
                   itemBuilder: (context, index, animation) {
                     final orderDoc = snapshot.data!.docs[index];
                     final orderData = orderDoc.data() as Map<String, dynamic>;
+                    // Add document ID to orderData
+                    orderData['id'] = orderDoc.id;
                     final companyName =
                         orderData['companyName'] as String? ?? 'Order Details';
                     final orderStatus = orderData['status'] as String?;
@@ -761,11 +764,15 @@ class OrderDetailScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // TODO: Navigate to live tracking
-                          Get.snackbar('Info', 'Live tracking coming soon');
+                          // Navigate to live tracking page
+                          final homeController = Get.find<HomeController>();
+                          final orderId = orderData['id'] as String?;
+                          if (orderId != null) {
+                            homeController.navigateToUserTracking(orderId);
+                          }
                         },
                         icon: Icon(Icons.location_on),
-                        label: Text('Track Partner'),
+                        label: Text('অ্যাম্বুলেন্স ট্র্যাক করুন'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,

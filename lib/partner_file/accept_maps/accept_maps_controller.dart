@@ -26,6 +26,11 @@ class AcceptMapsController extends GetxController {
   var isLoadingLocation = true.obs;
   var requestData = Rx<Map<String, dynamic>?>(null);
 
+  // ETA variables
+  var estimatedTime = Rx<String>('Calculating...');
+  var estimatedDistance = Rx<double>(0.0);
+  var isCalculatingETA = false.obs;
+
   // Live tracking variables
   var isLiveTracking = false.obs;
   StreamSubscription<Position>? _positionSubscription;
@@ -33,12 +38,15 @@ class AcceptMapsController extends GetxController {
   // Timing and performance optimization
   Timer? _firestoreUpdateTimer;
   Timer? _cameraUpdateTimer;
+  Timer? _etaUpdateTimer;
   Position? _lastFirestorePosition;
   Position? _lastCameraPosition;
   static const Duration _firestoreUpdateInterval =
       Duration(seconds: 3); // Update every 3 seconds
   static const Duration _cameraUpdateInterval =
       Duration(seconds: 5); // Camera update every 5 seconds
+  static const Duration _etaUpdateInterval =
+      Duration(seconds: 10); // ETA update every 10 seconds
   static const double _minDistanceForCameraUpdate =
       20.0; // 20 meters minimum for camera update
 
@@ -67,21 +75,19 @@ class AcceptMapsController extends GetxController {
     super.onInit();
     _initializeDirections();
     _loadCustomIcons();
-    _getCurrentLocation();
 
-    // Get request data from arguments
+    // Get request data from arguments first
     final args = Get.arguments;
     if (args != null && args is Map<String, dynamic>) {
       requestData.value = args;
       debugPrint('AcceptMaps: Received request data with ID: ${args['id']}');
       if (args['pickupLat'] != null && args['pickupLng'] != null) {
         userPosition.value = LatLng(args['pickupLat'], args['pickupLng']);
-        // Create route polyline after setting user position
-        _createRoutePolyline();
       }
-    } else {
-      debugPrint('AcceptMaps: No request data received in arguments');
     }
+
+    // Get current location and then calculate ETA
+    _getCurrentLocation();
   }
 
   void _initializeDirections() {
@@ -137,11 +143,19 @@ class AcceptMapsController extends GetxController {
       _updateMarkers();
       // Create route polyline if user position is available
       _createRoutePolyline();
+      // Calculate ETA if both positions are available
+      if (userPosition.value != null) {
+        calculateETA();
+      }
 
       isLoadingLocation.value = false;
     } catch (e) {
       partnerPosition.value = defaultPosition;
       _updateMarkers();
+      // Try to calculate ETA even with default position if user position exists
+      if (userPosition.value != null) {
+        calculateETA();
+      }
       isLoadingLocation.value = false;
     }
   }
@@ -328,6 +342,71 @@ class AcceptMapsController extends GetxController {
     }
   }
 
+  // ETA Calculation
+  Future<void> calculateETA() async {
+    debugPrint('AcceptMaps: Starting ETA calculation...');
+    if (partnerPosition.value == null || userPosition.value == null) {
+      estimatedTime.value = 'অনুমানিক সময়';
+      debugPrint('AcceptMaps: Cannot calculate ETA - missing positions');
+      return;
+    }
+
+    try {
+      isCalculatingETA.value = true;
+      debugPrint('AcceptMaps: Calculating ETA from ${partnerPosition.value} to ${userPosition.value}');
+
+      final origin =
+          '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
+      final destination =
+          '${userPosition.value!.latitude},${userPosition.value!.longitude}';
+
+      final result = await _directions.directions(
+        origin,
+        destination,
+        travelMode: directions.TravelMode.driving,
+        units: directions.Unit.metric,
+      );
+
+      if (result.status == 'OK' && result.routes.isNotEmpty) {
+        final route = result.routes.first;
+        final leg = route.legs.first;
+
+        // Get duration in minutes
+        final durationInMinutes = (leg.duration.value / 60).round();
+        final distanceInKm = (leg.distance.value / 1000);
+
+        estimatedDistance.value = distanceInKm;
+        estimatedTime.value = _formatDuration(durationInMinutes);
+
+        debugPrint('AcceptMaps: ETA calculated successfully - ${estimatedTime.value}, Distance: ${distanceInKm.toStringAsFixed(1)} km');
+      } else {
+        estimatedTime.value = 'গণনা করা যায়নি';
+        debugPrint('AcceptMaps: ETA calculation failed: ${result.status}');
+      }
+    } catch (e) {
+      estimatedTime.value = 'সময় গণনায় ত্রুটি';
+      debugPrint('AcceptMaps: ETA calculation error: $e');
+    } finally {
+      isCalculatingETA.value = false;
+    }
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes < 1) {
+      return '১ মিনিটের কম';
+    } else if (minutes < 60) {
+      return '$minutes মিনিট';
+    } else {
+      final hours = minutes ~/ 60;
+      final remainingMinutes = minutes % 60;
+      if (remainingMinutes == 0) {
+        return '$hours ঘণ্টা${hours > 1 ? '' : ''}';
+      } else {
+        return '$hours ঘণ্টা${hours > 1 ? '' : ''} $remainingMinutes মিনিট';
+      }
+    }
+  }
+
   Future<void> completeRide({required double fareAmount}) async {
     try {
       if (requestData.value != null) {
@@ -416,6 +495,9 @@ class AcceptMapsController extends GetxController {
       // Conditional camera update (every 5 seconds and minimum distance)
       _scheduleCameraUpdate(position);
 
+      // Periodic ETA update (every 10 seconds)
+      _scheduleETAUpdate();
+
       debugPrint(
           'Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
     });
@@ -495,6 +577,18 @@ class AcceptMapsController extends GetxController {
     return earthRadius * c;
   }
 
+  void _scheduleETAUpdate() {
+    // Cancel existing timer
+    _etaUpdateTimer?.cancel();
+
+    // Schedule ETA update
+    _etaUpdateTimer = Timer(_etaUpdateInterval, () {
+      if (isLiveTracking.value) {
+        calculateETA();
+      }
+    });
+  }
+
   void stopLiveTracking() {
     if (!isLiveTracking.value) return;
 
@@ -507,6 +601,8 @@ class AcceptMapsController extends GetxController {
     _firestoreUpdateTimer = null;
     _cameraUpdateTimer?.cancel();
     _cameraUpdateTimer = null;
+    _etaUpdateTimer?.cancel();
+    _etaUpdateTimer = null;
 
     debugPrint('Stopped live location tracking');
   }
