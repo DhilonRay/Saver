@@ -5,7 +5,7 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'accept_maps_controller.dart';
 
 class AcceptMapsPage extends StatelessWidget {
-  AcceptMapsPage({super.key});
+  const AcceptMapsPage({super.key});
 
   // Medical-themed color palette
   static const Color primaryGreen = Color(0xFF2E7D32);

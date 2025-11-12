@@ -19,11 +19,13 @@ class PartnersOrdersPage extends StatelessWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Your Orders', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text('Your Orders',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               backgroundColor: Colors.teal.shade800,
               elevation: 2,
               iconTheme: IconThemeData(color: colorScheme.onPrimary),
-              titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
+              titleTextStyle:
+                  TextStyle(color: colorScheme.onPrimary, fontSize: 18),
               bottom: TabBar(
                 // Make tabs expand evenly to fill the available width
                 isScrollable: false,
@@ -45,15 +47,20 @@ class PartnersOrdersPage extends StatelessWidget {
             body: Obx(() {
               if (controller.partnerId.value.isEmpty) {
                 return Center(
-                  child: Text(
-                    'Please log in as a partner to see your orders.',
-                    style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7))
-                  )
-                );
+                    child: Text(
+                        'Please log in as a partner to see your orders.',
+                        style: TextStyle(
+                            color:
+                                colorScheme.onSurface.withValues(alpha: 0.7))));
               }
 
               if (controller.isLoading.value) {
-                return Center(child: HorizontalRotatingDots(size: 60, colors: [Colors.teal.shade800, Colors.orange.shade600, Colors.purple.shade600]));
+                return Center(
+                    child: HorizontalRotatingDots(size: 60, colors: [
+                  Colors.teal.shade800,
+                  Colors.orange.shade600,
+                  Colors.purple.shade600
+                ]));
               }
 
               return TabBarView(
@@ -70,25 +77,23 @@ class PartnersOrdersPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrdersTab(RxList<QueryDocumentSnapshot> orders, ColorScheme colorScheme) {
+  Widget _buildOrdersTab(
+      RxList<QueryDocumentSnapshot> orders, ColorScheme colorScheme) {
     return Obx(() {
       if (orders.isEmpty) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.assignment_turned_in,
-                size: 64,
-                color: colorScheme.onSurface.withValues(alpha: 0.3)
-              ),
+              Icon(Icons.assignment_turned_in,
+                  size: 64,
+                  color: colorScheme.onSurface.withValues(alpha: 0.3)),
               const SizedBox(height: 16),
               Text(
                 'No orders found',
                 style: TextStyle(
-                  fontSize: 18,
-                  color: colorScheme.onSurface.withValues(alpha: 0.6)
-                ),
+                    fontSize: 18,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
             ],
           ),
@@ -140,7 +145,8 @@ class PartnersOrdersPage extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: _getStatusColor(orderData['status']),
                           borderRadius: BorderRadius.circular(12),
@@ -157,25 +163,31 @@ class PartnersOrdersPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildOrderDetail('Patient', orderData['patientName'] ?? 'N/A'),
-                  _buildOrderDetail('Phone', orderData['patientPhone'] ?? 'N/A'),
-                  _buildOrderDetail('Location', orderData['pickupAddress'] ?? 'N/A'),
-                  _buildOrderDetail('Time', _formatTimestamp(orderData['timestamp'])),
-                  if (orderData['notes'] != null && orderData['notes'].toString().isNotEmpty)
+                  _buildOrderDetail(
+                      'Patient', orderData['patientName'] ?? 'N/A'),
+                  _buildOrderDetail('Phone', orderData['phone'] ?? 'N/A'),
+                  _buildOrderDetail(
+                      'Location', orderData['pickupAddress'] ?? 'N/A'),
+                  _buildOrderDetail(
+                      'Time', _formatTimestamp(orderData['timestamp'])),
+                  if (orderData['notes'] != null &&
+                      orderData['notes'].toString().isNotEmpty)
                     _buildOrderDetail('Notes', orderData['notes']),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton.icon(
-                        onPressed: () => Get.find<PartnerOrdersController>().showOrderDetails(
+                        onPressed: () => Get.find<PartnerOrdersController>()
+                            .showOrderDetails(
                           context,
                           orderData['userId'],
                           orderData['patientName'],
                           orderData['companyName'],
                           orderData['status'],
                         ),
-                        icon: Icon(Icons.info_outline, size: 16, color: Colors.teal.shade800),
+                        icon: Icon(Icons.info_outline,
+                            size: 16, color: Colors.teal.shade800),
                         label: Text(
                           'Details',
                           style: TextStyle(color: Colors.teal.shade800),
@@ -192,33 +204,28 @@ class PartnersOrdersPage extends StatelessWidget {
     });
   }
 
-  Widget _buildActivityTab(PartnerOrdersController controller, ColorScheme colorScheme) {
+  Widget _buildActivityTab(
+      PartnerOrdersController controller, ColorScheme colorScheme) {
     return Obx(() {
       if (controller.isLoading.value) {
-        return Center(child: CircularProgressIndicator(color: Colors.teal.shade800));
+        return Center(
+            child: CircularProgressIndicator(color: Colors.teal.shade800));
       }
 
       if (controller.activeOrders.isEmpty) {
         return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.work_outline,
-                size: 64,
-                color: colorScheme.onSurface.withValues(alpha: 0.3)
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No active orders.',
+            child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.work_outline,
+                size: 64, color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            Text('No active orders.',
                 style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                  fontSize: 16
-                )
-              ),
-            ],
-          )
-        );
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontSize: 16)),
+          ],
+        ));
       }
 
       return ListView.builder(
@@ -237,7 +244,10 @@ class PartnersOrdersPage extends StatelessWidget {
           final pickupAddress = orderData['pickupAddress'] as String?;
 
           return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .get(),
             builder: (context, userSnapshot) {
               final userData = userSnapshot.data?.data();
               final userName = userData?['name'] as String?;
@@ -253,7 +263,8 @@ class PartnersOrdersPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     gradient: LinearGradient(
                       colors: [
-                        _getStatusColor(orderStatus ?? 'pending').withValues(alpha: 0.1),
+                        _getStatusColor(orderStatus ?? 'pending')
+                            .withValues(alpha: 0.1),
                         colorScheme.surface,
                       ],
                       begin: Alignment.topLeft,
@@ -272,14 +283,11 @@ class PartnersOrdersPage extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    patientName ?? userName ?? 'New Order',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: colorScheme.onSurface
-                                    )
-                                  ),
+                                  Text(patientName ?? userName ?? 'New Order',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: colorScheme.onSurface)),
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
@@ -287,7 +295,8 @@ class PartnersOrdersPage extends StatelessWidget {
                                         Text(
                                           serviceType,
                                           style: TextStyle(
-                                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.7),
                                             fontSize: 14,
                                           ),
                                         ),
@@ -295,19 +304,28 @@ class PartnersOrdersPage extends StatelessWidget {
                                       ],
                                       if (emergencyLevel != null)
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: emergencyLevel == 'high' ? Colors.red.withValues(alpha: 0.1) :
-                                                   emergencyLevel == 'medium' ? Colors.orange.withValues(alpha: 0.1) :
-                                                   Colors.green.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: emergencyLevel == 'high'
+                                                ? Colors.red
+                                                    .withValues(alpha: 0.1)
+                                                : emergencyLevel == 'medium'
+                                                    ? Colors.orange
+                                                        .withValues(alpha: 0.1)
+                                                    : Colors.green
+                                                        .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             emergencyLevel.toUpperCase(),
                                             style: TextStyle(
-                                              color: emergencyLevel == 'high' ? Colors.red :
-                                                     emergencyLevel == 'medium' ? Colors.orange :
-                                                     Colors.green,
+                                              color: emergencyLevel == 'high'
+                                                  ? Colors.red
+                                                  : emergencyLevel == 'medium'
+                                                      ? Colors.orange
+                                                      : Colors.green,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -319,19 +337,26 @@ class PartnersOrdersPage extends StatelessWidget {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _getStatusColor(orderStatus ?? 'pending').withValues(alpha: 0.1),
+                                color: _getStatusColor(orderStatus ?? 'pending')
+                                    .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: _getStatusColor(orderStatus ?? 'pending').withValues(alpha: 0.3),
+                                  color:
+                                      _getStatusColor(orderStatus ?? 'pending')
+                                          .withValues(alpha: 0.3),
                                   width: 1,
                                 ),
                               ),
                               child: Text(
-                                (orderStatus ?? 'pending').replaceAll('_', ' ').toUpperCase(),
+                                (orderStatus ?? 'pending')
+                                    .replaceAll('_', ' ')
+                                    .toUpperCase(),
                                 style: TextStyle(
-                                  color: _getStatusColor(orderStatus ?? 'pending'),
+                                  color:
+                                      _getStatusColor(orderStatus ?? 'pending'),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -350,14 +375,18 @@ class PartnersOrdersPage extends StatelessWidget {
                               Icon(
                                 Icons.location_on,
                                 size: 16,
-                                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  pickupAddress.length > 50 ? '${pickupAddress.substring(0, 50)}...' : pickupAddress,
+                                  pickupAddress.length > 50
+                                      ? '${pickupAddress.substring(0, 50)}...'
+                                      : pickupAddress,
                                   style: TextStyle(
-                                    color: colorScheme.onSurface.withValues(alpha: 0.8),
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.8),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -374,13 +403,16 @@ class PartnersOrdersPage extends StatelessWidget {
                                 Icon(
                                   Icons.access_time,
                                   size: 14,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  DateFormat('MMM d, h:mm a').format(createdAt.toLocal()),
+                                  DateFormat('MMM d, h:mm a')
+                                      .format(createdAt.toLocal()),
                                   style: TextStyle(
-                                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.7),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -393,7 +425,8 @@ class PartnersOrdersPage extends StatelessWidget {
                         // Action buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
-                          children: _buildActionButtons(orderStatus, orderId, orderData, controller, colorScheme),
+                          children: _buildActionButtons(orderStatus, orderId,
+                              orderData, controller, colorScheme),
                         ),
                       ],
                     ),
@@ -407,9 +440,12 @@ class PartnersOrdersPage extends StatelessWidget {
     });
   }
 
-
-
-  List<Widget> _buildActionButtons(String? orderStatus, String orderId, Map<String, dynamic> orderData, PartnerOrdersController controller, ColorScheme colorScheme) {
+  List<Widget> _buildActionButtons(
+      String? orderStatus,
+      String orderId,
+      Map<String, dynamic> orderData,
+      PartnerOrdersController controller,
+      ColorScheme colorScheme) {
     switch (orderStatus) {
       case 'pending':
         return [
@@ -418,7 +454,8 @@ class PartnersOrdersPage extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               elevation: 2,
             ),
@@ -431,7 +468,8 @@ class PartnersOrdersPage extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red.shade600,
               side: BorderSide(color: Colors.red.shade600),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             icon: const Icon(Icons.cancel, size: 20),
@@ -459,7 +497,8 @@ class PartnersOrdersPage extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               elevation: 2,
             ),
@@ -474,7 +513,8 @@ class PartnersOrdersPage extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               elevation: 2,
             ),
