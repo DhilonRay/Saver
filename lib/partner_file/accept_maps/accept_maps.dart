@@ -36,7 +36,8 @@ class AcceptMapsPage extends StatelessWidget {
                             height: 56,
                             child: CircularProgressIndicator(
                               strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(primaryGreen),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(primaryGreen),
                             ),
                           ),
                           SizedBox(height: 12),
@@ -56,7 +57,8 @@ class AcceptMapsPage extends StatelessWidget {
 
                 return GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: controller.partnerPosition.value ?? AcceptMapsController.defaultPosition,
+                    target: controller.partnerPosition.value ??
+                        AcceptMapsController.defaultPosition,
                     zoom: 14,
                   ),
                   myLocationEnabled: true,
@@ -163,10 +165,13 @@ class AcceptMapsPage extends StatelessWidget {
               // Sliding panel with ride details
               SlidingUpPanel(
                 minHeight: 100, // Reduced from 130
-                maxHeight: MediaQuery.of(context).size.height * 0.49, // Reduced from 0.9
+                maxHeight: MediaQuery.of(context).size.height *
+                    0.49, // Reduced from 0.9
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                panelBuilder: (scrollController) => _buildSlidePanel(scrollController, controller),
-                body: Container(), // Empty body since map is already full screen
+                panelBuilder: (scrollController) =>
+                    _buildSlidePanel(scrollController, controller),
+                body:
+                    Container(), // Empty body since map is already full screen
               ),
             ],
           ),
@@ -175,7 +180,8 @@ class AcceptMapsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSlidePanel(ScrollController scrollController, AcceptMapsController controller) {
+  Widget _buildSlidePanel(
+      ScrollController scrollController, AcceptMapsController controller) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -226,7 +232,8 @@ class AcceptMapsPage extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: primaryGreen.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -254,7 +261,7 @@ class AcceptMapsPage extends StatelessWidget {
                           Obx(() {
                             String statusText;
                             Color statusColor;
-                            
+
                             if (controller.isLiveTracking.value) {
                               statusText = 'TRACKING';
                               statusColor = Colors.blue.shade600;
@@ -262,13 +269,15 @@ class AcceptMapsPage extends StatelessWidget {
                               statusText = 'READY';
                               statusColor = primaryGreen;
                             }
-                            
+
                             return Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: statusColor.withOpacity(0.3)),
+                                border: Border.all(
+                                    color: statusColor.withOpacity(0.3)),
                               ),
                               child: Text(
                                 statusText,
@@ -297,7 +306,8 @@ class AcceptMapsPage extends StatelessWidget {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              controller.requestData.value?['patientName'] ?? 'Patient',
+                              controller.requestData.value?['patientName'] ??
+                                  'Patient',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -321,7 +331,8 @@ class AcceptMapsPage extends StatelessWidget {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              controller.requestData.value?['phone'] ?? 'No phone',
+                              controller.requestData.value?['phone'] ??
+                                  'No phone',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade700,
@@ -338,7 +349,8 @@ class AcceptMapsPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              controller.formatAddress(controller.requestData.value?['pickupAddress']),
+                              controller.formatAddress(controller
+                                  .requestData.value?['pickupAddress']),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade700,
@@ -360,7 +372,8 @@ class AcceptMapsPage extends StatelessWidget {
                 Obx(() {
                   if (controller.isLiveTracking.value) {
                     return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       margin: EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
@@ -400,7 +413,7 @@ class AcceptMapsPage extends StatelessWidget {
                       child: Obx(() {
                         return ElevatedButton(
                           onPressed: controller.isLiveTracking.value
-                              ? controller.completeRide
+                              ? () => _showFareInputDialog(controller)
                               : controller.startLiveTracking,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: controller.isLiveTracking.value
@@ -441,7 +454,8 @@ class AcceptMapsPage extends StatelessWidget {
                           Get.dialog(
                             AlertDialog(
                               title: Text('Cancel Ride'),
-                              content: Text('Are you sure you want to cancel this ride?'),
+                              content: Text(
+                                  'Are you sure you want to cancel this ride?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Get.back(),
@@ -479,5 +493,66 @@ class AcceptMapsPage extends StatelessWidget {
     );
   }
 
+  void _showFareInputDialog(AcceptMapsController controller) {
+    final fareController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
+    Get.dialog(
+      AlertDialog(
+        title: Text('Enter Ride Fare'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: fareController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Fare Amount (৳)',
+                  hintText: 'Enter the total ride cost',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter the fare amount';
+                  }
+                  final fare = double.tryParse(value);
+                  if (fare == null || fare <= 0) {
+                    return 'Please enter a valid amount';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              Text(
+                'This fare will be recorded in the ride history and visible to the user.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                final fare = double.parse(fareController.text);
+                Get.back();
+                controller.completeRide(fareAmount: fare);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryGreen,
+            ),
+            child: Text('Complete Ride'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
 }

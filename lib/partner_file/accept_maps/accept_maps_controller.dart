@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
@@ -12,8 +13,10 @@ class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
 
   // Custom marker icons
-  BitmapDescriptor partnerLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-  BitmapDescriptor userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor partnerLocationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor userLocationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
 
   // Reactive variables
   var partnerPosition = Rx<LatLng?>(null);
@@ -32,9 +35,12 @@ class AcceptMapsController extends GetxController {
   Timer? _cameraUpdateTimer;
   Position? _lastFirestorePosition;
   Position? _lastCameraPosition;
-  static const Duration _firestoreUpdateInterval = Duration(seconds: 3); // Update every 3 seconds
-  static const Duration _cameraUpdateInterval = Duration(seconds: 5); // Camera update every 5 seconds
-  static const double _minDistanceForCameraUpdate = 20.0; // 20 meters minimum for camera update
+  static const Duration _firestoreUpdateInterval =
+      Duration(seconds: 3); // Update every 3 seconds
+  static const Duration _cameraUpdateInterval =
+      Duration(seconds: 5); // Camera update every 5 seconds
+  static const double _minDistanceForCameraUpdate =
+      20.0; // 20 meters minimum for camera update
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -47,12 +53,12 @@ class AcceptMapsController extends GetxController {
     if (address == null || address.isEmpty) {
       return 'Address not provided';
     }
-    
+
     // Check if it's coordinates format
     if (address.startsWith('Lat:') && address.contains('Lng:')) {
       return 'Location coordinates available';
     }
-    
+
     return address;
   }
 
@@ -81,7 +87,8 @@ class AcceptMapsController extends GetxController {
   void _initializeDirections() {
     // Initialize Google Maps Directions API
     // Note: You'll need to add your API key here
-    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    _directions = directions.GoogleMapsDirections(
+        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
   }
 
   Future<void> _loadCustomIcons() async {
@@ -98,8 +105,10 @@ class AcceptMapsController extends GetxController {
       debugPrint('Accept maps custom icons loaded successfully');
     } catch (e) {
       debugPrint('Failed to load accept maps custom icons: $e');
-      partnerLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-      userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      partnerLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      userLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
     }
   }
 
@@ -111,7 +120,8 @@ class AcceptMapsController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _showSuccessDialog('Permission Denied', 'Location permission is required');
+          _showSuccessDialog(
+              'Permission Denied', 'Location permission is required');
           isLoadingLocation.value = false;
           return;
         }
@@ -167,10 +177,13 @@ class AcceptMapsController extends GetxController {
   Future<void> _createRoutePolyline() async {
     if (partnerPosition.value != null && userPosition.value != null) {
       try {
-        debugPrint('Creating route polyline from ${partnerPosition.value} to ${userPosition.value}');
+        debugPrint(
+            'Creating route polyline from ${partnerPosition.value} to ${userPosition.value}');
 
-        final origin = '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
-        final destination = '${userPosition.value!.latitude},${userPosition.value!.longitude}';
+        final origin =
+            '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
+        final destination =
+            '${userPosition.value!.latitude},${userPosition.value!.longitude}';
 
         final result = await _directions.directions(
           origin,
@@ -204,7 +217,8 @@ class AcceptMapsController extends GetxController {
           polylines.clear();
           polylines.add(polyline);
 
-          debugPrint('Route polyline created with ${polylinePoints.length} points');
+          debugPrint(
+              'Route polyline created with ${polylinePoints.length} points');
         } else {
           debugPrint('Failed to get directions: ${result.status}');
         }
@@ -273,7 +287,9 @@ class AcceptMapsController extends GetxController {
   }
 
   Future<void> _fitBounds() async {
-    if (partnerPosition.value != null && userPosition.value != null && _controller.isCompleted) {
+    if (partnerPosition.value != null &&
+        userPosition.value != null &&
+        _controller.isCompleted) {
       final GoogleMapController controller = await _controller.future;
       LatLngBounds bounds = LatLngBounds(
         southwest: LatLng(
@@ -312,22 +328,46 @@ class AcceptMapsController extends GetxController {
     }
   }
 
-  Future<void> completeRide() async {
+  Future<void> completeRide({required double fareAmount}) async {
     try {
       if (requestData.value != null) {
         final requestId = requestData.value!['id'];
-        debugPrint('AcceptMaps: Completing ride with request ID: $requestId');
+        debugPrint(
+            'AcceptMaps: Completing ride with request ID: $requestId and fare: $fareAmount');
 
+        // Update order status and fare
         await FirebaseFirestore.instance
             .collection('orders')
             .doc(requestId)
             .update({
           'status': 'completed',
-          'completedAt': Timestamp.now(),
+          'completedAt': FieldValue.serverTimestamp(),
+          'fareAmount': fareAmount,
+          'finalFare': fareAmount,
         });
 
+        // Update partner status back to available
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FirebaseFirestore.instance
+              .collection('partners')
+              .doc(user.uid)
+              .update({
+            'isOnline': true,
+            'currentOrderId': null,
+            'status': 'available',
+          });
+          debugPrint('Partner status updated to available');
+        }
+
+        // Stop live tracking if active
+        if (isLiveTracking.value) {
+          stopLiveTracking();
+        }
+
         Get.back(); // Go back to home partner page
-        _showSuccessDialog('Success', 'Ride completed successfully');
+        _showSuccessDialog('Success',
+            'Ride completed successfully! Fare: ৳${fareAmount.toStringAsFixed(0)}');
       }
     } catch (e) {
       _showSuccessDialog('Error', 'Failed to complete ride: $e');
@@ -376,10 +416,12 @@ class AcceptMapsController extends GetxController {
       // Conditional camera update (every 5 seconds and minimum distance)
       _scheduleCameraUpdate(position);
 
-      debugPrint('Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
+      debugPrint(
+          'Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
     });
 
-    _showSuccessDialog('Live Tracking Started', 'Your location is now being tracked in real-time');
+    _showSuccessDialog('Live Tracking Started',
+        'Your location is now being tracked in real-time');
   }
 
   void _scheduleFirestoreUpdate(Position position) {
@@ -412,7 +454,8 @@ class AcceptMapsController extends GetxController {
         } catch (e) {
           debugPrint('Failed to update live location: $e');
           // Retry after delay if failed
-          Future.delayed(Duration(seconds: 2), () => _scheduleFirestoreUpdate(position));
+          Future.delayed(
+              Duration(seconds: 2), () => _scheduleFirestoreUpdate(position));
         }
       }
     });
@@ -421,7 +464,8 @@ class AcceptMapsController extends GetxController {
   void _scheduleCameraUpdate(Position position) {
     // Only update camera if moved significant distance or enough time passed
     final shouldUpdateCamera = _lastCameraPosition == null ||
-        _calculateDistance(_lastCameraPosition!, position) >= _minDistanceForCameraUpdate;
+        _calculateDistance(_lastCameraPosition!, position) >=
+            _minDistanceForCameraUpdate;
 
     if (shouldUpdateCamera) {
       // Cancel existing timer
@@ -430,7 +474,8 @@ class AcceptMapsController extends GetxController {
       // Schedule camera update
       _cameraUpdateTimer = Timer(_cameraUpdateInterval, () {
         if (isLiveTracking.value) {
-          _animateCameraToPosition(LatLng(position.latitude, position.longitude));
+          _animateCameraToPosition(
+              LatLng(position.latitude, position.longitude));
           _lastCameraPosition = position;
         }
       });
@@ -442,8 +487,10 @@ class AcceptMapsController extends GetxController {
     final double dLat = (pos2.latitude - pos1.latitude) * (pi / 180);
     final double dLng = (pos2.longitude - pos1.longitude) * (pi / 180);
     final double a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(pos1.latitude * (pi / 180)) * cos(pos2.latitude * (pi / 180)) *
-        sin(dLng / 2) * sin(dLng / 2);
+        cos(pos1.latitude * (pi / 180)) *
+            cos(pos2.latitude * (pi / 180)) *
+            sin(dLng / 2) *
+            sin(dLng / 2);
     final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadius * c;
   }
@@ -482,7 +529,8 @@ class AcceptMapsController extends GetxController {
       final updatedMarkers = Set<Marker>.from(markers);
 
       // Remove existing partner marker
-      updatedMarkers.removeWhere((marker) => marker.markerId.value == 'partner_location');
+      updatedMarkers
+          .removeWhere((marker) => marker.markerId.value == 'partner_location');
 
       // Add updated partner marker
       updatedMarkers.add(
@@ -519,7 +567,8 @@ class AcceptMapsController extends GetxController {
         });
 
         Get.back(); // Go back to home partner page
-        _showSuccessDialog('Ride Cancelled', 'The ride has been cancelled successfully');
+        _showSuccessDialog(
+            'Ride Cancelled', 'The ride has been cancelled successfully');
       }
     } catch (e) {
       _showSuccessDialog('Error', 'Failed to cancel ride: $e');
@@ -534,7 +583,8 @@ class AcceptMapsController extends GetxController {
           children: [
             lottie.Lottie.asset('assets/success.json', width: 130, height: 130),
             SizedBox(height: 16),
-            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text(message),
             if (orderId != null) Text('Order ID: $orderId'),
           ],

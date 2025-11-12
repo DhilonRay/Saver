@@ -28,20 +28,26 @@ import '../components/success_dialog.dart';
 
 class HomeController extends GetxController {
   final bool isNewSignup;
-  
+
   HomeController({this.isNewSignup = false});
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
-  
+
   // Custom marker icons
-  BitmapDescriptor currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-  BitmapDescriptor destinationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-  BitmapDescriptor personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-  BitmapDescriptor ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
-  BitmapDescriptor hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-  BitmapDescriptor selectedHospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
-  
+  BitmapDescriptor currentLocationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor destinationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor personIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor ambulanceIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+  BitmapDescriptor hospitalIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor selectedHospitalIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+
   // Google Places API client
   late places.GoogleMapsPlaces _places;
   late directions.GoogleMapsDirections _directions;
@@ -60,7 +66,7 @@ class HomeController extends GetxController {
   var partnerLocationTrail = <LatLng>[].obs;
   var isTrackingPartner = false.obs;
   StreamSubscription<DocumentSnapshot>? _orderSubscription;
-  
+
   // Autocomplete variables
   var placeSuggestions = <Map<String, dynamic>>[].obs;
   var isLoadingSuggestions = false.obs;
@@ -81,24 +87,28 @@ class HomeController extends GetxController {
   var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
   // Partner rates cache
-  var partnerRates = <String, Map<String, int>>{}.obs; // partnerId -> {indoorCityRate, outdoorCityRate}
+  var partnerRates = <String, Map<String, int>>{}
+      .obs; // partnerId -> {indoorCityRate, outdoorCityRate}
 
   // Search history variables
   var searchHistory = <String>[].obs;
   static const int _maxHistoryItems = 10;
-  var hasStartedTyping = false.obs; // Track if user has started typing in current session
+  var hasStartedTyping =
+      false.obs; // Track if user has started typing in current session
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
 
   // Controllers
   final TextEditingController destinationController = TextEditingController();
-  
+
   BitmapDescriptor _getDestinationIcon() {
     final query = destinationQuery.value.toLowerCase();
 
     // Check for ambulance-related searches
-    if (query.contains('ambulance') || query.contains('emergency') || query.contains('emergency services')) {
+    if (query.contains('ambulance') ||
+        query.contains('emergency') ||
+        query.contains('emergency services')) {
       return ambulanceIcon;
     }
 
@@ -129,7 +139,8 @@ class HomeController extends GetxController {
       debugPrint('🔍 Setting up real-time ambulance providers listener...');
 
       // Clear existing markers first
-      markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
+      markers.removeWhere(
+          (marker) => marker.markerId.value.startsWith('ambulance_'));
 
       // Set up real-time listener for ambulance providers
       FirebaseFirestore.instance
@@ -137,10 +148,12 @@ class HomeController extends GetxController {
           .where('isOnline', isEqualTo: true) // Only show online partners
           .snapshots()
           .listen((partnersSnapshot) {
-        debugPrint('🚑 Real-time update: Found ${partnersSnapshot.docs.length} online ambulance providers');
+        debugPrint(
+            '🚑 Real-time update: Found ${partnersSnapshot.docs.length} online ambulance providers');
 
         // Clear existing ambulance markers
-        markers.removeWhere((marker) => marker.markerId.value.startsWith('ambulance_'));
+        markers.removeWhere(
+            (marker) => marker.markerId.value.startsWith('ambulance_'));
 
         // Only add ambulance markers if showAmbulances is true
         if (showAmbulances.value) {
@@ -156,7 +169,8 @@ class HomeController extends GetxController {
 
             // Only show online partners with valid location
             if (latitude != null && longitude != null && isOnline) {
-              debugPrint('🚑 Adding online ambulance provider: $name at ($latitude, $longitude)');
+              debugPrint(
+                  '🚑 Adding online ambulance provider: $name at ($latitude, $longitude)');
 
               // Create a custom ambulance data object to pass to details
               final ambulanceData = {
@@ -189,9 +203,9 @@ class HomeController extends GetxController {
 
         debugPrint('✅ Real-time ambulance providers updated successfully');
       });
-
     } catch (e) {
-      debugPrint('❌ Failed to set up real-time ambulance providers listener: $e');
+      debugPrint(
+          '❌ Failed to set up real-time ambulance providers listener: $e');
     }
   }
 
@@ -225,33 +239,38 @@ class HomeController extends GetxController {
     } catch (e) {
       // If loading fails, use default icons
       debugPrint('Failed to load custom icons: $e');
-      personIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-      ambulanceIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
-      hospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-      selectedHospitalIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+      personIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      ambulanceIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      hospitalIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      selectedHospitalIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
       currentLocationIcon = personIcon;
     }
   }
-
-
 
   @override
   void onInit() {
     super.onInit();
     _loadCustomIcons();
     // Initialize Google Places API client
-    _places = places.GoogleMapsPlaces(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
-    _directions = directions.GoogleMapsDirections(apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    _places = places.GoogleMapsPlaces(
+        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    _directions = directions.GoogleMapsDirections(
+        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
     _getCurrentLocation();
     _loadUserName();
     _loadProfileImage();
-    
+
     // Show success dialog for new signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
         SuccessDialog.show(
           title: 'Welcome to NeoSaver!',
-          message: 'Your account has been created successfully. You can now request ambulance services.',
+          message:
+              'Your account has been created successfully. You can now request ambulance services.',
         );
       });
     }
@@ -268,7 +287,10 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
         if (userDoc.exists) {
           final userData = userDoc.data();
           userName.value = userData?['name'] ?? user.displayName ?? 'NeoSaver';
@@ -289,7 +311,10 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
         if (userDoc.exists) {
           final userData = userDoc.data();
           profileImageUrl.value = userData?['profileImageUrl'];
@@ -356,7 +381,6 @@ class HomeController extends GetxController {
       // initial loading finished
       isInitialLoading.value = false;
     } catch (e) {
-      
       // Use default position if location fails
       currentPosition.value = defaultPosition;
       markers.clear();
@@ -398,35 +422,43 @@ class HomeController extends GetxController {
 
       // Check for common locations and hospital searches
       String query = destinationController.text.toLowerCase().trim();
-      
+
       // Handle Khulna searches
       if (query.contains('khulna')) {
-        if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+        if (query.contains('medical') ||
+            query.contains('hospital') ||
+            query.contains('clinic')) {
           // Search for hospitals in Khulna
-        destinationController.text = 'hospitals in Khulna';
-        destinationQuery.value = 'hospitals in Khulna';
+          destinationController.text = 'hospitals in Khulna';
+          destinationQuery.value = 'hospitals in Khulna';
         } else {
-          destinationPosition.value = LatLng(22.8456, 89.5403); // Khulna coordinates
+          destinationPosition.value =
+              LatLng(22.8456, 89.5403); // Khulna coordinates
           _addDestinationMarkerAndRoute();
           return;
         }
       }
-      
+
       // Handle Dhaka searches
       if (query.contains('dhaka')) {
-        if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+        if (query.contains('medical') ||
+            query.contains('hospital') ||
+            query.contains('clinic')) {
           // Search for hospitals in Dhaka
-        destinationController.text = 'hospitals in Dhaka';
-        destinationQuery.value = 'hospitals in Dhaka';
+          destinationController.text = 'hospitals in Dhaka';
+          destinationQuery.value = 'hospitals in Dhaka';
         } else {
-          destinationPosition.value = LatLng(23.8103, 90.4125); // Dhaka coordinates
+          destinationPosition.value =
+              LatLng(23.8103, 90.4125); // Dhaka coordinates
           _addDestinationMarkerAndRoute();
           return;
         }
       }
 
       // For hospital searches, make the query more specific
-      if (query.contains('medical') || query.contains('hospital') || query.contains('clinic')) {
+      if (query.contains('medical') ||
+          query.contains('hospital') ||
+          query.contains('clinic')) {
         // Keep the query as is for Google Places to find hospitals
       }
 
@@ -436,17 +468,21 @@ class HomeController extends GetxController {
       }
 
       // Otherwise, use autocomplete to find the place
-      places.PlacesAutocompleteResponse autoResponse = await _places.autocomplete(
+      places.PlacesAutocompleteResponse autoResponse =
+          await _places.autocomplete(
         destinationController.text,
         language: 'en',
-        components: [places.Component(places.Component.country, 'bd')], // Restrict to Bangladesh
+        components: [
+          places.Component(places.Component.country, 'bd')
+        ], // Restrict to Bangladesh
         types: [], // Allow all types but prioritize hospitals
       );
 
       if (autoResponse.isOkay && autoResponse.predictions.isNotEmpty) {
         // Get details for the first prediction
         var prediction = autoResponse.predictions.first;
-        places.PlacesDetailsResponse detailResponse = await _places.getDetailsByPlaceId(
+        places.PlacesDetailsResponse detailResponse =
+            await _places.getDetailsByPlaceId(
           prediction.placeId!,
           fields: ['name', 'formatted_address', 'geometry'],
         );
@@ -498,7 +534,7 @@ class HomeController extends GetxController {
     // Clear existing destination marker
     markers.removeWhere((marker) => marker.markerId.value == 'destination');
 
-  // Add destination marker
+    // Add destination marker
     markers.add(
       Marker(
         markerId: const MarkerId('destination'),
@@ -511,8 +547,12 @@ class HomeController extends GetxController {
     // Get directions from Google
     try {
       final directionsResponse = await _directions.directions(
-        directions.Location(lat: currentPosition.value!.latitude, lng: currentPosition.value!.longitude),
-        directions.Location(lat: destinationPosition.value!.latitude, lng: destinationPosition.value!.longitude),
+        directions.Location(
+            lat: currentPosition.value!.latitude,
+            lng: currentPosition.value!.longitude),
+        directions.Location(
+            lat: destinationPosition.value!.latitude,
+            lng: destinationPosition.value!.longitude),
         travelMode: directions.TravelMode.driving,
       );
 
@@ -592,7 +632,8 @@ class HomeController extends GetxController {
           polylines.add(
             Polyline(
               polylineId: const PolylineId('route'),
-              color: Colors.blue.shade700, // Use a consistent blue color for routes
+              color: Colors
+                  .blue.shade700, // Use a consistent blue color for routes
               width: 6,
               zIndex: 1,
               points: polylinePoints,
@@ -671,22 +712,27 @@ class HomeController extends GetxController {
     // channel is not available (emulator/device hiccup).
     if (_controller.isCompleted) {
       try {
-        final mapController = await _controller.future.timeout(const Duration(seconds: 5));
+        final mapController =
+            await _controller.future.timeout(const Duration(seconds: 5));
 
         // Calculate bounds to show the entire route
         // Animate camera to fit both current location and destination.
         try {
           // Always ensure southwest is the min lat/lng and northeast is the max lat/lng
-          final double minLat = currentPosition.value!.latitude < destinationPosition.value!.latitude
+          final double minLat = currentPosition.value!.latitude <
+                  destinationPosition.value!.latitude
               ? currentPosition.value!.latitude
               : destinationPosition.value!.latitude;
-          final double maxLat = currentPosition.value!.latitude > destinationPosition.value!.latitude
+          final double maxLat = currentPosition.value!.latitude >
+                  destinationPosition.value!.latitude
               ? currentPosition.value!.latitude
               : destinationPosition.value!.latitude;
-          final double minLng = currentPosition.value!.longitude < destinationPosition.value!.longitude
+          final double minLng = currentPosition.value!.longitude <
+                  destinationPosition.value!.longitude
               ? currentPosition.value!.longitude
               : destinationPosition.value!.longitude;
-          final double maxLng = currentPosition.value!.longitude > destinationPosition.value!.longitude
+          final double maxLng = currentPosition.value!.longitude >
+                  destinationPosition.value!.longitude
               ? currentPosition.value!.longitude
               : destinationPosition.value!.longitude;
           final bounds = LatLngBounds(
@@ -703,8 +749,6 @@ class HomeController extends GetxController {
         debugPrint('Could not obtain map controller or animate camera: $e');
       }
     }
-
-   
   }
 
   // Autocomplete methods
@@ -746,7 +790,9 @@ class HomeController extends GetxController {
       places.PlacesAutocompleteResponse response = await _places.autocomplete(
         query,
         language: 'en',
-        components: [places.Component(places.Component.country, 'bd')], // Restrict to Bangladesh
+        components: [
+          places.Component(places.Component.country, 'bd')
+        ], // Restrict to Bangladesh
       );
 
       if (response.isOkay && response.predictions.isNotEmpty) {
@@ -764,14 +810,12 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       placeSuggestions.clear();
-      
     } finally {
       isLoadingSuggestions.value = false;
     }
   }
 
   void selectPlace(Map<String, dynamic> place) {
-
     final placeId = place['placeId'] as String? ?? '';
     if (placeId.isEmpty) {
       Get.snackbar(
@@ -784,8 +828,8 @@ class HomeController extends GetxController {
     }
 
     final placeName = place['name'] as String? ?? 'Unknown Place';
-  destinationController.text = placeName;
-  destinationQuery.value = placeName;
+    destinationController.text = placeName;
+    destinationQuery.value = placeName;
     placeSuggestions.clear();
 
     // Reset typing flag since user selected a place
@@ -860,7 +904,8 @@ class HomeController extends GetxController {
     // library fails parsing the response (type cast/null exceptions), fall back
     // to the Geocoding REST API which parses more permissively here.
     try {
-      debugPrint('getPlaceDetails: calling Places.getDetailsByPlaceId for $placeId');
+      debugPrint(
+          'getPlaceDetails: calling Places.getDetailsByPlaceId for $placeId');
       places.PlacesDetailsResponse response = await _places.getDetailsByPlaceId(
         placeId,
         fields: ['name', 'formatted_address', 'geometry'],
@@ -873,7 +918,8 @@ class HomeController extends GetxController {
           LatLng position = LatLng(lat, lng);
           destinationPosition.value = position;
 
-          debugPrint('getPlaceDetails: got geometry from Places API: $lat,$lng');
+          debugPrint(
+              'getPlaceDetails: got geometry from Places API: $lat,$lng');
 
           // Add destination marker and route
           _addDestinationMarkerAndRoute();
@@ -884,7 +930,8 @@ class HomeController extends GetxController {
           debugPrint('$st');
         }
       } else {
-        debugPrint('getPlaceDetails: Places result had no geometry or not OK (status: ${response.status})');
+        debugPrint(
+            'getPlaceDetails: Places result had no geometry or not OK (status: ${response.status})');
       }
     } catch (e, st) {
       // If calling getDetailsByPlaceId throws (for example a type cast from
@@ -895,8 +942,9 @@ class HomeController extends GetxController {
     }
 
     // --- Fallback: Use Google Geocoding REST API with the selected place name ---
-    final String addressForGeocoding = _selectedPlaceName ?? destinationController.text;
-  if (addressForGeocoding.trim().isEmpty) {
+    final String addressForGeocoding =
+        _selectedPlaceName ?? destinationController.text;
+    if (addressForGeocoding.trim().isEmpty) {
       Get.snackbar(
         'Destination Not Found',
         'Could not get details for the selected destination. Try entering a different destination.',
@@ -908,26 +956,33 @@ class HomeController extends GetxController {
     }
 
     try {
-      debugPrint('getPlaceDetails: falling back to Geocoding for "$addressForGeocoding"');
+      debugPrint(
+          'getPlaceDetails: falling back to Geocoding for "$addressForGeocoding"');
       final apiKey = _places.apiKey ?? ''; // reuse the key from places client
-      final uri = Uri.parse('https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(addressForGeocoding)}&key=$apiKey');
+      final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(addressForGeocoding)}&key=$apiKey');
       final httpClient = HttpClient();
       final request = await httpClient.getUrl(uri);
       final response = await request.close();
       final respBody = await response.transform(utf8.decoder).join();
       httpClient.close();
 
-      final Map<String, dynamic> json = jsonDecode(respBody) as Map<String, dynamic>;
+      final Map<String, dynamic> json =
+          jsonDecode(respBody) as Map<String, dynamic>;
       final status = (json['status'] as String?) ?? '';
-      if (status == 'OK' && (json['results'] is List) && (json['results'] as List).isNotEmpty) {
+      if (status == 'OK' &&
+          (json['results'] is List) &&
+          (json['results'] as List).isNotEmpty) {
         final first = (json['results'] as List).first as Map<String, dynamic>;
         final geometry = first['geometry'] as Map<String, dynamic>?;
         final location = geometry?['location'] as Map<String, dynamic>?;
         final lat = location?['lat'];
         final lng = location?['lng'];
-        debugPrint('Geocoding result: lat=$lat, lng=$lng, address=${first['formatted_address'] ?? ''}');
+        debugPrint(
+            'Geocoding result: lat=$lat, lng=$lng, address=${first['formatted_address'] ?? ''}');
         if (lat != null && lng != null) {
-          destinationPosition.value = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+          destinationPosition.value =
+              LatLng((lat as num).toDouble(), (lng as num).toDouble());
           Get.snackbar(
             'Geocoding',
             'Resolved: lat=$lat, lng=$lng',
@@ -941,7 +996,8 @@ class HomeController extends GetxController {
       }
 
       // If we reach here, fallback failed
-      debugPrint('getPlaceDetails: Geocoding fallback returned no results or no location');
+      debugPrint(
+          'getPlaceDetails: Geocoding fallback returned no results or no location');
       Get.snackbar(
         'Destination Not Found',
         'Could not get details for "${_selectedPlaceName ?? addressForGeocoding}". Try using the "Set Route" button or enter a different destination.',
@@ -962,25 +1018,27 @@ class HomeController extends GetxController {
 
   bool _tryFallbackHospitals(String query) {
     // Fallback hospitals in Khulna
-    if (query.contains('khulna') && (query.contains('medical') || query.contains('hospital'))) {
+    if (query.contains('khulna') &&
+        (query.contains('medical') || query.contains('hospital'))) {
       // Khulna Medical College Hospital
       destinationPosition.value = LatLng(22.8200, 89.5510);
-  destinationController.text = 'Khulna Medical College Hospital';
-  destinationQuery.value = 'Khulna Medical College Hospital';
+      destinationController.text = 'Khulna Medical College Hospital';
+      destinationQuery.value = 'Khulna Medical College Hospital';
       _addDestinationMarkerAndRoute();
       return true;
     }
-    
+
     // Fallback hospitals in Dhaka
-    if (query.contains('dhaka') && (query.contains('medical') || query.contains('hospital'))) {
+    if (query.contains('dhaka') &&
+        (query.contains('medical') || query.contains('hospital'))) {
       // Dhaka Medical College Hospital
       destinationPosition.value = LatLng(23.7250, 90.4000);
-  destinationController.text = 'Dhaka Medical College Hospital';
-  destinationQuery.value = 'Dhaka Medical College Hospital';
+      destinationController.text = 'Dhaka Medical College Hospital';
+      destinationQuery.value = 'Dhaka Medical College Hospital';
       _addDestinationMarkerAndRoute();
       return true;
     }
-    
+
     return false;
   }
 
@@ -1134,15 +1192,21 @@ class HomeController extends GetxController {
                       final data = ambulance.data() as Map<String, dynamic>;
                       final name = data['companyName'] ?? 'Ambulance Provider';
                       final phone = data['contact'] ?? '+8801581822846';
-                      final address = data['coverageArea'] ?? 'Coverage area not specified';
-                      final ambulanceType = data['ambulanceType'] ?? 'General Ambulance';
+                      final address =
+                          data['coverageArea'] ?? 'Coverage area not specified';
+                      final ambulanceType =
+                          data['ambulanceType'] ?? 'General Ambulance';
                       final latitude = data['latitude'] as double?;
                       final longitude = data['longitude'] as double?;
 
                       return FutureBuilder<Map<String, int>>(
                         future: _fetchPartnerRates(ambulance.id),
                         builder: (context, rateSnapshot) {
-                          final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+                          final rates = rateSnapshot.data ??
+                              {
+                                'indoorCityRate': 2500,
+                                'outdoorCityRate': 10000
+                              };
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -1170,8 +1234,10 @@ class HomeController extends GetxController {
                                         Container(
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF1976D2).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(10),
+                                            color: const Color(0xFF1976D2)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
                                           child: const Icon(
                                             Icons.local_hospital,
@@ -1182,7 +1248,8 @@ class HomeController extends GetxController {
                                         const SizedBox(width: 16),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 name,
@@ -1229,12 +1296,16 @@ class HomeController extends GetxController {
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1976D2).withOpacity(0.05),
+                                        color: const Color(0xFF1976D2)
+                                            .withOpacity(0.05),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.2)),
+                                        border: Border.all(
+                                            color: const Color(0xFF1976D2)
+                                                .withOpacity(0.2)),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             'Indoor: ৳${rates['indoorCityRate']}',
@@ -1283,18 +1354,21 @@ class HomeController extends GetxController {
       }
 
       // Fetch from Firestore
-      final doc = await FirebaseFirestore.instance.collection('partners').doc(partnerId).get();
-      
+      final doc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(partnerId)
+          .get();
+
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final rates = {
           'indoorCityRate': (data['indoorCityRate'] as int?) ?? 2500,
           'outdoorCityRate': (data['outdoorCityRate'] as int?) ?? 10000,
         };
-        
+
         // Cache the rates
         partnerRates[partnerId] = rates;
-        
+
         debugPrint('✅ Fetched partner rates for $partnerId: $rates');
         return rates;
       } else {
@@ -1332,7 +1406,8 @@ class HomeController extends GetxController {
     }
 
     final partnerId = ambulanceData['id'] as String?;
-    final companyName = ambulanceData['name'] as String? ?? 'Ambulance Provider';
+    final companyName =
+        ambulanceData['name'] as String? ?? 'Ambulance Provider';
 
     if (partnerId == null) {
       Get.snackbar(
@@ -1346,7 +1421,7 @@ class HomeController extends GetxController {
 
     // Fetch partner rates first
     final rates = await _fetchPartnerRates(partnerId);
-    
+
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
 
@@ -1364,7 +1439,8 @@ class HomeController extends GetxController {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1976D2).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF1976D2).withOpacity(0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1433,7 +1509,8 @@ class HomeController extends GetxController {
                   items: const [
                     DropdownMenuItem(value: 'normal', child: Text('Normal')),
                     DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
-                    DropdownMenuItem(value: 'emergency', child: Text('Emergency')),
+                    DropdownMenuItem(
+                        value: 'emergency', child: Text('Emergency')),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -1485,7 +1562,7 @@ class HomeController extends GetxController {
 
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
     final partnerId = ambulanceData['id'] as String?;
-    
+
     // Show ambulance provider details in a very simple bottom sheet
     Get.bottomSheet(
       Container(
@@ -1532,7 +1609,7 @@ class HomeController extends GetxController {
                 ],
               ),
               SizedBox(height: 16),
-       
+
               if (ambulanceData['address'] != null) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1582,13 +1659,14 @@ class HomeController extends GetxController {
                 ],
               ),
               SizedBox(height: 16),
-              
+
               // Rates
               if (partnerId != null) ...[
                 FutureBuilder<Map<String, int>>(
                   future: _fetchPartnerRates(partnerId),
                   builder: (context, rateSnapshot) {
-                    if (rateSnapshot.connectionState == ConnectionState.waiting) {
+                    if (rateSnapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return Row(
                         children: [
                           CircularProgressIndicator(strokeWidth: 2),
@@ -1597,9 +1675,10 @@ class HomeController extends GetxController {
                         ],
                       );
                     }
-                    
-                    final rates = rateSnapshot.data ?? {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
-                    
+
+                    final rates = rateSnapshot.data ??
+                        {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1646,7 +1725,7 @@ class HomeController extends GetxController {
                 ),
                 SizedBox(height: 20),
               ],
-              
+
               // Primary Action Button - Book Now (full width, prominent)
               SizedBox(
                 width: double.infinity,
@@ -1665,14 +1744,15 @@ class HomeController extends GetxController {
                 ),
               ),
               SizedBox(height: 12),
-              
+
               // Secondary Actions - Call and Directions side by side
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final String numberToCall = ambulanceData['phone'] ?? '+8801581822846';
+                        final String numberToCall =
+                            ambulanceData['phone'] ?? '+8801581822846';
                         final Uri launchUri = Uri(
                           scheme: 'tel',
                           path: numberToCall,
@@ -1714,7 +1794,8 @@ class HomeController extends GetxController {
                           Get.back();
                           SuccessDialog.show(
                             title: 'Navigation',
-                            message: 'Navigating to ${ambulanceData['name']}...',
+                            message:
+                                'Navigating to ${ambulanceData['name']}...',
                           );
                         }
                       },
@@ -1754,7 +1835,10 @@ class HomeController extends GetxController {
 
     try {
       // Fetch user details from users collection
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
       final userData = userDoc.data() ?? {};
 
       // Check if user already has a pending ambulance request to this specific partner
@@ -1782,11 +1866,12 @@ class HomeController extends GetxController {
       if (currentPosition.value != null) {
         try {
           // Try reverse geocoding to get human-readable address
-          List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(
+          List<geocoding.Placemark> placemarks =
+              await geocoding.placemarkFromCoordinates(
             currentPosition.value!.latitude,
             currentPosition.value!.longitude,
           );
-          
+
           if (placemarks.isNotEmpty) {
             geocoding.Placemark place = placemarks.first;
             // Build a readable address from placemark data
@@ -1800,23 +1885,27 @@ class HomeController extends GetxController {
             if (place.locality != null && place.locality!.isNotEmpty) {
               addressParts.add(place.locality!);
             }
-            if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+            if (place.administrativeArea != null &&
+                place.administrativeArea!.isNotEmpty) {
               addressParts.add(place.administrativeArea!);
             }
             if (place.country != null && place.country!.isNotEmpty) {
               addressParts.add(place.country!);
             }
-            
+
             pickupAddress = addressParts.join(', ');
             debugPrint('Reverse geocoding successful: $pickupAddress');
           } else {
             // Fallback to coordinates if reverse geocoding fails
-            pickupAddress = 'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
-            debugPrint('Reverse geocoding returned no results, using coordinates');
+            pickupAddress =
+                'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
+            debugPrint(
+                'Reverse geocoding returned no results, using coordinates');
           }
         } catch (e) {
           // Fallback to coordinates if reverse geocoding fails
-          pickupAddress = 'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
+          pickupAddress =
+              'Lat: ${currentPosition.value!.latitude.toStringAsFixed(6)}, Lng: ${currentPosition.value!.longitude.toStringAsFixed(6)}';
           debugPrint('Reverse geocoding failed: $e, using coordinates');
         }
       }
@@ -1837,13 +1926,23 @@ class HomeController extends GetxController {
         // Include user details
         'patientName': userData['name'] ?? 'Name not provided',
         'phone': userData['phone'] ?? 'Phone not provided',
-        'email': userData['email'] ?? _auth.currentUser?.email ?? 'Email not provided',
+        'email': userData['email'] ??
+            _auth.currentUser?.email ??
+            'Email not provided',
         'pickupAddress': pickupAddress,
         'pickupLat': currentPosition.value?.latitude,
         'pickupLng': currentPosition.value?.longitude,
       });
-      
-      // Send notification to ambulance partner
+
+      debugPrint('✅ Order created successfully with ID: ${docRef.id}');
+
+      // Show success dialog immediately after order creation
+      SuccessDialog.show(
+        title: 'Order Created',
+        message: 'Your ambulance request has been submitted successfully.',
+      );
+
+      // Send notification to ambulance partner (don't fail the request if this fails)
       final requestData = {
         'orderId': docRef.id,
         'partnerId': partnerId,
@@ -1858,7 +1957,9 @@ class HomeController extends GetxController {
         },
         'patientName': userData['name'] ?? 'Name not provided',
         'phone': userData['phone'] ?? 'Phone not provided',
-        'email': userData['email'] ?? _auth.currentUser?.email ?? 'Email not provided',
+        'email': userData['email'] ??
+            _auth.currentUser?.email ??
+            'Email not provided',
         'pickupAddress': pickupAddress,
         'pickupLat': currentPosition.value?.latitude,
         'pickupLng': currentPosition.value?.longitude,
@@ -1871,15 +1972,17 @@ class HomeController extends GetxController {
         );
         debugPrint('✅ Ambulance notification sent to partner: $partnerId');
       } catch (notificationError) {
-        debugPrint('❌ Failed to send ambulance notification: $notificationError');
+        debugPrint(
+            '❌ Failed to send ambulance notification: $notificationError');
         // Don't fail the entire request if notification fails
       }
-      
+
       // Listen for status updates
       listenForRequestUpdates(docRef.id);
-      
+
       return docRef.id;
     } catch (e) {
+      debugPrint('❌ Failed to create ambulance request: $e');
       Get.snackbar(
         'Error',
         'Failed to send request: $e',
@@ -1915,7 +2018,8 @@ class HomeController extends GetxController {
           isTrackingPartner.value = true;
           SuccessDialog.show(
             title: 'Patient Picked Up',
-            message: 'The ambulance has picked up the patient and is now moving. Track its live location.',
+            message:
+                'The ambulance has picked up the patient and is now moving. Track its live location.',
           );
         } else if (status == 'completed') {
           isTrackingPartner.value = false;
@@ -1923,8 +2027,10 @@ class HomeController extends GetxController {
           partnerLocationTrail.clear();
 
           // Clear partner markers and polylines
-          markers.removeWhere((marker) => marker.markerId.value == 'partner_live');
-          polylines.removeWhere((polyline) => polyline.polylineId.value == 'partner_trail');
+          markers
+              .removeWhere((marker) => marker.markerId.value == 'partner_live');
+          polylines.removeWhere(
+              (polyline) => polyline.polylineId.value == 'partner_trail');
 
           SuccessDialog.show(
             title: 'Service Completed',
@@ -1933,7 +2039,8 @@ class HomeController extends GetxController {
         }
 
         // Handle live location updates
-        final liveLocation = data?['partnerLiveLocation'] as Map<String, dynamic>?;
+        final liveLocation =
+            data?['partnerLiveLocation'] as Map<String, dynamic>?;
         if (liveLocation != null && isTrackingPartner.value) {
           final lat = liveLocation['latitude'] as double?;
           final lng = liveLocation['longitude'] as double?;
@@ -1956,7 +2063,8 @@ class HomeController extends GetxController {
             }
 
             // Update partner marker
-            markers.removeWhere((marker) => marker.markerId.value == 'partner_live');
+            markers.removeWhere(
+                (marker) => marker.markerId.value == 'partner_live');
             markers.add(
               Marker(
                 markerId: const MarkerId('partner_live'),
@@ -1967,7 +2075,8 @@ class HomeController extends GetxController {
             );
 
             // Update partner trail polyline
-            polylines.removeWhere((polyline) => polyline.polylineId.value == 'partner_trail');
+            polylines.removeWhere(
+                (polyline) => polyline.polylineId.value == 'partner_trail');
             if (partnerLocationTrail.length > 1) {
               polylines.add(
                 Polyline(
@@ -2016,7 +2125,7 @@ class HomeController extends GetxController {
   ) async {
     // Fetch partner rates first
     final rates = await _fetchPartnerRates(partnerId);
-    
+
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
 
@@ -2034,7 +2143,8 @@ class HomeController extends GetxController {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1976D2).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF1976D2).withOpacity(0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2103,7 +2213,8 @@ class HomeController extends GetxController {
                   items: const [
                     DropdownMenuItem(value: 'normal', child: Text('Normal')),
                     DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
-                    DropdownMenuItem(value: 'emergency', child: Text('Emergency')),
+                    DropdownMenuItem(
+                        value: 'emergency', child: Text('Emergency')),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -2144,11 +2255,10 @@ class HomeController extends GetxController {
         urgency: selectedUrgency,
         notes: additionalNotes,
       );
-      if (orderId != null) {
-        SuccessDialog.show(
-          title: 'Order Created',
-          message: 'Your ambulance request has been submitted successfully.',
-        );
+      // Success dialog is now shown inside _createDirectAmbulanceRequest
+      if (orderId == null) {
+        // If order creation failed, show error (but success dialog is already handled)
+        debugPrint('❌ Order creation failed');
       }
     }
   }
@@ -2192,22 +2302,31 @@ class HomeController extends GetxController {
   }
 
   // Method to set destination from coordinates and show route (for ambulance requests)
-  Future<void> setDestinationFromCoordinates(double latitude, double longitude) async {
+  Future<void> setDestinationFromCoordinates(
+      double latitude, double longitude) async {
     try {
       destinationPosition.value = LatLng(latitude, longitude);
       await _addDestinationMarkerAndRoute();
-      
+
       // Move camera to show both current location and destination
       if (_controller.isCompleted && currentPosition.value != null) {
         final GoogleMapController controller = await _controller.future;
         LatLngBounds bounds = LatLngBounds(
           southwest: LatLng(
-            latitude < currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
-            longitude < currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+            latitude < currentPosition.value!.latitude
+                ? latitude
+                : currentPosition.value!.latitude,
+            longitude < currentPosition.value!.longitude
+                ? longitude
+                : currentPosition.value!.longitude,
           ),
           northeast: LatLng(
-            latitude > currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
-            longitude > currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+            latitude > currentPosition.value!.latitude
+                ? latitude
+                : currentPosition.value!.latitude,
+            longitude > currentPosition.value!.longitude
+                ? longitude
+                : currentPosition.value!.longitude,
           ),
         );
         controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
@@ -2223,7 +2342,7 @@ class HomeController extends GetxController {
   }
 
   // FCM Push Notification Methods
-  
+
   /// Sends push notification to a specific driver using their FCM token
   /// This method directly sends notification to individual driver
   Future<void> sendNotificationToDriver({
@@ -2234,24 +2353,25 @@ class HomeController extends GetxController {
     try {
       // You can get this server key from Firebase Console > Project Settings > Cloud Messaging
       // For production, this should be stored securely on backend server
-      const String serverKey = 'YOUR_FCM_SERVER_KEY_HERE'; // Replace with actual server key
-      
+      const String serverKey =
+          'YOUR_FCM_SERVER_KEY_HERE'; // Replace with actual server key
+
       // Get current user info
       final currentUser = _auth.currentUser;
       final userId = currentUser?.uid ?? '';
-      
+
       // Get user data from Firestore
       DocumentSnapshot? userDoc;
       String userName = 'User';
       String userPhone = '';
       String userAddress = '';
-      
+
       if (userId.isNotEmpty) {
         userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
             .get();
-        
+
         if (userDoc.exists) {
           final userData = userDoc.data() as Map<String, dynamic>?;
           userName = userData?['name'] ?? currentUser?.displayName ?? 'User';
@@ -2259,7 +2379,7 @@ class HomeController extends GetxController {
           userAddress = userData?['address'] ?? '';
         }
       }
-      
+
       // Prepare notification data
       final Map<String, dynamic> notificationData = {
         'title': 'নতুন রাইড রিকুয়েস্ট',
@@ -2277,7 +2397,8 @@ class HomeController extends GetxController {
         'userPhone': userPhone,
         'userAddress': userAddress,
         'pickupLocation': jsonEncode(requestData['pickupLocation'] ?? {}),
-        'destinationLocation': jsonEncode(requestData['destinationLocation'] ?? {}),
+        'destinationLocation':
+            jsonEncode(requestData['destinationLocation'] ?? {}),
         'pickupAddress': requestData['pickupAddress'] ?? '',
         'destinationAddress': requestData['destinationAddress'] ?? '',
         'fare': requestData['fare'] ?? '',
@@ -2323,8 +2444,8 @@ class HomeController extends GetxController {
       if (response.statusCode == 200) {
         print('✅ Push notification sent successfully to driver: $driverId');
         print('📱 FCM Response: ${response.body}');
-        
-     /*    // Show success message to user
+
+        /*    // Show success message to user
         Get.snackbar(
           'সফল',
           'ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে',
@@ -2335,8 +2456,8 @@ class HomeController extends GetxController {
       } else {
         print('❌ Failed to send push notification: ${response.statusCode}');
         print('📱 FCM Error Response: ${response.body}');
-        
-       /*  Get.snackbar(
+
+        /*  Get.snackbar(
           'ত্রুটি',
           'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে',
           backgroundColor: Colors.orange.shade100,
@@ -2346,7 +2467,7 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       print('❌ Error sending push notification: $e');
-    /*   Get.snackbar(
+      /*   Get.snackbar(
         'ত্রুটি',
         'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e',
         backgroundColor: Colors.red.shade100,
@@ -2364,7 +2485,7 @@ class HomeController extends GetxController {
   }) async {
     try {
       print('🔍 Looking for nearby drivers within ${radiusInKm}km radius...');
-      
+
       // Query nearby drivers from Firestore
       final driversSnapshot = await FirebaseFirestore.instance
           .collection('partners')
@@ -2373,44 +2494,46 @@ class HomeController extends GetxController {
           .get();
 
       int notificationsSent = 0;
-      
+
       for (var driverDoc in driversSnapshot.docs) {
         final driverData = driverDoc.data();
         final driverLocation = driverData['currentLocation'];
         final fcmToken = driverData['fcmToken'];
-        
+
         if (driverLocation != null && fcmToken != null && fcmToken.isNotEmpty) {
           final driverLat = driverLocation['latitude'] as double?;
           final driverLng = driverLocation['longitude'] as double?;
-          
+
           if (driverLat != null && driverLng != null) {
             // Calculate distance between user and driver
             final distance = Geolocator.distanceBetween(
-              userLocation.latitude,
-              userLocation.longitude,
-              driverLat,
-              driverLng,
-            ) / 1000; // Convert to kilometers
-            
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  driverLat,
+                  driverLng,
+                ) /
+                1000; // Convert to kilometers
+
             // Send notification if driver is within radius
             if (distance <= radiusInKm) {
-              print('📍 Found nearby driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
-              
+              print(
+                  '📍 Found nearby driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
+
               await sendNotificationToDriver(
                 driverId: driverDoc.id,
                 fcmToken: fcmToken,
                 requestData: requestData,
               );
-              
+
               notificationsSent++;
             }
           }
         }
       }
-      
+
       if (notificationsSent > 0) {
         print('✅ Sent notifications to $notificationsSent nearby drivers');
-       /*  Get.snackbar(
+        /*  Get.snackbar(
           'সফল',
           '$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
           backgroundColor: Colors.green.shade100,
@@ -2427,7 +2550,6 @@ class HomeController extends GetxController {
           duration: const Duration(seconds: 4),
         );
       }
-      
     } catch (e) {
       print('❌ Error sending notifications to nearby drivers: $e');
       Get.snackbar(
@@ -2450,7 +2572,7 @@ class HomeController extends GetxController {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-      /*   Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন'); */
+        /*   Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন'); */
         return;
       }
 
@@ -2461,7 +2583,7 @@ class HomeController extends GetxController {
           .get();
 
       if (!driverDoc.exists) {
-       /*  Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি'); */
+        /*  Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি'); */
         return;
       }
 
@@ -2485,7 +2607,8 @@ class HomeController extends GetxController {
           'latitude': destinationPosition.value?.latitude,
           'longitude': destinationPosition.value?.longitude,
         },
-        'pickupAddress': 'Current Location', // You can get actual address using geocoding
+        'pickupAddress':
+            'Current Location', // You can get actual address using geocoding
         'destinationAddress': destinationAddress ?? 'Selected Destination',
         'notes': notes ?? '',
         'urgency': urgency,
@@ -2510,7 +2633,6 @@ class HomeController extends GetxController {
         fcmToken: fcmToken,
         requestData: requestData,
       );
-
     } catch (e) {
       print('❌ Error sending ride request: $e');
       Get.snackbar(
@@ -2552,7 +2674,8 @@ class HomeController extends GetxController {
           'latitude': destinationPosition.value?.latitude,
           'longitude': destinationPosition.value?.longitude,
         },
-        'pickupAddress': 'Current Location', // You can get actual address using geocoding
+        'pickupAddress':
+            'Current Location', // You can get actual address using geocoding
         'destinationAddress': destinationAddress ?? 'Selected Destination',
         'notes': notes ?? '',
         'urgency': urgency,
@@ -2577,10 +2700,8 @@ class HomeController extends GetxController {
         requestData: requestData,
         radiusInKm: radiusInKm,
       );
-
     } catch (e) {
       print('❌ Error sending ride request to nearby drivers: $e');
-    
     }
   }
 
@@ -2631,7 +2752,7 @@ class HomeController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxWidth: 200, // Further reduced for ultra-fast upload
         maxHeight: 200, // Further reduced for ultra-fast upload
         imageQuality: 50, // Further reduced for ultra-fast upload
       );
@@ -2671,7 +2792,7 @@ class HomeController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxWidth: 200, // Further reduced for ultra-fast upload
         maxHeight: 200, // Further reduced for ultra-fast upload
         imageQuality: 50, // Further reduced for ultra-fast upload
       );
@@ -2726,8 +2847,11 @@ class HomeController extends GetxController {
       }
 
       // Create a unique filename
-      final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
+      final fileName =
+          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images/${user.uid}/$fileName');
 
       debugPrint('📤 Starting profile image upload: $fileName');
 
@@ -2749,11 +2873,13 @@ class HomeController extends GetxController {
         // Only update progress if it's significant change (>1%) to reduce UI updates
         if ((progress - uploadProgress.value).abs() > 0.01) {
           uploadProgress.value = progress;
-          debugPrint('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+          debugPrint(
+              '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
         }
       });
 
-      final snapshot = await uploadTask.whenComplete(() => debugPrint('✅ Upload task completed'));
+      final snapshot = await uploadTask
+          .whenComplete(() => debugPrint('✅ Upload task completed'));
 
       // Check if upload was successful
       if (snapshot.state == TaskState.success) {
@@ -2761,10 +2887,14 @@ class HomeController extends GetxController {
 
         // Get the download URL
         final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+        debugPrint(
+            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
         // Update Firestore with the new image URL
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
           'profileImageUrl': downloadUrl,
         });
 
@@ -2779,14 +2909,15 @@ class HomeController extends GetxController {
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
       }
-
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
 
       // Provide more specific error messages
       String errorMessage = 'Failed to upload profile image. Please try again.';
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
+        errorMessage =
+            'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
         Get.snackbar(
           'Upload Failed',
@@ -2799,8 +2930,10 @@ class HomeController extends GetxController {
           },
         );
         return; // Don't show the default error snackbar
-      } else if (e.toString().contains('permission') || e.toString().contains('denied')) {
-        errorMessage = 'Permission denied. Please grant storage permissions and try again.';
+      } else if (e.toString().contains('permission') ||
+          e.toString().contains('denied')) {
+        errorMessage =
+            'Permission denied. Please grant storage permissions and try again.';
       } else if (e.toString().contains('cancelled')) {
         errorMessage = 'Upload was cancelled.';
         return; // Don't show error snackbar for cancelled uploads
@@ -2822,7 +2955,9 @@ class HomeController extends GetxController {
     debugPrint('🔄 Opening profile image options bottom sheet');
     Get.bottomSheet(
       Container(
-        height: profileImageUrl.value != null ? 280 : 240, // Dynamic height based on content
+        height: profileImageUrl.value != null
+            ? 280
+            : 240, // Dynamic height based on content
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
@@ -2958,7 +3093,10 @@ class HomeController extends GetxController {
       if (user == null) return;
 
       // Remove from Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
         'profileImageUrl': FieldValue.delete(),
       });
 
@@ -2969,7 +3107,6 @@ class HomeController extends GetxController {
         title: 'Profile Updated',
         message: 'Your profile image has been removed successfully!',
       );
-
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
       Get.snackbar(
@@ -2999,22 +3136,25 @@ class HomeController extends GetxController {
       // Always compress with aggressive settings for speed
       final compressedBytes = await FlutterImageCompress.compressWithFile(
         imageFile.absolute.path,
-        minWidth: 180,  // Optimized size for speed vs quality
+        minWidth: 180, // Optimized size for speed vs quality
         minHeight: 180,
-        quality: 45,    // Aggressive compression for speed
-        rotate: 0,      // Skip rotation for speed
+        quality: 45, // Aggressive compression for speed
+        rotate: 0, // Skip rotation for speed
       );
 
       if (compressedBytes != null) {
         // Create a temporary file with compressed data
         final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final tempFile = File(
+            '${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
         await tempFile.writeAsBytes(compressedBytes);
 
         final originalSize = await imageFile.length();
         final compressedSize = await tempFile.length();
-        final compressionRatio = ((originalSize - compressedSize) / originalSize * 100);
-        debugPrint('✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
+        final compressionRatio =
+            ((originalSize - compressedSize) / originalSize * 100);
+        debugPrint(
+            '✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
 
         return tempFile;
       }
@@ -3027,18 +3167,23 @@ class HomeController extends GetxController {
   }
 
   // Retry upload with exponential backoff
-  Future<void> _retryUpload(File imageFile, {int retryCount = 0, int maxRetries = 3}) async {
+  Future<void> _retryUpload(File imageFile,
+      {int retryCount = 0, int maxRetries = 3}) async {
     const baseDelay = Duration(seconds: 1);
 
     try {
       await uploadProfileImage(imageFile);
     } catch (e) {
-      if (retryCount < maxRetries && (e.toString().contains('network') || e.toString().contains('unavailable'))) {
+      if (retryCount < maxRetries &&
+          (e.toString().contains('network') ||
+              e.toString().contains('unavailable'))) {
         final delay = baseDelay * (1 << retryCount); // Exponential backoff
-        debugPrint('🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
+        debugPrint(
+            '🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
 
         await Future.delayed(delay);
-        return _retryUpload(imageFile, retryCount: retryCount + 1, maxRetries: maxRetries);
+        return _retryUpload(imageFile,
+            retryCount: retryCount + 1, maxRetries: maxRetries);
       } else {
         rethrow; // Re-throw if max retries reached or non-network error
       }
