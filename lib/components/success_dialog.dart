@@ -25,7 +25,7 @@ class SuccessDialog extends StatefulWidget {
 
     Get.dialog(
       SuccessDialog(title: title, message: message),
-      barrierDismissible: false, // Prevent dismissing by tapping outside
+      barrierDismissible: true, // Allow dismissing by tapping outside
       barrierColor: Colors.black.withValues(alpha: 0.3),
     );
 
@@ -154,10 +154,12 @@ class _SuccessDialogState extends State<SuccessDialog>
                       valueColor: AlwaysStoppedAnimation<Color>(
                         Colors.green.shade400,
                       ),
-                      value: 1.0 - (_animationController.duration!.inMilliseconds -
-                              _animationController.value *
-                                  _animationController.duration!.inMilliseconds) /
-                          _animationController.duration!.inMilliseconds,
+                      value: 1.0 -
+                          (_animationController.duration!.inMilliseconds -
+                                  _animationController.value *
+                                      _animationController
+                                          .duration!.inMilliseconds) /
+                              _animationController.duration!.inMilliseconds,
                     ),
                   ),
                 ],

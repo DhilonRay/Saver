@@ -1551,11 +1551,9 @@ class HomeController extends GetxController {
         urgency: selectedUrgency,
         notes: additionalNotes,
       );
-      if (orderId != null) {
-        SuccessDialog.show(
-          title: 'Order Created',
-          message: 'Your ambulance request has been submitted successfully.',
-        );
+      if (orderId == null) {
+        // If order creation failed, show error (but success dialog is already handled)
+        debugPrint('❌ Order creation failed');
       }
     }
   }
