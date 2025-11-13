@@ -2160,7 +2160,14 @@ class HomeController extends GetxController {
         // Handle status updates
         if (status == 'accepted') {
           isTrackingPartner.value = true;
-          // Don't show dialog automatically - user will see it when navigating to tracking
+          // Show success dialog when order is accepted
+          SuccessDialog.show(
+            title: 'Order Accepted',
+            message:
+                'Your ambulance order has been accepted. Tap here to start tracking your ambulance.',
+            onTap: () => navigateToTrackingPage(),
+            autoCloseDuration: const Duration(seconds: 10),
+          );
         } else if (status == 'in_transit') {
           isTrackingPartner.value = true;
           // Don't show dialog automatically - user will see it when navigating to tracking
