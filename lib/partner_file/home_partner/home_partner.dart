@@ -8,7 +8,7 @@ import '../../loader/loader.dart';
 
 class HomePartnerPage extends StatelessWidget {
   final bool isNewSignup;
-  
+
   HomePartnerPage({super.key, this.isNewSignup = false});
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -42,13 +42,13 @@ class HomePartnerPage extends StatelessWidget {
             key: _scaffoldKey,
             appBar: AppBar(
               title: Obx(() => Text(
-                controller.partnerName.value,
-                style: TextStyle(
-                  color: primaryBlue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              )),
+                    controller.partnerName.value,
+                    style: TextStyle(
+                      color: primaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  )),
               backgroundColor: Colors.white,
               elevation: 0,
               leading: IconButton(
@@ -92,9 +92,10 @@ class HomePartnerPage extends StatelessWidget {
                             onTap: controller.showProfileImageOptions,
                             child: Obx(() {
                               final imageUrl = controller.profileImageUrl.value;
-                              final isUploading = controller.isUploadingImage.value;
+                              final isUploading =
+                                  controller.isUploadingImage.value;
                               final progress = controller.uploadProgress.value;
-                              
+
                               return Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -105,23 +106,24 @@ class HomePartnerPage extends StatelessWidget {
                                       shape: BoxShape.circle,
                                       color: Colors.white,
                                       border: Border.all(
-                                        color: primaryBlue.withValues(alpha: 0.3),
+                                        color:
+                                            primaryBlue.withValues(alpha: 0.3),
                                         width: 2,
                                       ),
                                       image: imageUrl != null
-                                        ? DecorationImage(
-                                            image: NetworkImage(imageUrl),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
+                                          ? DecorationImage(
+                                              image: NetworkImage(imageUrl),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
                                     ),
                                     child: imageUrl == null
-                                      ? Icon(
-                                          Icons.local_shipping,
-                                          color: primaryBlue,
-                                          size: 40,
-                                        )
-                                      : null,
+                                        ? Icon(
+                                            Icons.local_shipping,
+                                            color: primaryBlue,
+                                            size: 40,
+                                          )
+                                        : null,
                                   ),
                                   if (isUploading)
                                     Container(
@@ -129,24 +131,30 @@ class HomePartnerPage extends StatelessWidget {
                                       height: 80,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: Colors.black.withValues(alpha: 0.7),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.7),
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           SizedBox(
                                             width: 30,
                                             height: 30,
                                             child: CircularProgressIndicator(
-                                              value: progress > 0 ? progress : null, // Show progress if available
+                                              value: progress > 0
+                                                  ? progress
+                                                  : null, // Show progress if available
                                               color: Colors.white,
                                               strokeWidth: 2,
-                                              backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                              backgroundColor: Colors.white
+                                                  .withValues(alpha: 0.3),
                                             ),
                                           ),
                                           if (progress > 0)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 4),
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
                                               child: Text(
                                                 '${(progress * 100).toInt()}%',
                                                 style: const TextStyle(
@@ -181,13 +189,13 @@ class HomePartnerPage extends StatelessWidget {
                           ),
                           SizedBox(height: 16),
                           Obx(() => Text(
-                            controller.partnerName.value,
-                            style: TextStyle(
-                              fontSize: 24,
-                              color: primaryBlue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )),
+                                controller.partnerName.value,
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  color: primaryBlue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )),
                           Text(
                             'Emergency Response',
                             style: TextStyle(
@@ -224,16 +232,15 @@ class HomePartnerPage extends StatelessWidget {
                             icon: Icons.attach_money,
                             title: 'Change Rates',
                             onTap: () {
-                            /*   // Close the drawer and show rate change dialog
+                              /*   // Close the drawer and show rate change dialog
                               try {
                                 Get.back();
                               } catch (_) {} */
                               controller.showRateChangeDialog();
                             },
                           ),
-                         
                           Divider(height: 40, thickness: 1),
-                           _buildDrawerItem(
+                          _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
@@ -242,7 +249,7 @@ class HomePartnerPage extends StatelessWidget {
                             icon: Icons.privacy_tip,
                             title: 'Privacy Policy',
                             onTap: () {
-                            /*   // Close the drawer and navigate to Privacy Policy page
+                              /*   // Close the drawer and navigate to Privacy Policy page
                               try {
                                 Get.back();
                               } catch (_) {} */
@@ -253,14 +260,13 @@ class HomePartnerPage extends StatelessWidget {
                             icon: Icons.description,
                             title: 'Terms & Conditions',
                             onTap: () {
-                             /*  // Close the drawer and navigate to Terms & Conditions page
+                              /*  // Close the drawer and navigate to Terms & Conditions page
                               try {
                                 Get.back();
                               } catch (_) {} */
                               Get.toNamed('/terms-conditions');
                             },
                           ),
-                        
                           _buildDrawerItem(
                             icon: Icons.feedback_outlined,
                             title: 'Feedback',
@@ -272,7 +278,6 @@ class HomePartnerPage extends StatelessWidget {
                               Get.toNamed('/feedback');
                             },
                           ),
-                          
                         ],
                       ),
                     ),
@@ -282,7 +287,8 @@ class HomePartnerPage extends StatelessWidget {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: controller.signOut,
-                          icon: Icon(Icons.logout, color: primaryBlue, size: 24),
+                          icon:
+                              Icon(Icons.logout, color: primaryBlue, size: 24),
                           label: Text(
                             'Sign Out',
                             style: TextStyle(
@@ -293,7 +299,8 @@ class HomePartnerPage extends StatelessWidget {
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 32),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -322,7 +329,6 @@ class HomePartnerPage extends StatelessWidget {
                               size: 56,
                               colors: [primaryBlue, secondaryBlue, accentBlue],
                             ),
-                            
                           ],
                         ),
                       ),
@@ -354,7 +360,8 @@ class HomePartnerPage extends StatelessWidget {
                         right: 0,
                         child: Center(
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
@@ -454,8 +461,6 @@ class HomePartnerPage extends StatelessWidget {
                           ],
                         ),
                       ),
-
-                     
                     ],
                   ),
                 ),

@@ -173,6 +173,43 @@ class PartnersOrdersPage extends StatelessWidget {
                   if (orderData['notes'] != null &&
                       orderData['notes'].toString().isNotEmpty)
                     _buildOrderDetail('Notes', orderData['notes']),
+                  if (orderData['fareAmount'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            child: Row(
+                              children: [
+                                Icon(Icons.attach_money,
+                                    size: 16, color: Colors.green.shade600),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Earnings:',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '৳${orderData['fareAmount']}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -414,6 +451,31 @@ class PartnersOrdersPage extends StatelessWidget {
                                     color: colorScheme.onSurface
                                         .withValues(alpha: 0.7),
                                     fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Fare Amount (for completed orders)
+                        if (orderData['fareAmount'] != null &&
+                            orderStatus == 'completed')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.attach_money,
+                                  size: 14,
+                                  color: Colors.green.shade600,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Earnings: ৳${orderData['fareAmount']}',
+                                  style: TextStyle(
+                                    color: Colors.green.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],

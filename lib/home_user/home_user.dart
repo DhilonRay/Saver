@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:saver/feedback/feedback.dart';
+import 'package:saver/loader/loader.dart';
 import 'home_user_controller.dart';
-import '../feedback/feedback.dart';
-import '../loader/loader.dart';
+import '../widgets/fares_widgets.dart';
+import '../services/fares_service.dart';
 
 class HomePage extends StatelessWidget {
   final bool isNewSignup;
-  
+
   HomePage({super.key, this.isNewSignup = false});
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -25,14 +27,10 @@ class HomePage extends StatelessWidget {
       init: HomeController(isNewSignup: isNewSignup),
       builder: (controller) {
         return Container(
-          decoration: BoxDecoration(
-            
-          ),
+          decoration: BoxDecoration(),
           child: Scaffold(
             key: _scaffoldKey,
-            
             appBar: AppBar(
-              
               elevation: 0,
               leading: IconButton(
                 icon: Icon(
@@ -45,9 +43,7 @@ class HomePage extends StatelessWidget {
             ),
             drawer: Drawer(
               child: Container(
-                decoration: BoxDecoration(
-                  
-                ),
+                decoration: BoxDecoration(),
                 child: Column(
                   children: <Widget>[
                     Container(
@@ -59,9 +55,10 @@ class HomePage extends StatelessWidget {
                             onTap: controller.showProfileImageOptions,
                             child: Obx(() {
                               final imageUrl = controller.profileImageUrl.value;
-                              final isUploading = controller.isUploadingImage.value;
+                              final isUploading =
+                                  controller.isUploadingImage.value;
                               final progress = controller.uploadProgress.value;
-                              
+
                               return Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -72,23 +69,24 @@ class HomePage extends StatelessWidget {
                                       shape: BoxShape.circle,
                                       color: Colors.white,
                                       border: Border.all(
-                                        color: primaryBlue.withValues(alpha: 0.3),
+                                        color:
+                                            primaryBlue.withValues(alpha: 0.3),
                                         width: 2,
                                       ),
                                       image: imageUrl != null
-                                        ? DecorationImage(
-                                            image: NetworkImage(imageUrl),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
+                                          ? DecorationImage(
+                                              image: NetworkImage(imageUrl),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
                                     ),
                                     child: imageUrl == null
-                                      ? Icon(
-                                          Icons.person,
-                                          color: primaryBlue,
-                                          size: 40,
-                                        )
-                                      : null,
+                                        ? Icon(
+                                            Icons.person,
+                                            color: primaryBlue,
+                                            size: 40,
+                                          )
+                                        : null,
                                   ),
                                   if (isUploading)
                                     Container(
@@ -96,24 +94,30 @@ class HomePage extends StatelessWidget {
                                       height: 80,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: Colors.black.withValues(alpha: 0.7),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.7),
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           SizedBox(
                                             width: 30,
                                             height: 30,
                                             child: CircularProgressIndicator(
-                                              value: progress > 0 ? progress : null, // Show progress if available
+                                              value: progress > 0
+                                                  ? progress
+                                                  : null, // Show progress if available
                                               color: Colors.white,
                                               strokeWidth: 2,
-                                              backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                              backgroundColor: Colors.white
+                                                  .withValues(alpha: 0.3),
                                             ),
                                           ),
                                           if (progress > 0)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 4),
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
                                               child: Text(
                                                 '${(progress * 100).toInt()}%',
                                                 style: const TextStyle(
@@ -125,7 +129,8 @@ class HomePage extends StatelessWidget {
                                             )
                                           else
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 4),
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
                                               child: Text(
                                                 'Uploading...',
                                                 style: const TextStyle(
@@ -160,13 +165,13 @@ class HomePage extends StatelessWidget {
                           ),
                           SizedBox(height: 16),
                           Obx(() => Text(
-                            controller.userName.value,
-                            style: TextStyle(
-                              fontSize: 24,
-                              color: Colors.blueGrey,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )),
+                                controller.userName.value,
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  color: Colors.blueGrey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )),
                           Text(
                             'Every Second Matters',
                             style: TextStyle(
@@ -182,13 +187,11 @@ class HomePage extends StatelessWidget {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          
                           _buildDrawerItem(
                             icon: Icons.person_outline,
                             title: 'Profile',
                             onTap: controller.navigateToUserId,
                           ),
-                  
                           _buildDrawerItem(
                             icon: Icons.assignment_outlined,
                             title: 'Your Orders',
@@ -200,7 +203,7 @@ class HomePage extends StatelessWidget {
                             onTap: controller.navigateToTrackingPage,
                           ),
                           Divider(height: 40, thickness: 1),
-                           _buildDrawerItem(
+                          _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
@@ -241,7 +244,8 @@ class HomePage extends StatelessWidget {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: controller.signOut,
-                          icon: Icon(Icons.logout, color: primaryBlue, size: 24),
+                          icon:
+                              Icon(Icons.logout, color: primaryBlue, size: 24),
                           label: Text(
                             'Sign Out',
                             style: TextStyle(
@@ -252,7 +256,8 @@ class HomePage extends StatelessWidget {
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 32),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -270,8 +275,6 @@ class HomePage extends StatelessWidget {
               children: [
                 // Full screen map as background
                 Obx(() {
-                 
-
                   if (controller.currentPosition.value == null) {
                     return Container(
                       color: Colors.white,
@@ -346,7 +349,6 @@ class HomePage extends StatelessWidget {
                       // Destination input container
                       Container(
                         margin: EdgeInsets.all(16),
-
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
@@ -361,7 +363,6 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                        
                             Padding(
                               padding: EdgeInsets.all(16),
                               child: TextField(
@@ -403,8 +404,8 @@ class HomePage extends StatelessWidget {
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 16,
+                                    horizontal: 14,
+                                    vertical: 14,
                                   ),
                                 ),
                               ),
@@ -412,18 +413,23 @@ class HomePage extends StatelessWidget {
 
                             // Autocomplete suggestions - show only when user has typed something
                             Obx(() {
-                              final query = controller.destinationQuery.value.trim();
+                              final query =
+                                  controller.destinationQuery.value.trim();
                               // Do not show suggestions when the input is empty
-                              final showSuggestions = query.isNotEmpty && (controller.placeSuggestions.isNotEmpty || controller.isLoadingSuggestions.value);
+                              final showSuggestions = query.isNotEmpty &&
+                                  (controller.placeSuggestions.isNotEmpty ||
+                                      controller.isLoadingSuggestions.value);
 
                               if (!showSuggestions) {
                                 return SizedBox.shrink();
                               }
 
                               return Container(
-                                margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+                                margin: EdgeInsets.only(
+                                    bottom: 16, left: 16, right: 16),
                                 constraints: BoxConstraints(
-                                  maxHeight: 300, // Limit height to prevent overflow
+                                  maxHeight:
+                                      300, // Limit height to prevent overflow
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -434,112 +440,205 @@ class HomePage extends StatelessWidget {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 8,
                                       offset: Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: controller.isLoadingSuggestions.value
-                                  ? Container(
-                                      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                                      child: Row(
-                                        children: [
-                                          HorizontalRotatingDots(
-                                            size: 20,
-                                            colors: [primaryBlue, secondaryBlue, accentBlue],
-                                          ),
-                                       
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      padding: EdgeInsets.zero,
-                                      physics: ClampingScrollPhysics(), // Prevent scroll conflicts
-                                      itemCount: controller.placeSuggestions.length > 5
-                                          ? 5 // Limit to 5 suggestions to prevent overflow
-                                          : controller.placeSuggestions.length,
-                                      itemBuilder: (context, index) {
-                                        final place = controller.placeSuggestions[index];
-                                        return InkWell(
-                                          onTap: () => controller.selectPlace(place),
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                                            decoration: BoxDecoration(
-                                              border: index < (controller.placeSuggestions.length > 5 ? 4 : controller.placeSuggestions.length - 1)
-                                                ? Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1))
-                                                : null,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  padding: EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: lightBlue,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.location_on_outlined,
-                                                    size: 20,
-                                                    color: primaryBlue,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 16),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        place['name']?.toString() ?? 'Unknown Place',
-                                                        style: TextStyle(
-                                                          color: Colors.blueGrey.shade800,
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      if (place['formattedAddress'] != null && (place['formattedAddress'] as String?)?.isNotEmpty == true)
-                                                        Padding(
-                                                          padding: EdgeInsets.only(top: 2),
-                                                          child: Text(
-                                                            place['formattedAddress']?.toString() ?? '',
-                                                            style: TextStyle(
-                                                              color: Colors.blueGrey.shade500,
-                                                              fontSize: 12,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Icon(
-                                                  Icons.chevron_right,
-                                                  color: Colors.grey.shade400,
-                                                  size: 20,
-                                                ),
+                                    ? Container(
+                                        padding: EdgeInsets.symmetric(
+                                            vertical: 16, horizontal: 20),
+                                        child: Row(
+                                          children: [
+                                            HorizontalRotatingDots(
+                                              size: 20,
+                                              colors: [
+                                                primaryBlue,
+                                                secondaryBlue,
+                                                accentBlue
                                               ],
                                             ),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                                          ],
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        padding: EdgeInsets.zero,
+                                        physics:
+                                            ClampingScrollPhysics(), // Prevent scroll conflicts
+                                        itemCount: controller
+                                                    .placeSuggestions.length >
+                                                5
+                                            ? 5 // Limit to 5 suggestions to prevent overflow
+                                            : controller
+                                                .placeSuggestions.length,
+                                        itemBuilder: (context, index) {
+                                          final place = controller
+                                              .placeSuggestions[index];
+                                          return InkWell(
+                                            onTap: () =>
+                                                controller.selectPlace(place),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(
+                                                  vertical: 18, horizontal: 16),
+                                              decoration: BoxDecoration(
+                                                border: index <
+                                                        (controller.placeSuggestions
+                                                                    .length >
+                                                                5
+                                                            ? 4
+                                                            : controller
+                                                                    .placeSuggestions
+                                                                    .length -
+                                                                1)
+                                                    ? Border(
+                                                        bottom: BorderSide(
+                                                            color: Colors
+                                                                .grey.shade100,
+                                                            width: 1))
+                                                    : null,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: lightBlue,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                    child: Icon(
+                                                      Icons
+                                                          .location_on_outlined,
+                                                      size: 20,
+                                                      color: primaryBlue,
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          place['name']
+                                                                  ?.toString() ??
+                                                              'Unknown Place',
+                                                          style: TextStyle(
+                                                            color: Colors
+                                                                .blueGrey
+                                                                .shade800,
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        if (place['formattedAddress'] !=
+                                                                null &&
+                                                            (place['formattedAddress']
+                                                                        as String?)
+                                                                    ?.isNotEmpty ==
+                                                                true)
+                                                          Padding(
+                                                            padding:
+                                                                EdgeInsets.only(
+                                                                    top: 2),
+                                                            child: Text(
+                                                              place['formattedAddress']
+                                                                      ?.toString() ??
+                                                                  '',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .blueGrey
+                                                                    .shade500,
+                                                                fontSize: 12,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Icon(
+                                                    Icons.chevron_right,
+                                                    color: Colors.grey.shade400,
+                                                    size: 20,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                               );
                             }),
-
-                            
                           ],
                         ),
                       ),
 
+                      // Fare Estimate Display (show only when destination is set and we have partner rates loaded)
+                      Obx(() {
+                        if (controller.destinationPosition.value != null &&
+                            controller.partnerRates.isNotEmpty) {
+                          // Get the first available partner's rates for estimation (you can modify this logic as needed)
+                          final firstPartnerRates =
+                              controller.partnerRates.values.firstWhere(
+                            (rates) => rates.isNotEmpty,
+                            orElse: () => {
+                              'indoorCityRate': 2500,
+                              'outdoorCityRate': 10000
+                            },
+                          );
+
+                          return Container(
+                            margin: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: FareEstimationWidget(
+                              distance: controller.currentPosition.value !=
+                                          null &&
+                                      controller.destinationPosition.value !=
+                                          null
+                                  ? FareCalculationService.calculateDistance(
+                                      controller
+                                          .currentPosition.value!.latitude,
+                                      controller
+                                          .currentPosition.value!.longitude,
+                                      controller
+                                          .destinationPosition.value!.latitude,
+                                      controller
+                                          .destinationPosition.value!.longitude,
+                                    )
+                                  : 5.0, // Default distance if calculation fails
+                              serviceType: 'ambulance',
+                              partnerRates: firstPartnerRates,
+                              urgency:
+                                  'normal', // Default urgency, can be made dynamic if needed
+                              // Assume indoor city for now
+                            ),
+                          );
+                        } else {
+                          return SizedBox
+                              .shrink(); // Don't show anything if no destination is set or no rates loaded
+                        }
+                      }),
+
                       // Spacer to push floating buttons to bottom
                       Expanded(child: SizedBox()),
-                    
 
                       // Emergency action buttons at bottom
                       Container(
@@ -560,12 +659,17 @@ class HomePage extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Obx(() => _buildEmergencyButton(
-                              icon: Icons.local_hospital,
-                              label: controller.showAmbulances.value ? 'Ambulances On' : 'Ambulance',
-                              color: controller.showAmbulances.value ? Colors.green.shade700 : Colors.green.shade600,
-                              onPressed: controller.navigateToAmbulanceServices,
-                              isActive: controller.showAmbulances.value,
-                            )),
+                                  icon: Icons.local_hospital,
+                                  label: controller.showAmbulances.value
+                                      ? 'Ambulances On'
+                                      : 'Ambulance',
+                                  color: controller.showAmbulances.value
+                                      ? Colors.green.shade700
+                                      : Colors.green.shade600,
+                                  onPressed:
+                                      controller.navigateToAmbulanceServices,
+                                  isActive: controller.showAmbulances.value,
+                                )),
                             Container(
                               width: 1,
                               height: 40,
@@ -583,7 +687,7 @@ class HomePage extends StatelessWidget {
                     ],
                   ),
                 ),
-             
+
                 // Zoom controls positioned on the right side
                 Positioned(
                   right: 16,

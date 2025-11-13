@@ -364,15 +364,19 @@ class AcceptMapsPage extends StatelessWidget {
                       ),
 
                       // Destination information
-                      if (controller.requestData.value?['destinationAddress'] != null &&
-                          (controller.requestData.value?['destinationAddress'] as String).isNotEmpty) ...[
+                      if (controller.requestData.value?['destinationAddress'] !=
+                              null &&
+                          (controller.requestData.value?['destinationAddress']
+                                  as String)
+                              .isNotEmpty) ...[
                         SizedBox(height: 8),
                         Container(
                           padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.purple.shade50,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.purple.shade200, width: 1),
+                            border: Border.all(
+                                color: Colors.purple.shade200, width: 1),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,7 +401,9 @@ class AcceptMapsPage extends StatelessWidget {
                                     ),
                                     SizedBox(height: 2),
                                     Text(
-                                      controller.requestData.value?['destinationAddress'] ?? '',
+                                      controller.requestData
+                                              .value?['destinationAddress'] ??
+                                          '',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.purple.shade700,
@@ -421,7 +427,8 @@ class AcceptMapsPage extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200, width: 1),
+                          border:
+                              Border.all(color: Colors.blue.shade200, width: 1),
                         ),
                         child: Row(
                           children: [
@@ -445,37 +452,111 @@ class AcceptMapsPage extends StatelessWidget {
                                   ),
                                   SizedBox(height: 2),
                                   Obx(() => Text(
-                                    controller.estimatedTime.value,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.blue.shade700,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  )),
+                                        controller.estimatedTime.value,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      )),
                                 ],
                               ),
                             ),
                             if (controller.estimatedDistance.value > 0) ...[
                               SizedBox(width: 8),
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.shade100,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Obx(() => Text(
-                                  '${controller.estimatedDistance.value.toStringAsFixed(1)} km',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.blue.shade800,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                )),
+                                      '${controller.estimatedDistance.value.toStringAsFixed(1)} km',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue.shade800,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    )),
                               ),
                             ],
                           ],
                         ),
                       ),
+
+                      // Fare information
+                      SizedBox(height: 8),
+                      Obx(() {
+                        final orderData = controller.requestData.value;
+                        final fareAmount =
+                            orderData?['fareAmount'] ?? orderData?['totalFare'];
+
+                        if (fareAmount != null) {
+                          return Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.green.shade200, width: 1),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.attach_money,
+                                  color: Colors.green.shade600,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Service Charge',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        '৳${fareAmount.toString()}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.green.shade700,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'EARN',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.green.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          return SizedBox.shrink();
+                        }
+                      }),
                     ],
                   ),
                 ),
@@ -613,35 +694,149 @@ class AcceptMapsPage extends StatelessWidget {
 
     Get.dialog(
       AlertDialog(
-        title: Text('Enter Ride Fare'),
-        content: Form(
-          key: formKey,
+        title: Row(
+          children: [
+            Icon(Icons.receipt, color: primaryGreen),
+            SizedBox(width: 8),
+            Text('Complete Ride & Enter Fare'),
+          ],
+        ),
+        content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
-                controller: fareController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Fare Amount (৳)',
-                  hintText: 'Enter the total ride cost',
-                  border: OutlineInputBorder(),
+              // Order Summary
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter the fare amount';
-                  }
-                  final fare = double.tryParse(value);
-                  if (fare == null || fare <= 0) {
-                    return 'Please enter a valid amount';
-                  }
-                  return null;
-                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ride Summary',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                        'Patient: ${controller.requestData.value?['patientName'] ?? 'Patient'}'),
+                    Text(
+                        'From: ${controller.formatAddress(controller.requestData.value?['pickupAddress'])}'),
+                    if (controller.requestData.value?['destinationAddress'] !=
+                        null)
+                      Text(
+                          'To: ${controller.requestData.value?['destinationAddress']}'),
+                    Text(
+                        'Distance: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : 'N/A'}'),
+                    Text('Time: ${controller.estimatedTime.value}'),
+                  ],
+                ),
               ),
+
               SizedBox(height: 16),
+
+              // Fare Input
+              Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter Total Fare Amount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    TextFormField(
+                      controller: fareController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Fare Amount (৳)',
+                        hintText: 'Enter the total ride cost',
+                        border: OutlineInputBorder(),
+                        prefixIcon:
+                            Icon(Icons.attach_money, color: primaryGreen),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter the fare amount';
+                        }
+                        final fare = double.tryParse(value);
+                        if (fare == null || fare <= 0) {
+                          return 'Please enter a valid amount';
+                        }
+                        if (fare < 500) {
+                          return 'Minimum fare is ৳500';
+                        }
+                        if (fare > 50000) {
+                          return 'Maximum fare is ৳50,000';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Fare Guidelines
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.amber.shade700, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'Fare Guidelines',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '• Base fare: ৳500-৳2,000\n• Per km: ৳50-৳150\n• Emergency surcharge: +20-50%\n• Final amount should reflect actual service cost',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.shade700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
               Text(
-                'This fare will be recorded in the ride history and visible to the user.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                'This fare will be recorded in the ride history and visible to the user. Please ensure accuracy.',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -661,6 +856,7 @@ class AcceptMapsPage extends StatelessWidget {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryGreen,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text('Complete Ride'),
           ),

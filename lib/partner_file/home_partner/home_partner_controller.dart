@@ -17,26 +17,27 @@ import '../../chat_page/sos_chat_page.dart';
 import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
 import '../../components/success_dialog.dart';
+import '../../services/fares_service.dart';
 
 class HomePartnerController extends GetxController {
   final bool isNewSignup;
-  
+
   HomePartnerController({this.isNewSignup = false});
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Completer<GoogleMapController> _controller = Completer();
 
-  // Dynamic ambulance rates (can be changed by partner)
-  var indoorCityRate = 2500.obs; // Default 2500 TK for indoor city
-  var outdoorCityRate = 10000.obs; // Default 10000 TK for outdoor city
+  // Dynamic ambulance rate (can be changed by partner)
+  var serviceRate = 2500.obs; // Default 2500 TK for service
 
-  // Default rates (fallback values)
-  static const int defaultIndoorCityRate = 2500;
-  static const int defaultOutdoorCityRate = 10000;
+  // Default rate (fallback value)
+  static const int defaultServiceRate = 2500;
 
   // Custom marker icons
-  BitmapDescriptor currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-  BitmapDescriptor userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+  BitmapDescriptor currentLocationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor userLocationIcon =
+      BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
 
   // Reactive variables
   var currentPosition = Rx<LatLng?>(null);
@@ -54,7 +55,8 @@ class HomePartnerController extends GetxController {
   // Ambulance requests
   var pendingRequests = <Map<String, dynamic>>[].obs;
   var showRequestBottomSheet = false.obs;
-  var shownRequestIds = <String>{}.obs; // Track requests that have already been shown
+  var shownRequestIds =
+      <String>{}.obs; // Track requests that have already been shown
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
 
   // Helper function to format address display
@@ -62,12 +64,12 @@ class HomePartnerController extends GetxController {
     if (address == null || address.isEmpty) {
       return 'Address not provided - contact patient';
     }
-    
+
     // Check if it's coordinates format
     if (address.startsWith('Lat:') && address.contains('Lng:')) {
       return 'Location coordinates available - contact patient for details';
     }
-    
+
     return address;
   }
 
@@ -81,12 +83,15 @@ class HomePartnerController extends GetxController {
         const ImageConfiguration(size: Size(40, 40)),
         'assets/markers/ambulance.png',
       );
-      userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      userLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
       debugPrint('Partner custom icons loaded successfully');
     } catch (e) {
       debugPrint('Failed to load partner custom icons: $e');
-      currentLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-      userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      currentLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      userLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
     }
   }
 
@@ -95,24 +100,24 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance.collection('partners').doc(user.uid).get();
-      
+      final doc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .get();
+
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        indoorCityRate.value = data['indoorCityRate'] ?? defaultIndoorCityRate;
-        outdoorCityRate.value = data['outdoorCityRate'] ?? defaultOutdoorCityRate;
-        debugPrint('✅ Loaded partner rates: Indoor=${indoorCityRate.value}, Outdoor=${outdoorCityRate.value}');
+        serviceRate.value = data['serviceRate'] ?? defaultServiceRate;
+        debugPrint('✅ Loaded partner rate: Service=${serviceRate.value}');
       } else {
-        // Use default rates if no custom rates set
-        indoorCityRate.value = defaultIndoorCityRate;
-        outdoorCityRate.value = defaultOutdoorCityRate;
-        debugPrint('ℹ️ Using default rates for new partner');
+        // Use default rate if no custom rate set
+        serviceRate.value = defaultServiceRate;
+        debugPrint('ℹ️ Using default rate for new partner');
       }
     } catch (e) {
       debugPrint('❌ Error loading partner rates: $e');
       // Use default rates on error
-      indoorCityRate.value = defaultIndoorCityRate;
-      outdoorCityRate.value = defaultOutdoorCityRate;
+      serviceRate.value = defaultServiceRate;
     }
   }
 
@@ -121,11 +126,15 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        partnerName.value = data['name'] ?? user.displayName ?? 'NeoSaver Partner';
+        partnerName.value =
+            data['name'] ?? user.displayName ?? 'NeoSaver Partner';
         debugPrint('✅ Loaded partner name: ${partnerName.value}');
       } else {
         partnerName.value = user.displayName ?? 'NeoSaver Partner';
@@ -142,12 +151,16 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance.collection('partners').doc(user.uid).get();
-      
+      final doc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .get();
+
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         profileImageUrl.value = data['profileImageUrl'];
-        debugPrint('✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
+        debugPrint(
+            '✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
       }
     } catch (e) {
       debugPrint('❌ Error loading profile image: $e');
@@ -203,7 +216,7 @@ class HomePartnerController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 256,  // Reduced from 512 for faster upload
+        maxWidth: 256, // Reduced from 512 for faster upload
         maxHeight: 256, // Reduced from 512 for faster upload
         imageQuality: 60, // Reduced from 75 for faster upload
       );
@@ -245,7 +258,7 @@ class HomePartnerController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 256,  // Reduced from 512 for faster upload
+        maxWidth: 256, // Reduced from 512 for faster upload
         maxHeight: 256, // Reduced from 512 for faster upload
         imageQuality: 60, // Reduced from 75 for faster upload
       );
@@ -289,10 +302,13 @@ class HomePartnerController extends GetxController {
       if (user == null) {
         throw 'User not authenticated';
       }
-      
+
       // Create a unique filename
-      final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
+      final fileName =
+          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images/${user.uid}/$fileName');
 
       debugPrint('📤 Starting profile image upload: $fileName');
 
@@ -303,21 +319,27 @@ class HomePartnerController extends GetxController {
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         uploadProgress.value = progress;
-        debugPrint('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+        debugPrint(
+            '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
       });
 
-      final snapshot = await uploadTask.whenComplete(() => debugPrint('✅ Upload task completed'));
+      final snapshot = await uploadTask
+          .whenComplete(() => debugPrint('✅ Upload task completed'));
 
       // Check if upload was successful
       if (snapshot.state == TaskState.success) {
         uploadProgress.value = 1.0; // Complete progress
-        
+
         // Get the download URL
         final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+        debugPrint(
+            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
         // Update Firestore with the new image URL
-        await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(user.uid)
+            .update({
           'profileImageUrl': downloadUrl,
         });
 
@@ -332,14 +354,15 @@ class HomePartnerController extends GetxController {
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
       }
-
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
 
       // Provide more specific error messages
       String errorMessage = 'Failed to upload profile image. Please try again.';
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
+        errorMessage =
+            'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
         Get.snackbar(
           'Upload Failed',
@@ -352,8 +375,10 @@ class HomePartnerController extends GetxController {
           },
         );
         return; // Don't show the default error snackbar
-      } else if (e.toString().contains('permission') || e.toString().contains('denied')) {
-        errorMessage = 'Permission denied. Please grant storage permissions and try again.';
+      } else if (e.toString().contains('permission') ||
+          e.toString().contains('denied')) {
+        errorMessage =
+            'Permission denied. Please grant storage permissions and try again.';
       } else if (e.toString().contains('cancelled')) {
         errorMessage = 'Upload was cancelled.';
         return; // Don't show error snackbar for cancelled uploads
@@ -375,7 +400,9 @@ class HomePartnerController extends GetxController {
     debugPrint('🔄 Opening profile image options bottom sheet');
     Get.bottomSheet(
       Container(
-        height: profileImageUrl.value != null ? 280 : 240, // Dynamic height based on content
+        height: profileImageUrl.value != null
+            ? 280
+            : 240, // Dynamic height based on content
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
@@ -511,7 +538,10 @@ class HomePartnerController extends GetxController {
       if (user == null) return;
 
       // Remove from Firestore
-      await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+      await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .update({
         'profileImageUrl': FieldValue.delete(),
       });
 
@@ -523,7 +553,6 @@ class HomePartnerController extends GetxController {
         title: 'Profile Updated',
         message: 'Your profile image has been removed successfully!',
       );
-
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
       Get.snackbar(
@@ -553,22 +582,25 @@ class HomePartnerController extends GetxController {
       // Always compress with aggressive settings for speed
       final compressedBytes = await FlutterImageCompress.compressWithFile(
         imageFile.absolute.path,
-        minWidth: 180,  // Optimized size for speed vs quality
+        minWidth: 180, // Optimized size for speed vs quality
         minHeight: 180,
-        quality: 45,    // Aggressive compression for speed
-        rotate: 0,      // Skip rotation for speed
+        quality: 45, // Aggressive compression for speed
+        rotate: 0, // Skip rotation for speed
       );
 
       if (compressedBytes != null) {
         // Create a temporary file with compressed data
         final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final tempFile = File(
+            '${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
         await tempFile.writeAsBytes(compressedBytes);
 
         final originalSize = await imageFile.length();
         final compressedSize = await tempFile.length();
-        final compressionRatio = ((originalSize - compressedSize) / originalSize * 100);
-        debugPrint('✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
+        final compressionRatio =
+            ((originalSize - compressedSize) / originalSize * 100);
+        debugPrint(
+            '✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
 
         return tempFile;
       }
@@ -581,25 +613,30 @@ class HomePartnerController extends GetxController {
   }
 
   // Retry upload with exponential backoff
-  Future<void> _retryUpload(File imageFile, {int retryCount = 0, int maxRetries = 3}) async {
+  Future<void> _retryUpload(File imageFile,
+      {int retryCount = 0, int maxRetries = 3}) async {
     const baseDelay = Duration(seconds: 1);
 
     try {
       await uploadProfileImage(imageFile);
     } catch (e) {
-      if (retryCount < maxRetries && (e.toString().contains('network') || e.toString().contains('unavailable'))) {
+      if (retryCount < maxRetries &&
+          (e.toString().contains('network') ||
+              e.toString().contains('unavailable'))) {
         final delay = baseDelay * (1 << retryCount); // Exponential backoff
-        debugPrint('🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
+        debugPrint(
+            '🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
 
         await Future.delayed(delay);
-        return _retryUpload(imageFile, retryCount: retryCount + 1, maxRetries: maxRetries);
+        return _retryUpload(imageFile,
+            retryCount: retryCount + 1, maxRetries: maxRetries);
       } else {
         rethrow; // Re-throw if max retries reached or non-network error
       }
     }
   }
 
-  Future<void> updatePartnerRates(int newIndoorRate, int newOutdoorRate) async {
+  Future<void> updatePartnerRates(int newServiceRate) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
@@ -612,21 +649,11 @@ class HomePartnerController extends GetxController {
         return;
       }
 
-      // Validate rateshome
-      if (newIndoorRate < 1000 || newOutdoorRate < 2000) {
+      // Validate rate
+      if (newServiceRate < 1000) {
         Get.snackbar(
-          'Invalid Rates',
-          'Indoor rate must be at least ৳1,000 and outdoor rate at least ৳2,000',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
-        return;
-      }
-
-      if (newIndoorRate >= newOutdoorRate) {
-        Get.snackbar(
-          'Invalid Rates',
-          'Outdoor rate must be higher than indoor rate',
+          'Invalid Rate',
+          'Service rate must be at least ৳1,000',
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
@@ -634,29 +661,30 @@ class HomePartnerController extends GetxController {
       }
 
       // Update Firestore
-      await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
-        'indoorCityRate': newIndoorRate,
-        'outdoorCityRate': newOutdoorRate,
+      await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .update({
+        'serviceRate': newServiceRate,
         'ratesLastUpdated': Timestamp.now(),
       });
 
-      // Update local reactive variables
-      indoorCityRate.value = newIndoorRate;
-      outdoorCityRate.value = newOutdoorRate;
+      // Update local reactive variable
+      serviceRate.value = newServiceRate;
 
       Get.snackbar(
         'Success',
-        'Rates updated successfully!',
+        'Rate updated successfully!',
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade800,
       );
 
-      debugPrint('✅ Partner rates updated: Indoor=${newIndoorRate}, Outdoor=${newOutdoorRate}');
+      debugPrint('✅ Partner rate updated: Service=${newServiceRate}');
     } catch (e) {
       debugPrint('❌ Error updating partner rates: $e');
       Get.snackbar(
         'Error',
-        'Failed to update rates: $e',
+        'Failed to update rate: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
@@ -664,68 +692,35 @@ class HomePartnerController extends GetxController {
   }
 
   void showRateChangeDialog() {
-    int tempIndoorRate = indoorCityRate.value;
-    int tempOutdoorRate = outdoorCityRate.value;
+    int tempServiceRate = serviceRate.value;
 
     Get.dialog(
       AlertDialog(
-        title: const Text('Update Ambulance Rates'),
+        title: const Text('Update Service Rate'),
         content: StatefulBuilder(
           builder: (context, setState) => SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Set your ambulance rates. These will be shown to users when they book your services.',
+                  'Set your ambulance service rate. This rate will be shown to users when they book your services.',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   decoration: const InputDecoration(
-                    labelText: 'Indoor City Rate (৳)',
+                    labelText: 'Service Rate (৳)',
                     hintText: 'Minimum 1000',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
-                  controller: TextEditingController(text: tempIndoorRate.toString()),
+                  controller:
+                      TextEditingController(text: tempServiceRate.toString()),
                   onChanged: (value) {
-                    tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Outdoor City Rate (৳)',
-                    hintText: 'Minimum 2000',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  controller: TextEditingController(text: tempOutdoorRate.toString()),
-                  onChanged: (value) {
-                    tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
+                    tempServiceRate = int.tryParse(value) ?? tempServiceRate;
                   },
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '💡 Tips:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('• Indoor: Within city limits', style: TextStyle(fontSize: 12)),
-                      Text('• Outdoor: Outside city or long distance', style: TextStyle(fontSize: 12)),
-                      Text('• Rates should reflect distance and urgency', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -737,18 +732,22 @@ class HomePartnerController extends GetxController {
           ),
           ElevatedButton(
             onPressed: () {
-              updatePartnerRates(tempIndoorRate, tempOutdoorRate);
+              updatePartnerRates(tempServiceRate);
               Get.back();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Update Rates'),
+            child: const Text('Update Rate'),
           ),
         ],
       ),
     );
+  }
+
+  Future<Map<String, int>> _fetchPartnerRates() async {
+    return {'serviceRate': serviceRate.value};
   }
 
   @override
@@ -760,13 +759,14 @@ class HomePartnerController extends GetxController {
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
     _loadProfileImage(); // Load partner's profile image
-    
+
     // Show success dialog for new driver signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
         SuccessDialog.show(
           title: 'Welcome to NeoSaver Partner!',
-          message: 'Your driver account has been created successfully. You can now start accepting ambulance requests.',
+          message:
+              'Your driver account has been created successfully. You can now start accepting ambulance requests.',
         );
       });
     }
@@ -859,7 +859,10 @@ class HomePartnerController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null && currentPosition.value != null) {
-        await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(user.uid)
+            .update({
           'latitude': currentPosition.value!.latitude,
           'longitude': currentPosition.value!.longitude,
           'lastUpdated': Timestamp.now(),
@@ -891,13 +894,16 @@ class HomePartnerController extends GetxController {
         }).toList();
 
         // Show bottom sheet if there are pending requests that haven't been shown yet
-        final newRequests = pendingRequests.where((request) => !shownRequestIds.contains(request['id'])).toList();
-        
+        final newRequests = pendingRequests
+            .where((request) => !shownRequestIds.contains(request['id']))
+            .toList();
+
         if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
           final firstNewRequest = newRequests.first;
           shownRequestIds.add(firstNewRequest['id']); // Mark as shown
           showRequestBottomSheet.value = true;
-          debugPrint('🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
+          debugPrint(
+              '🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
           _showRequestBottomSheet(firstNewRequest);
         }
       });
@@ -986,7 +992,8 @@ class HomePartnerController extends GetxController {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.person, color: Colors.blue.shade700, size: 24),
+                        Icon(Icons.person,
+                            color: Colors.blue.shade700, size: 24),
                         SizedBox(width: 12),
                         Text(
                           'রোগীর তথ্য',
@@ -1011,7 +1018,8 @@ class HomePartnerController extends GetxController {
                       request['phone'] ?? 'ফোন নম্বর নেই - ইমেইল চেক করুন',
                       Colors.green.shade700,
                     ),
-                    if (request['email'] != null && request['email'].toString().isNotEmpty)
+                    if (request['email'] != null &&
+                        request['email'].toString().isNotEmpty)
                       _buildInfoRow(
                         Icons.email,
                         'ইমেইল',
@@ -1051,7 +1059,8 @@ class HomePartnerController extends GetxController {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.location_on, color: Colors.green.shade700, size: 24),
+                        Icon(Icons.location_on,
+                            color: Colors.green.shade700, size: 24),
                         SizedBox(width: 12),
                         Text(
                           'অবস্থান তথ্য',
@@ -1070,7 +1079,8 @@ class HomePartnerController extends GetxController {
                       _formatAddress(request['pickupAddress']),
                       Colors.green.shade700,
                     ),
-                    if (request['detailedAddress'] != null && request['detailedAddress'].toString().isNotEmpty)
+                    if (request['detailedAddress'] != null &&
+                        request['detailedAddress'].toString().isNotEmpty)
                       _buildInfoRow(
                         Icons.home,
                         'বিস্তারিত ঠিকানা',
@@ -1084,7 +1094,9 @@ class HomePartnerController extends GetxController {
               SizedBox(height: 16),
 
               // Medical Information Card (if available)
-              if (request['currentCondition'] != null || request['medicalHistory'] != null || request['allergies'] != null)
+              if (request['currentCondition'] != null ||
+                  request['medicalHistory'] != null ||
+                  request['allergies'] != null)
                 Container(
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -1097,7 +1109,8 @@ class HomePartnerController extends GetxController {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.medical_services, color: Colors.orange.shade700, size: 24),
+                          Icon(Icons.medical_services,
+                              color: Colors.orange.shade700, size: 24),
                           SizedBox(width: 12),
                           Text(
                             'চিকিৎসা তথ্য',
@@ -1137,8 +1150,516 @@ class HomePartnerController extends GetxController {
 
               SizedBox(height: 16),
 
-              // Destination Information Card
-              if (request['destinationAddress'] != null && request['destinationAddress'].toString().isNotEmpty)
+              // Fare Information Card
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.amber.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.attach_money,
+                            color: Colors.amber.shade700, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'ভাড়া তথ্য',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    // CRITICAL: Always show the exact stored amount that was agreed upon
+                    // Do not recalculate - this causes fare mismatches
+                    Builder(
+                      builder: (context) {
+                        // First priority: Check if we have stored totalAmount from user's booking
+                        // Try multiple possible field names for the fare amount
+                        final storedTotalAmount =
+                            request['totalAmount'] as double? ??
+                                request['fareAmount'] as double? ??
+                                (request['fareAmount'] as int?)?.toDouble();
+                        final storedFareDetails =
+                            request['fareDetails'] as Map<String, dynamic>?;
+
+                        // Debug: Print all available fields to understand data structure
+                        debugPrint(
+                            '🔍 Request data fields: ${request.keys.toList()}');
+                        debugPrint('💰 totalAmount: ${request['totalAmount']}');
+                        debugPrint('💰 fareAmount: ${request['fareAmount']}');
+                        debugPrint('💰 fareDetails: ${request['fareDetails']}');
+                        debugPrint(
+                            '💰 Final storedTotalAmount: $storedTotalAmount');
+
+                        // PRIORITY 1: Check fareDetails first (this contains user's original calculation)
+                        if (storedFareDetails != null) {
+                          final fareFromDetails =
+                              storedFareDetails['totalFare'] as double? ??
+                                  storedFareDetails['totalAmount'] as double? ??
+                                  (storedFareDetails['totalFare'] as int?)
+                                      ?.toDouble() ??
+                                  (storedFareDetails['totalAmount'] as int?)
+                                      ?.toDouble();
+
+                          debugPrint(
+                              '🎯 Fare from fareDetails: $fareFromDetails');
+
+                          if (fareFromDetails != null && fareFromDetails > 0) {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.green.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Distance info if available
+                                  if (storedFareDetails['distance'] != null)
+                                    Row(
+                                      children: [
+                                        Icon(Icons.straighten,
+                                            size: 16, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${(storedFareDetails['distance'] as double).toStringAsFixed(1)} km',
+                                          style: const TextStyle(
+                                              fontSize: 14, color: Colors.grey),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Icon(Icons.access_time,
+                                            size: 16, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '~${(storedFareDetails['estimatedTime'] as double? ?? 0).toStringAsFixed(0)} min',
+                                          style: const TextStyle(
+                                              fontSize: 14, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  if (storedFareDetails['distance'] != null)
+                                    const SizedBox(height: 12),
+
+                                  // Fare breakdown if available
+                                  if (storedFareDetails['breakdown'] !=
+                                      null) ...[
+                                    const Text(
+                                      'Original Fare Breakdown:',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ...((storedFareDetails['breakdown']
+                                            as Map<String, dynamic>)
+                                        .entries
+                                        .map((entry) {
+                                      return Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 4),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              entry.key,
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey),
+                                            ),
+                                            Text(
+                                              '৳${entry.value}',
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList()),
+                                    const SizedBox(height: 8),
+                                    const Divider(),
+                                    const SizedBox(height: 8),
+                                  ],
+
+                                  // Total amount from fareDetails - EXACT USER AMOUNT
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.blue.shade200),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          '💰 User Agreed Amount',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1976D2),
+                                          ),
+                                        ),
+                                        Text(
+                                          '৳${fareFromDetails.toInt()}',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1976D2),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: Colors.green.shade200),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.verified,
+                                            size: 16,
+                                            color: Colors.green.shade700),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'EXACT amount shown to user during booking',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.green.shade800,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        }
+
+                        // PRIORITY 2: Check direct totalAmount/fareAmount fields
+                        if (storedTotalAmount != null &&
+                            storedTotalAmount > 0) {
+                          // We have the exact amount the user was quoted - USE THIS!
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Distance info if available
+                                if (storedFareDetails != null &&
+                                    storedFareDetails['distance'] != null)
+                                  Row(
+                                    children: [
+                                      Icon(Icons.straighten,
+                                          size: 16, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${(storedFareDetails['distance'] as double).toStringAsFixed(1)} km',
+                                        style: const TextStyle(
+                                            fontSize: 14, color: Colors.grey),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Icon(Icons.access_time,
+                                          size: 16, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '~${(storedFareDetails['estimatedTime'] as double? ?? 0).toStringAsFixed(0)} min',
+                                        style: const TextStyle(
+                                            fontSize: 14, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                if (storedFareDetails != null &&
+                                    storedFareDetails['distance'] != null)
+                                  const SizedBox(height: 12),
+
+                                // Fare breakdown if available
+                                if (storedFareDetails != null &&
+                                    storedFareDetails['breakdown'] != null) ...[
+                                  const Text(
+                                    'Fare Breakdown:',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...((storedFareDetails['breakdown']
+                                          as Map<String, dynamic>)
+                                      .entries
+                                      .map((entry) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            entry.key,
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey),
+                                          ),
+                                          Text(
+                                            '৳${entry.value}',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList()),
+                                  const SizedBox(height: 8),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                ],
+
+                                // THE CRITICAL FIX: Always show the stored total amount
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        '💰 User Agreed Amount',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1976D2),
+                                        ),
+                                      ),
+                                      Text(
+                                        '৳${storedTotalAmount.toInt()}',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1976D2),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                        color: Colors.amber.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.info,
+                                          size: 16,
+                                          color: Colors.amber.shade700),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'This is exactly what the user was charged - DO NOT recalculate',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.amber.shade800,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        // PRIORITY 3: Try to calculate fare if no stored amount exists
+                        debugPrint(
+                            '⚠️ No stored fare amount found, attempting calculation...');
+
+                        // Try to get distance for calculation
+                        final storedDistance = request['distance'] as double?;
+                        double? calculatedDistance;
+
+                        if (storedDistance != null) {
+                          calculatedDistance = storedDistance;
+                        } else if (request['destinationLat'] != null &&
+                            request['destinationLng'] != null &&
+                            request['pickupLat'] != null &&
+                            request['pickupLng'] != null) {
+                          calculatedDistance =
+                              FareCalculationService.calculateDistance(
+                            request['pickupLat'] as double,
+                            request['pickupLng'] as double,
+                            request['destinationLat'] as double,
+                            request['destinationLng'] as double,
+                          );
+                        }
+
+                        if (calculatedDistance != null &&
+                            calculatedDistance > 0) {
+                          // Calculate fare using base rates
+                          final fareDetails =
+                              FareCalculationService.estimateFare(
+                            distanceKm: calculatedDistance,
+                            serviceType: 'ambulance',
+                            partnerRates: {
+                              'serviceRate': 2500
+                            }, // Use default base rate
+                            urgency: request['urgency'] ?? 'normal',
+                          );
+
+                          debugPrint(
+                              '📊 Calculated fare: ৳${fareDetails.totalFare}');
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.calculate,
+                                    color: Colors.orange.shade700, size: 32),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Estimated Fare',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '৳${fareDetails.totalFare.toInt()}',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Calculated for ${calculatedDistance.toStringAsFixed(1)} km',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border:
+                                        Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.warning,
+                                          size: 16, color: Colors.red.shade700),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'No stored user fare found - please confirm amount with user',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.red.shade800,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        // Final fallback - no fare data available at all
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.error,
+                                  color: Colors.red.shade700, size: 32),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No Fare Data Available',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red.shade800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Please contact the user to confirm the fare amount before accepting this request',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+              if (request['destinationAddress'] != null &&
+                  request['destinationAddress'].toString().isNotEmpty)
                 Container(
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -1151,7 +1672,8 @@ class HomePartnerController extends GetxController {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.flag, color: Colors.purple.shade700, size: 24),
+                          Icon(Icons.flag,
+                              color: Colors.purple.shade700, size: 24),
                           SizedBox(width: 12),
                           Text(
                             'গন্তব্য তথ্য',
@@ -1174,7 +1696,7 @@ class HomePartnerController extends GetxController {
                   ),
                 ),
 
-              SizedBox(height: 24),
+              SizedBox(height: 16),
 
               // Action Buttons
               Row(
@@ -1187,7 +1709,8 @@ class HomePartnerController extends GetxController {
                         icon: Icon(Icons.check_circle, size: 24),
                         label: Text(
                           'গ্রহণ করুন',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
@@ -1210,7 +1733,8 @@ class HomePartnerController extends GetxController {
                         icon: Icon(Icons.cancel, size: 24),
                         label: Text(
                           'প্রত্যাখ্যান',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
@@ -1240,7 +1764,8 @@ class HomePartnerController extends GetxController {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.contact_emergency, color: Colors.red.shade700, size: 20),
+                      Icon(Icons.contact_emergency,
+                          color: Colors.red.shade700, size: 20),
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -1276,7 +1801,8 @@ class HomePartnerController extends GetxController {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, Color iconColor) {
+  Widget _buildInfoRow(
+      IconData icon, String label, String value, Color iconColor) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1319,13 +1845,65 @@ class HomePartnerController extends GetxController {
       if (user == null) return;
 
       // Get the request data before updating status (since it will be filtered out)
-      final request = pendingRequests.firstWhere((req) => req['id'] == requestId);
+      final request =
+          pendingRequests.firstWhere((req) => req['id'] == requestId);
 
-      await FirebaseFirestore.instance.collection('orders').doc(requestId).update({
+      // Use the already stored totalAmount from user's original booking
+      // Don't recalculate - use what was already agreed upon
+      final storedTotalAmount = request['totalAmount'] as double?;
+
+      final updateData = {
         'status': 'accepted',
         'acceptedBy': user.uid,
         'acceptedAt': Timestamp.now(),
-      });
+      };
+
+      // Use the stored fare amount if available, otherwise keep existing fareAmount
+      if (storedTotalAmount != null) {
+        updateData['fareAmount'] = storedTotalAmount.toInt();
+        debugPrint(
+            '✅ Using stored total amount: ৳${storedTotalAmount.toInt()}');
+      } else {
+        // Fallback: calculate fare only if no stored amount exists
+        double? fareAmount;
+        final rates = await _fetchPartnerRates();
+        final storedDistance = request['distance'] as double?;
+
+        // Calculate distance if not stored
+        double? calculatedDistance;
+        if (storedDistance != null) {
+          calculatedDistance = storedDistance;
+        } else if (request['destinationLat'] != null &&
+            request['destinationLng'] != null &&
+            request['pickupLat'] != null &&
+            request['pickupLng'] != null) {
+          calculatedDistance = FareCalculationService.calculateDistance(
+            request['pickupLat'] as double,
+            request['pickupLng'] as double,
+            request['destinationLat'] as double,
+            request['destinationLng'] as double,
+          );
+        }
+
+        // Calculate final fare if distance is available
+        if (calculatedDistance != null && calculatedDistance > 0) {
+          final fareDetails = FareCalculationService.estimateFare(
+            distanceKm: calculatedDistance,
+            serviceType: 'ambulance',
+            partnerRates: rates,
+            urgency: request['urgency'] ?? 'normal',
+          );
+          fareAmount = fareDetails.totalFare;
+          updateData['fareAmount'] = fareAmount.toInt();
+        }
+
+        debugPrint('✅ Calculated fallback fare amount: ৳$fareAmount');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update(updateData);
 
       Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
@@ -1333,7 +1911,6 @@ class HomePartnerController extends GetxController {
 
       // Navigate to accept maps page with request data
       Get.to(() => AcceptMapsPage(), arguments: request);
-
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -1346,7 +1923,10 @@ class HomePartnerController extends GetxController {
 
   Future<void> declineRequest(String requestId) async {
     try {
-      await FirebaseFirestore.instance.collection('orders').doc(requestId).update({
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
         'status': 'declined',
         'declinedAt': Timestamp.now(),
       });
@@ -1374,8 +1954,11 @@ class HomePartnerController extends GetxController {
   /// Fetch request from Firestore and show bottom sheet
   Future<void> _fetchAndShowRequest(String orderId) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('orders').doc(orderId).get();
-      
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+
       if (doc.exists) {
         final request = {
           'id': doc.id,
@@ -1410,14 +1993,16 @@ class HomePartnerController extends GetxController {
   void showBottomSheetForRequest(String orderId) {
     try {
       // Find the request in pending requests
-      final request = pendingRequests.firstWhereOrNull((req) => req['id'] == orderId);
+      final request =
+          pendingRequests.firstWhereOrNull((req) => req['id'] == orderId);
 
       if (request != null) {
         // Mark as shown and show bottom sheet
         shownRequestIds.add(orderId);
         showRequestBottomSheet.value = true;
         _showRequestBottomSheet(request);
-        debugPrint('🔔 Showing bottom sheet for notification-clicked request: $orderId');
+        debugPrint(
+            '🔔 Showing bottom sheet for notification-clicked request: $orderId');
       } else {
         // Request not found in pending requests, try to fetch it from Firestore
         _fetchAndShowRequest(orderId);
@@ -1451,7 +2036,10 @@ class HomePartnerController extends GetxController {
       // Update online status to false
       final user = _auth.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance.collection('partners').doc(user.uid).update({
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(user.uid)
+            .update({
           'isOnline': false,
         });
       }
@@ -1513,12 +2101,20 @@ class HomePartnerController extends GetxController {
         final GoogleMapController controller = await _controller.future;
         LatLngBounds bounds = LatLngBounds(
           southwest: LatLng(
-            latitude < currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
-            longitude < currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+            latitude < currentPosition.value!.latitude
+                ? latitude
+                : currentPosition.value!.latitude,
+            longitude < currentPosition.value!.longitude
+                ? longitude
+                : currentPosition.value!.longitude,
           ),
           northeast: LatLng(
-            latitude > currentPosition.value!.latitude ? latitude : currentPosition.value!.latitude,
-            longitude > currentPosition.value!.longitude ? longitude : currentPosition.value!.longitude,
+            latitude > currentPosition.value!.latitude
+                ? latitude
+                : currentPosition.value!.latitude,
+            longitude > currentPosition.value!.longitude
+                ? longitude
+                : currentPosition.value!.longitude,
           ),
         );
         controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));

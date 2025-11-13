@@ -27,6 +27,9 @@ import '../user_order/user_order_page.dart';
 import '../services/notification_service.dart';
 import '../components/success_dialog.dart';
 import '../user_tracking/user_tracking_page.dart';
+import '../services/fares_service.dart';
+import '../services/payment_service.dart';
+import '../widgets/fares_widgets.dart';
 
 class HomeController extends GetxController {
   final bool isNewSignup;
@@ -90,8 +93,8 @@ class HomeController extends GetxController {
   var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
   // Partner rates cache
-  var partnerRates = <String, Map<String, int>>{}
-      .obs; // partnerId -> {indoorCityRate, outdoorCityRate}
+  var partnerRates =
+      <String, Map<String, int>>{}.obs; // partnerId -> {serviceRate}
 
   // Search history variables
   var searchHistory = <String>[].obs;
@@ -337,9 +340,11 @@ class HomeController extends GetxController {
   Future<void> _loadAcknowledgedOrders() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final acknowledgedList = prefs.getStringList(_acknowledgedOrdersKey) ?? [];
+      final acknowledgedList =
+          prefs.getStringList(_acknowledgedOrdersKey) ?? [];
       acknowledgedTrackingOrders.assignAll(acknowledgedList.toSet());
-      debugPrint('✅ Loaded acknowledged orders: ${acknowledgedTrackingOrders.length}');
+      debugPrint(
+          '✅ Loaded acknowledged orders: ${acknowledgedTrackingOrders.length}');
     } catch (e) {
       debugPrint('❌ Error loading acknowledged orders: $e');
     }
@@ -348,8 +353,10 @@ class HomeController extends GetxController {
   Future<void> _saveAcknowledgedOrders() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_acknowledgedOrdersKey, acknowledgedTrackingOrders.toList());
-      debugPrint('✅ Saved acknowledged orders: ${acknowledgedTrackingOrders.length}');
+      await prefs.setStringList(
+          _acknowledgedOrdersKey, acknowledgedTrackingOrders.toList());
+      debugPrint(
+          '✅ Saved acknowledged orders: ${acknowledgedTrackingOrders.length}');
     } catch (e) {
       debugPrint('❌ Error saving acknowledged orders: $e');
     }
@@ -1236,11 +1243,11 @@ class HomeController extends GetxController {
                       return FutureBuilder<Map<String, int>>(
                         future: _fetchPartnerRates(ambulance.id),
                         builder: (context, rateSnapshot) {
-                          final rates = rateSnapshot.data ??
-                              {
-                                'indoorCityRate': 2500,
-                                'outdoorCityRate': 10000
-                              };
+                          // Rates no longer displayed in list - calculated during booking
+                          // final rates = rateSnapshot.data ??
+                          //     {
+                          //       'serviceRate': 2500,
+                          //     };
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -1326,40 +1333,69 @@ class HomeController extends GetxController {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    // Rates Display
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1976D2)
-                                            .withOpacity(0.05),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                            color: const Color(0xFF1976D2)
-                                                .withOpacity(0.2)),
+                                    // Show fare estimation if destination is set
+                                    if (currentPosition.value != null &&
+                                        destinationPosition.value != null) ...[
+                                      FutureBuilder<Map<String, int>>(
+                                        future:
+                                            _fetchPartnerRates(ambulance.id),
+                                        builder: (context, rateSnapshot) {
+                                          if (rateSnapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return const SizedBox(
+                                              height: 60,
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                            );
+                                          }
+
+                                          final rates = rateSnapshot.data ??
+                                              {'serviceRate': 2500};
+                                          final distance =
+                                              FareCalculationService
+                                                  .calculateDistance(
+                                            currentPosition.value!.latitude,
+                                            currentPosition.value!.longitude,
+                                            destinationPosition.value!.latitude,
+                                            destinationPosition
+                                                .value!.longitude,
+                                          );
+
+                                          return FareEstimationWidget(
+                                            distance: distance,
+                                            serviceType: 'ambulance',
+                                            partnerRates: rates,
+                                            urgency: 'normal',
+                                          );
+                                        },
                                       ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Indoor: ৳${rates['indoorCityRate']}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF1976D2),
-                                            ),
-                                          ),
-                                          Text(
-                                            'Outdoor: ৳${rates['outdoorCityRate']}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF1976D2),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    // Rates Display - REMOVED: Static rates replaced with calculated fare estimates during booking
+                                    // Container(
+                                    //   padding: const EdgeInsets.all(8),
+                                    //   decoration: BoxDecoration(
+                                    //     color: const Color(0xFF1976D2)
+                                    //         .withOpacity(0.05),
+                                    //     borderRadius: BorderRadius.circular(6),
+                                    //     border: Border.all(
+                                    //         color: const Color(0xFF1976D2)
+                                    //             .withOpacity(0.2)),
+                                    //   ),
+                                    //   child: Center(
+                                    //     child: Text(
+                                    //       '💰 Starting from ৳${rates['serviceRate']}',
+                                    //       style: const TextStyle(
+                                    //         fontSize: 14,
+                                    //         fontWeight: FontWeight.bold,
+                                    //         color: Color(0xFF1976D2),
+                                    //       ),
+                                    //     ),
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
                               ),
@@ -1396,8 +1432,7 @@ class HomeController extends GetxController {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final rates = {
-          'indoorCityRate': (data['indoorCityRate'] as int?) ?? 2500,
-          'outdoorCityRate': (data['outdoorCityRate'] as int?) ?? 10000,
+          'serviceRate': (data['serviceRate'] as int?) ?? 2500,
         };
 
         // Cache the rates
@@ -1408,8 +1443,7 @@ class HomeController extends GetxController {
       } else {
         // Use default rates if partner not found
         final defaultRates = {
-          'indoorCityRate': 2500,
-          'outdoorCityRate': 10000,
+          'serviceRate': 2500,
         };
         partnerRates[partnerId] = defaultRates;
         debugPrint('ℹ️ Using default rates for partner $partnerId');
@@ -1419,8 +1453,7 @@ class HomeController extends GetxController {
       debugPrint('❌ Error fetching partner rates for $partnerId: $e');
       // Return default rates on error
       final defaultRates = {
-        'indoorCityRate': 2500,
-        'outdoorCityRate': 10000,
+        'serviceRate': 2500,
       };
       partnerRates[partnerId] = defaultRates;
       return defaultRates;
@@ -1453,15 +1486,13 @@ class HomeController extends GetxController {
       return;
     }
 
-    // Fetch partner rates first
-    final rates = await _fetchPartnerRates(partnerId);
-
     // Check if destination is selected
     if (destinationPosition.value == null) {
       Get.dialog(
         AlertDialog(
           title: Text('Destination Required'),
-          content: Text('Please select a destination before booking an ambulance.'),
+          content:
+              Text('Please select a destination before booking an ambulance.'),
           actions: [
             TextButton(
               onPressed: () => Get.back(),
@@ -1473,8 +1504,34 @@ class HomeController extends GetxController {
       return;
     }
 
+    // Fetch partner rates first for fare calculation
+    final rates = await _fetchPartnerRates(partnerId);
+
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
+
+    // Calculate distance and fare estimate
+    FareDetails? estimatedFare;
+    double distanceInKm = 0.0;
+
+    if (currentPosition.value != null && destinationPosition.value != null) {
+      distanceInKm = FareCalculationService.calculateDistance(
+        currentPosition.value!.latitude,
+        currentPosition.value!.longitude,
+        destinationPosition.value!.latitude,
+        destinationPosition.value!.longitude,
+      );
+
+      // Estimate fare based on distance and base rates
+      estimatedFare = FareCalculationService.estimateFare(
+        distanceKm: distanceInKm,
+        serviceType: 'ambulance',
+        partnerRates: rates,
+        urgency: selectedUrgency,
+      );
+
+      debugPrint('📊 Calculated fare for booking: ৳${estimatedFare.totalFare}');
+    }
 
     final result = await Get.dialog(
       AlertDialog(
@@ -1510,74 +1567,49 @@ class HomeController extends GetxController {
                   ),
                 ),
                 SizedBox(height: 16),
-                // Ambulance Rates Display
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1976D2).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: const Color(0xFF1976D2).withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '🚑 Ambulance Rates',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1976D2),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Indoor City:',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          Text(
-                            '৳${rates['indoorCityRate']}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1976D2),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Outdoor City:',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          Text(
-                            '৳${rates['outdoorCityRate']}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1976D2),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '* Rates may vary based on distance and urgency',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Ambulance Rates Display - REMOVED: Now showing calculated fare estimates during booking
+                // Container(
+                //   padding: const EdgeInsets.all(12),
+                //   decoration: BoxDecoration(
+                //     color: const Color(0xFF1976D2).withOpacity(0.1),
+                //     borderRadius: BorderRadius.circular(8),
+                //     border: Border.all(
+                //         color: const Color(0xFF1976D2).withOpacity(0.3)),
+                //   ),
+                //   child: Column(
+                //     crossAxisAlignment: CrossAxisAlignment.start,
+                //     children: [
+                //       const Text(
+                //         '🚑 Ambulance Rates',
+                //         style: TextStyle(
+                //           fontSize: 16,
+                //           fontWeight: FontWeight.bold,
+                //           color: Color(0xFF1976D2),
+                //         ),
+                //       ),
+                //       const SizedBox(height: 8),
+                //       Center(
+                //         child: Text(
+                //           '💰 Starting from ৳${rates['serviceRate']}',
+                //           style: TextStyle(
+                //             fontSize: 18,
+                //             fontWeight: FontWeight.bold,
+                //             color: Color(0xFF1976D2),
+                //           ),
+                //         ),
+                //       ),
+                //       const SizedBox(height: 8),
+                //       const Text(
+                //         '* Rates may vary based on distance and urgency',
+                //         style: TextStyle(
+                //           fontSize: 12,
+                //           color: Colors.grey,
+                //           fontStyle: FontStyle.italic,
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
                 const SizedBox(height: 16),
                 const Text('Select urgency level:'),
                 const SizedBox(height: 10),
@@ -1627,6 +1659,7 @@ class HomeController extends GetxController {
         companyName: companyName,
         urgency: selectedUrgency,
         notes: additionalNotes,
+        fareDetails: estimatedFare, // Pass the calculated fare details
       );
       if (orderId == null) {
         // If order creation failed, show error (but success dialog is already handled)
@@ -1636,8 +1669,6 @@ class HomeController extends GetxController {
   }
 
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
-    final partnerId = ambulanceData['id'] as String?;
-
     // Show ambulance provider details in a very simple bottom sheet
     Get.bottomSheet(
       Container(
@@ -1735,71 +1766,96 @@ class HomeController extends GetxController {
               ),
               SizedBox(height: 16),
 
-              // Rates
-              if (partnerId != null) ...[
+              // Show fare estimation if destination is set
+              if (currentPosition.value != null &&
+                  destinationPosition.value != null) ...[
                 FutureBuilder<Map<String, int>>(
-                  future: _fetchPartnerRates(partnerId),
+                  future: _fetchPartnerRates(ambulanceData['id']),
                   builder: (context, rateSnapshot) {
                     if (rateSnapshot.connectionState ==
                         ConnectionState.waiting) {
-                      return Row(
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 2),
-                          SizedBox(width: 8),
-                          Text('Loading rates...'),
-                        ],
+                      return const SizedBox(
+                        height: 60,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       );
                     }
 
-                    final rates = rateSnapshot.data ??
-                        {'indoorCityRate': 2500, 'outdoorCityRate': 10000};
+                    final rates = rateSnapshot.data ?? {'serviceRate': 2500};
+                    final distance = FareCalculationService.calculateDistance(
+                      currentPosition.value!.latitude,
+                      currentPosition.value!.longitude,
+                      destinationPosition.value!.latitude,
+                      destinationPosition.value!.longitude,
+                    );
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Service Rates',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Indoor City: ৳${rates['indoorCityRate']}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              'Outdoor City: ৳${rates['outdoorCityRate']}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '* Final rate may vary based on distance and urgency',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
+                    return FareEstimationWidget(
+                      distance: distance,
+                      serviceType: 'ambulance',
+                      partnerRates: rates,
+                      urgency: 'normal',
                     );
                   },
                 ),
-                SizedBox(height: 20),
+                SizedBox(height: 16),
               ],
+
+              // Rates - REMOVED: Static rates replaced with calculated fare estimates during booking
+              // if (partnerId != null) ...[
+              //   FutureBuilder<Map<String, int>>(
+              //     future: _fetchPartnerRates(partnerId),
+              //     builder: (context, rateSnapshot) {
+              //       if (rateSnapshot.connectionState ==
+              //           ConnectionState.waiting) {
+              //         return Row(
+              //           children: [
+              //             CircularProgressIndicator(strokeWidth: 2),
+              //             SizedBox(width: 8),
+              //             Text('Loading rates...'),
+              //           ],
+              //         );
+              //       }
+
+              //       final rates = rateSnapshot.data ?? {'serviceRate': 2500};
+
+              //       return Column(
+              //         crossAxisAlignment: CrossAxisAlignment.start,
+              //         children: [
+              //           Text(
+              //             'Service Rates',
+              //             style: TextStyle(
+              //               fontSize: 16,
+              //               fontWeight: FontWeight.bold,
+              //               color: Colors.black87,
+              //             ),
+              //           ),
+              //           SizedBox(height: 8),
+              //           Center(
+              //             child: Text(
+              //               '💰 Starting from ৳${rates['serviceRate']}',
+              //               style: TextStyle(
+              //                 fontSize: 18,
+              //                 fontWeight: FontWeight.bold,
+              //                 color: Colors.black87,
+              //               ),
+              //             ),
+              //           ),
+              //           SizedBox(height: 4),
+              //           Text(
+              //             '* Final rate may vary based on distance and urgency',
+              //             style: TextStyle(
+              //               fontSize: 12,
+              //               color: Colors.grey,
+              //               fontStyle: FontStyle.italic,
+              //             ),
+              //           ),
+              //         ],
+              //       );
+              //     },
+              //   ),
+              //   SizedBox(height: 20),
+              // ],
 
               // Primary Action Button - Book Now (full width, prominent)
               SizedBox(
@@ -1896,6 +1952,9 @@ class HomeController extends GetxController {
     required String companyName,
     required String urgency,
     required String notes,
+    String? paymentId,
+    String? paymentMethod,
+    FareDetails? fareDetails,
   }) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) {
@@ -2011,6 +2070,11 @@ class HomeController extends GetxController {
         'destinationAddress': _selectedPlaceName ?? destinationQuery.value,
         'destinationLat': destinationPosition.value?.latitude,
         'destinationLng': destinationPosition.value?.longitude,
+        // Include payment information
+        'paymentId': paymentId,
+        'paymentMethod': paymentMethod,
+        'fareDetails': fareDetails?.toMap(),
+        'totalAmount': fareDetails?.totalFare ?? 0.0,
       });
 
       debugPrint('✅ Order created successfully with ID: ${docRef.id}');
@@ -2079,7 +2143,7 @@ class HomeController extends GetxController {
   void listenForRequestUpdates(String orderId) {
     // Cancel any existing subscription
     _orderSubscription?.cancel();
-    
+
     // Set current tracking order ID
     currentTrackingOrderId.value = orderId;
 
@@ -2254,7 +2318,6 @@ class HomeController extends GetxController {
 
   void _showTrackingDialog(String title, String message, String orderId) {
     Get.dialog(
-      
       Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -2263,7 +2326,6 @@ class HomeController extends GetxController {
           padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-
             children: [
               // Close button at top right
               Align(
@@ -2330,9 +2392,9 @@ class HomeController extends GetxController {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Get.back(); // Close dialog
-                        _addAcknowledgedOrder(orderId); // Mark as acknowledged
-                        navigateToUserTracking(orderId); // Navigate to tracking
+                        Get.back();
+                        _addAcknowledgedOrder(orderId);
+                        navigateToUserTracking(orderId);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade700,
@@ -2371,6 +2433,29 @@ class HomeController extends GetxController {
 
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
+    String selectedPaymentMethod =
+        'card'; // card, bkash, nagad, rocket, bank_transfer
+
+    // Calculate distance and fare estimate if destination is available
+    FareDetails? estimatedFare;
+    double distanceInKm = 0.0;
+
+    if (currentPosition.value != null && destinationPosition.value != null) {
+      distanceInKm = FareCalculationService.calculateDistance(
+        currentPosition.value!.latitude,
+        currentPosition.value!.longitude,
+        destinationPosition.value!.latitude,
+        destinationPosition.value!.longitude,
+      );
+
+      // Estimate fare based on distance and base rates
+      estimatedFare = FareCalculationService.estimateFare(
+        distanceKm: distanceInKm,
+        serviceType: 'ambulance',
+        partnerRates: rates,
+        urgency: selectedUrgency,
+      );
+    }
 
     final result = await Get.dialog(
       AlertDialog(
@@ -2380,75 +2465,139 @@ class HomeController extends GetxController {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Ambulance Rates Display
+                // Ambulance Rates Display - REMOVED: Now showing calculated fare estimates below
+                // const SizedBox(height: 16),
+
+                // Fare Estimate Display (always show, even without destination)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1976D2).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: const Color(0xFF1976D2).withOpacity(0.3)),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '🚑 Ambulance Rates',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1976D2),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Indoor City:',
-                            style: TextStyle(fontSize: 14),
-                          ),
+                          Icon(Icons.calculate,
+                              color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 8),
                           Text(
-                            '৳${rates['indoorCityRate']}',
-                            style: const TextStyle(
-                              fontSize: 14,
+                            estimatedFare != null
+                                ? 'Final Price Estimate'
+                                : 'Base Rates',
+                            style: TextStyle(
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1976D2),
+                              color: Colors.blue.shade700,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Outdoor City:',
-                            style: TextStyle(fontSize: 14),
+                      const SizedBox(height: 12),
+                      if (estimatedFare != null) ...[
+                        // Distance and time info
+                        Row(
+                          children: [
+                            Icon(Icons.straighten,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${distanceInKm.toStringAsFixed(1)} km',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.grey),
+                            ),
+                            const SizedBox(width: 16),
+                            Icon(Icons.access_time,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '~${estimatedFare!.estimatedTime.toStringAsFixed(0)} min',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Final Price - Make this more prominent
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
                           ),
-                          Text(
-                            '৳${rates['outdoorCityRate']}',
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '💰 Total Amount to Pay',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                              Text(
+                                '৳${estimatedFare!.totalFare.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+                        Text(
+                          '* This is the exact price you will pay for this service',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade700,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ] else ...[
+                        // Show base rates when no destination is set
+                        const Text(
+                          'Base Service Rate:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Text(
+                            '৳${rates['serviceRate']}',
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF1976D2),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '* Rates may vary based on distance and urgency',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '* Set destination to see exact fare estimate',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 const Text('Select urgency level:'),
                 const SizedBox(height: 10),
                 DropdownButton<String>(
@@ -2461,11 +2610,82 @@ class HomeController extends GetxController {
                   ],
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() => selectedUrgency = value);
+                      setState(() {
+                        selectedUrgency = value;
+                        // Recalculate fare when urgency changes
+                        if (distanceInKm > 0) {
+                          estimatedFare = FareCalculationService.estimateFare(
+                            distanceKm: distanceInKm,
+                            serviceType: 'ambulance',
+                            partnerRates: rates,
+                            urgency: selectedUrgency,
+                          );
+                        }
+                      });
                     }
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // Payment Method Selection
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '💳 Payment Method',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        value: selectedPaymentMethod,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'card',
+                              child: Text('💳 Credit/Debit Card')),
+                          DropdownMenuItem(
+                              value: 'bkash', child: Text('📱 bKash')),
+                          DropdownMenuItem(
+                              value: 'nagad', child: Text('📱 Nagad')),
+                          DropdownMenuItem(
+                              value: 'rocket', child: Text('📱 Rocket')),
+                          DropdownMenuItem(
+                              value: 'bank_transfer',
+                              child: Text('🏦 Bank Transfer')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => selectedPaymentMethod = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        estimatedFare != null
+                            ? 'Total Amount: ৳${estimatedFare!.totalFare}'
+                            : 'Amount will be calculated after booking',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 TextField(
                   decoration: const InputDecoration(
                     labelText: 'Additional Notes (optional)',
@@ -2484,26 +2704,333 @@ class HomeController extends GetxController {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Get.back(result: true),
-            child: const Text('Book Now'),
+            onPressed: () => Get.back(result: {
+              'urgency': selectedUrgency,
+              'notes': additionalNotes,
+              'paymentMethod': selectedPaymentMethod,
+              'estimatedFare': estimatedFare,
+            }),
+            child: const Text('Proceed to Payment'),
           ),
         ],
       ),
     );
 
-    if (result == true) {
-      String? orderId = await _createDirectAmbulanceRequest(
+    if (result != null) {
+      // Extract booking details
+      final bookingDetails = result as Map<String, dynamic>;
+      final urgency = bookingDetails['urgency'] as String;
+      final notes = bookingDetails['notes'] as String;
+      final paymentMethod = bookingDetails['paymentMethod'] as String;
+      final fareDetails = bookingDetails['estimatedFare'] as FareDetails?;
+
+      // Proceed to payment processing
+      await _processAmbulancePayment(
         partnerId: partnerId,
         companyName: companyName,
-        urgency: selectedUrgency,
-        notes: additionalNotes,
+        urgency: urgency,
+        notes: notes,
+        paymentMethod: paymentMethod,
+        fareDetails: fareDetails,
       );
-      // Success dialog is now shown inside _createDirectAmbulanceRequest
-      if (orderId == null) {
-        // If order creation failed, show error (but success dialog is already handled)
-        debugPrint('❌ Order creation failed');
-      }
     }
+  }
+
+  Future<void> _processAmbulancePayment({
+    required String partnerId,
+    required String companyName,
+    required String urgency,
+    required String notes,
+    required String paymentMethod,
+    required FareDetails? fareDetails,
+  }) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      Get.snackbar(
+        'Authentication Required',
+        'You need to be logged in to make payments.',
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade800,
+      );
+      return;
+    }
+
+    try {
+      // Show payment processing dialog
+      Get.dialog(
+        const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Processing payment...'),
+            ],
+          ),
+        ),
+        barrierDismissible: false,
+      );
+
+      // Generate order ID
+      final orderId = 'AMB_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Create payment method object based on selection
+      PaymentMethod paymentMethodObj;
+      Map<String, dynamic> paymentDetails = {};
+
+      switch (paymentMethod) {
+        case 'card':
+          // Show card input dialog
+          final cardResult = await _showCardInputDialog();
+          if (cardResult == null) {
+            Get.back(); // Close processing dialog
+            return;
+          }
+          paymentMethodObj = PaymentMethod.card(
+            cardNumber: cardResult['cardNumber']!,
+            expiryMonth: cardResult['expiryMonth']!,
+            expiryYear: cardResult['expiryYear']!,
+            cvv: cardResult['cvv']!,
+            cardholderName: cardResult['cardholderName']!,
+          );
+          break;
+
+        case 'bkash':
+        case 'nagad':
+        case 'rocket':
+          // Show mobile wallet input dialog
+          final mobileResult =
+              await _showMobileWalletInputDialog(paymentMethod);
+          if (mobileResult == null) {
+            Get.back(); // Close processing dialog
+            return;
+          }
+          paymentMethodObj = PaymentMethod.mobileWallet(
+            walletType: paymentMethod,
+            phoneNumber: mobileResult['phoneNumber']!,
+          );
+          break;
+
+        case 'bank_transfer':
+          paymentMethodObj = PaymentMethod.bankTransfer();
+          break;
+
+        default:
+          Get.back(); // Close processing dialog
+          Get.snackbar(
+            'Error',
+            'Invalid payment method selected.',
+            backgroundColor: Colors.red.shade100,
+            colorText: Colors.red.shade800,
+          );
+          return;
+      }
+
+      // Close processing dialog
+      Get.back();
+
+      // Process payment
+      final paymentResult = await PaymentService.processAmbulancePayment(
+        orderId: orderId,
+        fareDetails: fareDetails ??
+            FareDetails(
+              baseFare: 500,
+              distanceFare: 0,
+              timeFare: 0,
+              surgeMultiplier: 1.0,
+              urgencyMultiplier: 1.0,
+              totalFare: 500,
+              distance: 0,
+              estimatedTime: 0,
+              urgency: urgency,
+              breakdown: {},
+            ),
+        paymentMethod: paymentMethodObj,
+        userId: userId,
+        paymentDetails: paymentDetails,
+      );
+
+      if (paymentResult.status == 'success' ||
+          paymentResult.status == 'pending') {
+        // Payment successful or pending, create the order
+        String? orderIdResult = await _createDirectAmbulanceRequest(
+          partnerId: partnerId,
+          companyName: companyName,
+          urgency: urgency,
+          notes: notes,
+          paymentId: paymentResult.transactionId,
+          paymentMethod: paymentMethod,
+          fareDetails: fareDetails,
+        );
+
+        if (orderIdResult != null) {
+          SuccessDialog.show(
+            title: 'Booking Confirmed!',
+            message: paymentResult.status == 'pending'
+                ? 'Your booking is confirmed. Please complete the bank transfer using the details provided.'
+                : 'Your ambulance booking has been confirmed and payment processed successfully.',
+          );
+        }
+      } else {
+        // Payment failed
+        Get.snackbar(
+          'Payment Failed',
+          paymentResult.failureReason ??
+              'Payment could not be processed. Please try again.',
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+          duration: const Duration(seconds: 5),
+        );
+      }
+    } catch (e) {
+      Get.back(); // Close any open dialogs
+      Get.snackbar(
+        'Payment Error',
+        'An error occurred during payment processing: $e',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  Future<Map<String, String>?> _showCardInputDialog() async {
+    final cardNumberController = TextEditingController();
+    final expiryController = TextEditingController();
+    final cvvController = TextEditingController();
+    final cardholderController = TextEditingController();
+
+    final result = await Get.dialog<Map<String, String>>(
+      AlertDialog(
+        title: const Text('Enter Card Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: cardNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'Card Number',
+                  hintText: '1234 5678 9012 3456',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: expiryController,
+                      decoration: const InputDecoration(
+                        labelText: 'Expiry (MM/YY)',
+                        hintText: '12/25',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: cvvController,
+                      decoration: const InputDecoration(
+                        labelText: 'CVV',
+                        hintText: '123',
+                      ),
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cardholderController,
+                decoration: const InputDecoration(
+                  labelText: 'Cardholder Name',
+                  hintText: 'John Doe',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (cardNumberController.text.isNotEmpty &&
+                  expiryController.text.isNotEmpty &&
+                  cvvController.text.isNotEmpty &&
+                  cardholderController.text.isNotEmpty) {
+                final expiryParts = expiryController.text.split('/');
+                Get.back(result: {
+                  'cardNumber': cardNumberController.text.replaceAll(' ', ''),
+                  'expiryMonth': expiryParts[0],
+                  'expiryYear': '20${expiryParts[1]}',
+                  'cvv': cvvController.text,
+                  'cardholderName': cardholderController.text,
+                });
+              }
+            },
+            child: const Text('Pay Now'),
+          ),
+        ],
+      ),
+    );
+
+    return result;
+  }
+
+  Future<Map<String, String>?> _showMobileWalletInputDialog(
+      String walletType) async {
+    final phoneController = TextEditingController();
+
+    final result = await Get.dialog<Map<String, String>>(
+      AlertDialog(
+        title: Text('Enter $walletType Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: phoneController,
+              decoration: InputDecoration(
+                labelText: '$walletType Phone Number',
+                hintText: '+880 1XX XXX XXXX',
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'You will receive a payment confirmation on this number.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (phoneController.text.isNotEmpty) {
+                Get.back(result: {
+                  'phoneNumber': phoneController.text,
+                });
+              }
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    return result;
   }
 
   void clearMarkers() {

@@ -201,6 +201,179 @@ class PartnerProfilePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Earnings Summary Card
+                Card(
+                  elevation: 8,
+                  shadowColor: Colors.green.shade300,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,
+                          Colors.green.shade50,
+                        ],
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.attach_money,
+                                  color: Colors.green.shade700,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Earnings Summary',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  final controller =
+                                      Get.find<PartnerProfileController>();
+                                  controller.calculateEarnings();
+                                },
+                                icon: Icon(
+                                  Icons.refresh,
+                                  color: Colors.green.shade600,
+                                ),
+                                tooltip: 'Refresh Earnings',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Obx(() {
+                            final controller =
+                                Get.find<PartnerProfileController>();
+                            if (controller.isCalculatingEarnings.value) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.green.shade600),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.green.shade200, width: 1),
+                              ),
+                              child: Column(
+                                children: [
+                                  // Total Earnings
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Total Earnings',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        controller.formatCurrency(
+                                            controller.totalEarnings.value),
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 16),
+                                  // Monthly Earnings
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'This Month',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        controller.formatCurrency(
+                                            controller.monthlyEarnings.value),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 16),
+                                  // Completed Rides
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Completed Rides',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${controller.completedRides.value}',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blue.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
                 Card(
                   elevation: 8,
                   shadowColor: colorScheme.primary.withValues(alpha: 0.3),
@@ -381,12 +554,8 @@ class PartnerProfilePage extends StatelessWidget {
                                 _infoRow('Coverage Area',
                                     partner['coverageArea'] ?? 'N/A'),
                                 const Divider(height: 16),
-                                _editableInfoRow('Indoor City Rate', partner,
-                                    'indoorCityRate',
-                                    isNumber: true, isCurrency: true),
-                                const Divider(height: 16),
-                                _editableInfoRow('Outdoor City Rate', partner,
-                                    'outdoorCityRate',
+                                _editableInfoRow(
+                                    'Service Rate', partner, 'indoorCityRate',
                                     isNumber: true, isCurrency: true),
                                 const Divider(height: 16),
                                 Row(

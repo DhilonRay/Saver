@@ -34,6 +34,7 @@ class PartnerProfileController extends GetxController {
   void onInit() {
     super.onInit();
     _setupRealTimeListeners();
+    calculateEarnings(); // Calculate earnings on initialization
   }
 
   @override
@@ -140,19 +141,15 @@ class PartnerProfileController extends GetxController {
 
       // Check if rates were changed and update timestamp
       bool ratesChanged = false;
-      final originalIndoorRate = partnerInfo['indoorCityRate'];
-      final originalOutdoorRate = partnerInfo['outdoorCityRate'];
+      final originalServiceRate = partnerInfo['serviceRate'];
 
-      // Get current values from the map (these might have been updated by the UI)
-      final currentIndoorRate = partnerInfo['indoorCityRate'];
-      final currentOutdoorRate = partnerInfo['outdoorCityRate'];
+      // Get current value from the map (this might have been updated by the UI)
+      final currentServiceRate = partnerInfo['serviceRate'];
 
-      if (originalIndoorRate != currentIndoorRate ||
-          originalOutdoorRate != currentOutdoorRate) {
+      if (originalServiceRate != currentServiceRate) {
         ratesChanged = true;
         partnerInfo['ratesLastUpdated'] = FieldValue.serverTimestamp();
-        print(
-            '💰 Rates updated - Indoor: $currentIndoorRate, Outdoor: $currentOutdoorRate');
+        print('💰 Service rate updated: $currentServiceRate');
       }
 
       // Update partner info in Firestore
@@ -178,9 +175,9 @@ class PartnerProfileController extends GetxController {
       // Show appropriate success message
       if (ratesChanged) {
         SuccessDialog.show(
-          title: 'Rates Updated',
+          title: 'Service Rate Updated',
           message:
-              'Your indoor and outdoor city rates have been updated successfully! Users will see the new rates when making requests.',
+              'Your service rate has been updated successfully! Users will see the new rate when making requests.',
         );
         print('📢 Rates update notification shown');
       } else {
@@ -739,5 +736,61 @@ class PartnerProfileController extends GetxController {
       locationAddress.value =
           '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
     }
+  }
+
+  // Earnings calculation methods
+  var totalEarnings = 0.0.obs;
+  var completedRides = 0.obs;
+  var monthlyEarnings = 0.0.obs;
+  var isCalculatingEarnings = false.obs;
+
+  Future<void> calculateEarnings() async {
+    try {
+      isCalculatingEarnings.value = true;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Get all completed orders for this partner
+      final ordersSnapshot = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('partnerId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      double total = 0.0;
+      int rides = 0;
+      double monthTotal = 0.0;
+
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+
+      for (var doc in ordersSnapshot.docs) {
+        final data = doc.data();
+        final fareAmount = data['fareAmount'] ?? data['totalFare'] ?? 0.0;
+        final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+
+        if (fareAmount is num) {
+          total += fareAmount.toDouble();
+          rides++;
+
+          // Check if order is from current month
+          if (timestamp != null && timestamp.isAfter(startOfMonth)) {
+            monthTotal += fareAmount.toDouble();
+          }
+        }
+      }
+
+      totalEarnings.value = total;
+      completedRides.value = rides;
+      monthlyEarnings.value = monthTotal;
+    } catch (e) {
+      print('Error calculating earnings: $e');
+    } finally {
+      isCalculatingEarnings.value = false;
+    }
+  }
+
+  String formatCurrency(double amount) {
+    return '৳${amount.toStringAsFixed(0)}';
   }
 }

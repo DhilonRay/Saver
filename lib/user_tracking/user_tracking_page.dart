@@ -50,7 +50,8 @@ class UserTrackingPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue.shade700),
                         ),
                         SizedBox(height: 16),
                         Text(
@@ -68,7 +69,8 @@ class UserTrackingPage extends StatelessWidget {
 
                 return GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: controller.userPosition.value ?? UserTrackingController.defaultPosition,
+                    target: controller.userPosition.value ??
+                        UserTrackingController.defaultPosition,
                     zoom: 14.0,
                   ),
                   markers: Set<Marker>.of(controller.markers),
@@ -97,7 +99,8 @@ class UserTrackingPage extends StatelessWidget {
                     top: 100,
                     right: 16,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade700,
                         borderRadius: BorderRadius.circular(20),
@@ -117,7 +120,8 @@ class UserTrackingPage extends StatelessWidget {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           ),
                           SizedBox(width: 8),
@@ -184,11 +188,15 @@ class UserTrackingPage extends StatelessWidget {
                     children: [
                       Obx(() {
                         final orderData = controller.orderData.value;
-                        final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+                        final status = orderData?['orderStatus'] ??
+                            orderData?['status'] ??
+                            'unknown';
                         final isCompleted = status.toLowerCase() == 'completed';
 
                         return Text(
-                          isCompleted ? 'Service Completed' : 'Ambulance is Coming',
+                          isCompleted
+                              ? 'Service Completed'
+                              : 'Ambulance is Coming',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -198,7 +206,9 @@ class UserTrackingPage extends StatelessWidget {
                       }),
                       Obx(() {
                         final orderData = controller.orderData.value;
-                        final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+                        final status = orderData?['orderStatus'] ??
+                            orderData?['status'] ??
+                            'unknown';
                         final isCompleted = status.toLowerCase() == 'completed';
 
                         if (isCompleted) {
@@ -224,7 +234,9 @@ class UserTrackingPage extends StatelessWidget {
                 ),
                 Obx(() {
                   final orderData = controller.orderData.value;
-                  final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+                  final status = orderData?['orderStatus'] ??
+                      orderData?['status'] ??
+                      'unknown';
                   final isCompleted = status.toLowerCase() == 'completed';
 
                   if (isCompleted) {
@@ -288,7 +300,8 @@ class UserTrackingPage extends StatelessWidget {
           // ETA Information (only show if not completed)
           Obx(() {
             final orderData = controller.orderData.value;
-            final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+            final status =
+                orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
             final isCompleted = status.toLowerCase() == 'completed';
 
             if (isCompleted) {
@@ -326,103 +339,186 @@ class UserTrackingPage extends StatelessWidget {
             } else {
               return Padding(
                 padding: EdgeInsets.all(16),
-                child: Row(
+                child: Column(
                   children: [
-                    // Time Information
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade200, width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              color: Colors.blue.shade600,
-                              size: 20,
+                    // Time and Distance Information
+                    Row(
+                      children: [
+                        // Time Information
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Colors.blue.shade200, width: 1),
                             ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Estimated Time',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade800,
-                                    ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  color: Colors.blue.shade600,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Estimated Time',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Obx(() => Text(
+                                            controller.estimatedTime.value,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.blue.shade700,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          )),
+                                    ],
                                   ),
-                                  SizedBox(height: 2),
-                                  Obx(() => Text(
-                                    controller.estimatedTime.value,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.blue.shade700,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  )),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+
+                        SizedBox(width: 12),
+
+                        // Distance Information
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Colors.green.shade200, width: 1),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.green.shade600,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Distance',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Obx(() => Text(
+                                            controller.estimatedDistance.value >
+                                                    0
+                                                ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km'
+                                                : '-- km',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.green.shade700,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          )),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
 
-                    SizedBox(width: 12),
+                    SizedBox(height: 12),
 
-                    // Distance Information
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.green.shade200, width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.green.shade600,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Distance',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade800,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Obx(() => Text(
-                                    controller.estimatedDistance.value > 0
-                                      ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km'
-                                      : '-- km',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.green.shade700,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  )),
-                                ],
+                    // Fare Information
+                    Obx(() {
+                      final orderData = controller.orderData.value;
+                      final fareAmount =
+                          orderData?['fareAmount'] ?? orderData?['totalFare'];
+
+                      if (fareAmount != null) {
+                        return Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.orange.shade200, width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.attach_money,
+                                color: Colors.orange.shade600,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Service Charge',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      '৳${fareAmount.toString()}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.orange.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'PAID',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        return SizedBox.shrink();
+                      }
+                    }),
                   ],
                 ),
               );
@@ -433,7 +529,8 @@ class UserTrackingPage extends StatelessWidget {
           Obx(() {
             final orderData = controller.orderData.value;
             if (orderData != null) {
-              final status = orderData['orderStatus'] ?? orderData['status'] ?? 'unknown';
+              final status =
+                  orderData['orderStatus'] ?? orderData['status'] ?? 'unknown';
               return Container(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(

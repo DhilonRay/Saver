@@ -694,6 +694,124 @@ class OrderDetailScreen extends StatelessWidget {
                   '৳${orderData['fareAmount']}', Icons.attach_money_outlined,
                   color: Colors.green.shade700),
             const SizedBox(height: 16),
+
+            // Fare Breakdown Section (if we have detailed fare data)
+            if (orderData['fareAmount'] != null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.receipt_long,
+                            color: Colors.green.shade700, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Fare Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Service Charge:',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        Text(
+                          '৳${orderData['fareAmount']}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (orderData['distance'] != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Distance: ${orderData['distance']} km',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const Text(
+                            'Included in fare',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (orderData['urgency'] != null &&
+                        orderData['urgency'] != 'normal') ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Urgency: ${orderData['urgency']} service',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const Text(
+                            'Additional charges applied',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade600, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Payment completed successfully',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (pickupAddress != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
