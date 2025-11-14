@@ -18,6 +18,7 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
@@ -28,7 +29,6 @@ import '../services/notification_service.dart';
 import '../components/success_dialog.dart';
 import '../user_tracking/user_tracking_page.dart';
 import '../services/fares_service.dart';
-import '../services/payment_service.dart';
 import '../widgets/fares_widgets.dart';
 
 class HomeController extends GetxController {
@@ -943,7 +943,8 @@ class HomeController extends GetxController {
   Future<void> getPlaceDetails(String placeId) async {
     // Attempt to get place details by placeId first. If the google_maps_webservice
     // library fails parsing the response (type cast/null exceptions), fall back
-    // to the Geocoding REST API which parses more permissively here.
+    // to a manual Places Details REST call and finally the Geocoding REST API.
+    bool resolved = false;
     try {
       debugPrint(
           'getPlaceDetails: calling Places.getDetailsByPlaceId for $placeId');
@@ -959,12 +960,26 @@ class HomeController extends GetxController {
           LatLng position = LatLng(lat, lng);
           destinationPosition.value = position;
 
+          final resolvedAddress = response.result.formattedAddress;
+          final resolvedName = response.result.name;
+          String? displayText;
+          if (resolvedAddress != null && resolvedAddress.isNotEmpty) {
+            displayText = resolvedAddress;
+          } else if (resolvedName.isNotEmpty) {
+            displayText = resolvedName;
+          }
+          if (displayText != null) {
+            destinationController.text = displayText;
+            destinationQuery.value = displayText;
+            _selectedPlaceName = displayText;
+          }
+
           debugPrint(
               'getPlaceDetails: got geometry from Places API: $lat,$lng');
 
           // Add destination marker and route
           _addDestinationMarkerAndRoute();
-          return;
+          resolved = true;
         } catch (e, st) {
           // Log and fall through to fallback below
           debugPrint('getPlaceDetails: parsing geometry failed: $e');
@@ -976,10 +991,17 @@ class HomeController extends GetxController {
       }
     } catch (e, st) {
       // If calling getDetailsByPlaceId throws (for example a type cast from
-      // null -> String inside the library), we'll try the REST geocoding
-      // fallback below. Log the stack trace for diagnosis.
+      // null -> String inside the library), we'll try additional fallbacks.
       debugPrint('getPlaceDetails: getDetailsByPlaceId threw: $e');
       debugPrint('$st');
+    }
+
+    if (resolved) {
+      return;
+    }
+
+    if (await _tryPlacesDetailsHttp(placeId)) {
+      return;
     }
 
     // --- Fallback: Use Google Geocoding REST API with the selected place name ---
@@ -1054,6 +1076,79 @@ class HomeController extends GetxController {
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+    }
+  }
+
+  Future<bool> _tryPlacesDetailsHttp(String placeId) async {
+    final apiKey = _places.apiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      debugPrint(
+          'getPlaceDetails: HTTP details fallback skipped because API key is missing');
+      return false;
+    }
+
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/details/json'
+      '?place_id=$placeId&fields=name,formatted_address,geometry&key=$apiKey',
+    );
+
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.getUrl(uri);
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode != 200) {
+        debugPrint(
+            'getPlaceDetails: HTTP details returned status ${response.statusCode}');
+        return false;
+      }
+
+      final Map<String, dynamic> json =
+          jsonDecode(body) as Map<String, dynamic>;
+      final status = json['status'] as String? ?? '';
+      if (status != 'OK') {
+        debugPrint(
+            'getPlaceDetails: HTTP details returned non-OK status ($status)');
+        return false;
+      }
+
+      final result = json['result'] as Map<String, dynamic>?;
+      final geometry = result?['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
+      final lat = location?['lat'];
+      final lng = location?['lng'];
+
+      if (lat == null || lng == null) {
+        debugPrint('getPlaceDetails: HTTP details missing location payload');
+        return false;
+      }
+
+      destinationPosition.value =
+          LatLng((lat as num).toDouble(), (lng as num).toDouble());
+
+      final String? resolvedAddress =
+          result?['formatted_address'] as String?;
+      final String? resolvedName = result?['name'] as String?;
+      final displayText = (resolvedAddress?.isNotEmpty == true)
+          ? resolvedAddress
+          : (resolvedName?.isNotEmpty == true ? resolvedName : null);
+
+      if (displayText != null) {
+        destinationController.text = displayText;
+        destinationQuery.value = displayText;
+        _selectedPlaceName = displayText;
+      }
+
+      debugPrint('getPlaceDetails: resolved via HTTP details call for $placeId');
+      _addDestinationMarkerAndRoute();
+      return true;
+    } catch (e, st) {
+      debugPrint('getPlaceDetails: HTTP details fallback failed: $e');
+      debugPrint('$st');
+      return false;
+    } finally {
+      httpClient.close(force: true);
     }
   }
 
@@ -1533,14 +1628,49 @@ class HomeController extends GetxController {
       debugPrint('📊 Calculated fare for booking: ৳${estimatedFare.totalFare}');
     }
 
-    final result = await Get.dialog(
-      AlertDialog(
-        title: Text('Book Ambulance - $companyName'),
-        content: StatefulBuilder(
+    final result = await showModalBottomSheet<bool?>(
+      context: Get.context!,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        constraints: BoxConstraints(maxHeight: Get.height * 0.7),
+        // rounded top corners like a typical bottom sheet
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: StatefulBuilder(
           builder: (context, setState) => SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header (title)
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Text(
+                    'Book Ambulance - $companyName',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 // Destination Display
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1611,55 +1741,321 @@ class HomeController extends GetxController {
                 //   ),
                 // ),
                 const SizedBox(height: 16),
-                const Text('Select urgency level:'),
-                const SizedBox(height: 10),
-                DropdownButton<String>(
-                  value: selectedUrgency,
-                  items: const [
-                    DropdownMenuItem(value: 'normal', child: Text('Normal')),
-                    DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
-                    DropdownMenuItem(
-                        value: 'emergency', child: Text('Emergency')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => selectedUrgency = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
+                // Fare Details Section
+                if (estimatedFare != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.amber.shade50, Colors.amber.shade100],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.amber.shade300, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.shade100.withOpacity(0.5),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header with icon and title
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.receipt_long,
+                                color: Colors.amber.shade800,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'ভাড়ার বিবরণ',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Distance and time info in a card-like container
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              // Distance
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.straighten, size: 20, color: Colors.blue.shade600),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${estimatedFare.distance.toStringAsFixed(1)} km',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blue.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      'দূরত্ব',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                height: 40,
+                                width: 1,
+                                color: Colors.grey.shade300,
+                              ),
+                              // Time
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.access_time, size: 20, color: Colors.green.shade600),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '~${estimatedFare.estimatedTime.toStringAsFixed(0)} min',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      'সময়',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Fare breakdown in a cleaner list format
+                        Text(
+                          'চার্জের বিবরণ:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: estimatedFare.breakdown.entries
+                                .where((entry) =>
+                                    !entry.key.toLowerCase().contains('subtotal') &&
+                                    !entry.key.toLowerCase().contains('surge'))
+                                .map((entry) {
+                              final label = _friendlyFareKey(entry.key);
+                              String valueText;
+                              if (entry.key.toLowerCase().contains('multiplier') ||
+                                  entry.key.toLowerCase().contains('surge') ||
+                                  entry.key.toLowerCase().contains('urgency')) {
+                                final num rawNum = entry.value as num;
+                                valueText = '×${rawNum.toStringAsFixed(1)}';
+                                if (rawNum == 1.0) valueText += ' (নিয়মিত)';
+                              } else {
+                                valueText = _formatFare(entry.value);
+                              }
+                              return _buildBreakdownRow(label, valueText,
+                                  valueColor: entry.key.toLowerCase().contains('multiplier') ||
+                                          entry.key.toLowerCase().contains('surge')
+                                      ? Colors.orange.shade700
+                                      : null,
+                                  icon: entry.key.toLowerCase().contains('distance')
+                                      ? Icons.straighten
+                                      : null);
+                            }).toList(),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 12),
+                        Divider(color: Colors.amber.shade300, thickness: 1),
+                        const SizedBox(height: 8),
+                        
+                        // Total amount in a highlighted box
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green.shade300, width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '💰 আনুমানিক ভাড়া',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                              Text(
+                                _formatFare(estimatedFare.totalFare),
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 8),
+                        Text(
+                          '* এটি আনুমানিক ভাড়া। চূড়ান্ত ভাড়া রাইড শেষে নির্ধারিত হবে।',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+               
                 TextField(
                   decoration: const InputDecoration(
                     labelText: 'Additional Notes (optional)',
                     border: OutlineInputBorder(),
                   ),
-                  maxLines: 3,
+                  minLines: 1,
+                  maxLines: null,
                   onChanged: (value) => additionalNotes = value,
+                ),
+                const SizedBox(height: 16),
+                // Actions
+                Column(
+                  children: [
+                    // Call Ambulance button (top)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _callAmbulance(ambulanceData['phone']),
+                        icon: Icon(Icons.call, size: 20),
+                        label: const Text('Call Ambulance'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.blue.shade300),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Cancel and Book Now buttons (bottom row)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Get.back(),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.grey.shade300),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Get.back(result: true),
+                            icon: Icon(Icons.book_online, size: 20),
+                            label: const Text('Book Now'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 4,
+                              shadowColor: Colors.green.shade200,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Get.back(result: true),
-            child: const Text('Book Now'),
-          ),
-        ],
       ),
     );
 
     if (result == true) {
+      // Recompute fare with the final selected urgency so the backend records the
+      // fare that the user actually saw at confirmation.
+      FareDetails? finalFare;
+      if (currentPosition.value != null && destinationPosition.value != null) {
+        finalFare = FareCalculationService.estimateFare(
+          distanceKm: distanceInKm,
+          serviceType: 'ambulance',
+          partnerRates: rates,
+          urgency: selectedUrgency,
+        );
+      }
+
       String? orderId = await _createDirectAmbulanceRequest(
         partnerId: partnerId,
         companyName: companyName,
         urgency: selectedUrgency,
         notes: additionalNotes,
-        fareDetails: estimatedFare, // Pass the calculated fare details
+        fareDetails: finalFare, // Pass the recalculated fare
       );
       if (orderId == null) {
         // If order creation failed, show error (but success dialog is already handled)
@@ -1952,8 +2348,6 @@ class HomeController extends GetxController {
     required String companyName,
     required String urgency,
     required String notes,
-    String? paymentId,
-    String? paymentMethod,
     FareDetails? fareDetails,
   }) async {
     final userId = _auth.currentUser?.uid;
@@ -2070,9 +2464,6 @@ class HomeController extends GetxController {
         'destinationAddress': _selectedPlaceName ?? destinationQuery.value,
         'destinationLat': destinationPosition.value?.latitude,
         'destinationLng': destinationPosition.value?.longitude,
-        // Include payment information
-        'paymentId': paymentId,
-        'paymentMethod': paymentMethod,
         'fareDetails': fareDetails?.toMap(),
         'totalAmount': fareDetails?.totalFare ?? 0.0,
       });
@@ -2440,8 +2831,6 @@ class HomeController extends GetxController {
 
     String selectedUrgency = 'normal'; // normal, urgent, emergency
     String additionalNotes = '';
-    String selectedPaymentMethod =
-        'card'; // card, bkash, nagad, rocket, bank_transfer
 
     // Calculate distance and fare estimate if destination is available
     FareDetails? estimatedFare;
@@ -2634,65 +3023,6 @@ class HomeController extends GetxController {
                 ),
                 const SizedBox(height: 16),
 
-                // Payment Method Selection
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '💳 Payment Method',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2E7D32),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButton<String>(
-                        value: selectedPaymentMethod,
-                        isExpanded: true,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'card',
-                              child: Text('💳 Credit/Debit Card')),
-                          DropdownMenuItem(
-                              value: 'bkash', child: Text('📱 bKash')),
-                          DropdownMenuItem(
-                              value: 'nagad', child: Text('📱 Nagad')),
-                          DropdownMenuItem(
-                              value: 'rocket', child: Text('📱 Rocket')),
-                          DropdownMenuItem(
-                              value: 'bank_transfer',
-                              child: Text('🏦 Bank Transfer')),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => selectedPaymentMethod = value);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        estimatedFare != null
-                            ? 'Total Amount: ৳${estimatedFare!.totalFare}'
-                            : 'Amount will be calculated after booking',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2E7D32),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
                 TextField(
                   decoration: const InputDecoration(
                     labelText: 'Additional Notes (optional)',
@@ -2711,13 +3041,26 @@ class HomeController extends GetxController {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Get.back(result: {
-              'urgency': selectedUrgency,
-              'notes': additionalNotes,
-              'paymentMethod': selectedPaymentMethod,
-              'estimatedFare': estimatedFare,
-            }),
-            child: const Text('Proceed to Payment'),
+            onPressed: () {
+              // Recalculate final fare just before confirmation
+              FareDetails? finalFare;
+              if (currentPosition.value != null &&
+                  destinationPosition.value != null) {
+                finalFare = FareCalculationService.estimateFare(
+                  distanceKm: distanceInKm,
+                  serviceType: 'ambulance',
+                  partnerRates: rates,
+                  urgency: selectedUrgency,
+                );
+              }
+
+              Get.back(result: {
+                'urgency': selectedUrgency,
+                'notes': additionalNotes,
+                'estimatedFare': finalFare,
+              });
+            },
+            child: const Text('Confirm Booking'),
           ),
         ],
       ),
@@ -2728,316 +3071,24 @@ class HomeController extends GetxController {
       final bookingDetails = result as Map<String, dynamic>;
       final urgency = bookingDetails['urgency'] as String;
       final notes = bookingDetails['notes'] as String;
-      final paymentMethod = bookingDetails['paymentMethod'] as String;
       final fareDetails = bookingDetails['estimatedFare'] as FareDetails?;
 
-      // Proceed to payment processing
-      await _processAmbulancePayment(
+      // Create ambulance request directly
+      String? orderIdResult = await _createDirectAmbulanceRequest(
         partnerId: partnerId,
         companyName: companyName,
         urgency: urgency,
         notes: notes,
-        paymentMethod: paymentMethod,
         fareDetails: fareDetails,
       );
-    }
-  }
 
-  Future<void> _processAmbulancePayment({
-    required String partnerId,
-    required String companyName,
-    required String urgency,
-    required String notes,
-    required String paymentMethod,
-    required FareDetails? fareDetails,
-  }) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) {
-      Get.snackbar(
-        'Authentication Required',
-        'You need to be logged in to make payments.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
-      return;
-    }
-
-    try {
-      // Show payment processing dialog
-      Get.dialog(
-        const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Processing payment...'),
-            ],
-          ),
-        ),
-        barrierDismissible: false,
-      );
-
-      // Generate order ID
-      final orderId = 'AMB_${DateTime.now().millisecondsSinceEpoch}';
-
-      // Create payment method object based on selection
-      PaymentMethod paymentMethodObj;
-      Map<String, dynamic> paymentDetails = {};
-
-      switch (paymentMethod) {
-        case 'card':
-          // Show card input dialog
-          final cardResult = await _showCardInputDialog();
-          if (cardResult == null) {
-            Get.back(); // Close processing dialog
-            return;
-          }
-          paymentMethodObj = PaymentMethod.card(
-            cardNumber: cardResult['cardNumber']!,
-            expiryMonth: cardResult['expiryMonth']!,
-            expiryYear: cardResult['expiryYear']!,
-            cvv: cardResult['cvv']!,
-            cardholderName: cardResult['cardholderName']!,
-          );
-          break;
-
-        case 'bkash':
-        case 'nagad':
-        case 'rocket':
-          // Show mobile wallet input dialog
-          final mobileResult =
-              await _showMobileWalletInputDialog(paymentMethod);
-          if (mobileResult == null) {
-            Get.back(); // Close processing dialog
-            return;
-          }
-          paymentMethodObj = PaymentMethod.mobileWallet(
-            walletType: paymentMethod,
-            phoneNumber: mobileResult['phoneNumber']!,
-          );
-          break;
-
-        case 'bank_transfer':
-          paymentMethodObj = PaymentMethod.bankTransfer();
-          break;
-
-        default:
-          Get.back(); // Close processing dialog
-          Get.snackbar(
-            'Error',
-            'Invalid payment method selected.',
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-          );
-          return;
-      }
-
-      // Close processing dialog
-      Get.back();
-
-      // Process payment
-      final paymentResult = await PaymentService.processAmbulancePayment(
-        orderId: orderId,
-        fareDetails: fareDetails ??
-            FareDetails(
-              baseFare: 500,
-              distanceFare: 0,
-              timeFare: 0,
-              surgeMultiplier: 1.0,
-              urgencyMultiplier: 1.0,
-              totalFare: 500,
-              distance: 0,
-              estimatedTime: 0,
-              urgency: urgency,
-              breakdown: {},
-            ),
-        paymentMethod: paymentMethodObj,
-        userId: userId,
-        paymentDetails: paymentDetails,
-      );
-
-      if (paymentResult.status == 'success' ||
-          paymentResult.status == 'pending') {
-        // Payment successful or pending, create the order
-        String? orderIdResult = await _createDirectAmbulanceRequest(
-          partnerId: partnerId,
-          companyName: companyName,
-          urgency: urgency,
-          notes: notes,
-          paymentId: paymentResult.transactionId,
-          paymentMethod: paymentMethod,
-          fareDetails: fareDetails,
-        );
-
-        if (orderIdResult != null) {
-          SuccessDialog.show(
-            title: 'Booking Confirmed!',
-            message: paymentResult.status == 'pending'
-                ? 'Your booking is confirmed. Please complete the bank transfer using the details provided.'
-                : 'Your ambulance booking has been confirmed and payment processed successfully.',
-          );
-        }
-      } else {
-        // Payment failed
-        Get.snackbar(
-          'Payment Failed',
-          paymentResult.failureReason ??
-              'Payment could not be processed. Please try again.',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-          duration: const Duration(seconds: 5),
+      if (orderIdResult != null) {
+        SuccessDialog.show(
+          title: 'Booking Confirmed!',
+          message: 'Your ambulance booking has been confirmed successfully.',
         );
       }
-    } catch (e) {
-      Get.back(); // Close any open dialogs
-      Get.snackbar(
-        'Payment Error',
-        'An error occurred during payment processing: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        duration: const Duration(seconds: 5),
-      );
     }
-  }
-
-  Future<Map<String, String>?> _showCardInputDialog() async {
-    final cardNumberController = TextEditingController();
-    final expiryController = TextEditingController();
-    final cvvController = TextEditingController();
-    final cardholderController = TextEditingController();
-
-    final result = await Get.dialog<Map<String, String>>(
-      AlertDialog(
-        title: const Text('Enter Card Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: cardNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Card Number',
-                  hintText: '1234 5678 9012 3456',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: expiryController,
-                      decoration: const InputDecoration(
-                        labelText: 'Expiry (MM/YY)',
-                        hintText: '12/25',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: cvvController,
-                      decoration: const InputDecoration(
-                        labelText: 'CVV',
-                        hintText: '123',
-                      ),
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: cardholderController,
-                decoration: const InputDecoration(
-                  labelText: 'Cardholder Name',
-                  hintText: 'John Doe',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (cardNumberController.text.isNotEmpty &&
-                  expiryController.text.isNotEmpty &&
-                  cvvController.text.isNotEmpty &&
-                  cardholderController.text.isNotEmpty) {
-                final expiryParts = expiryController.text.split('/');
-                Get.back(result: {
-                  'cardNumber': cardNumberController.text.replaceAll(' ', ''),
-                  'expiryMonth': expiryParts[0],
-                  'expiryYear': '20${expiryParts[1]}',
-                  'cvv': cvvController.text,
-                  'cardholderName': cardholderController.text,
-                });
-              }
-            },
-            child: const Text('Pay Now'),
-          ),
-        ],
-      ),
-    );
-
-    return result;
-  }
-
-  Future<Map<String, String>?> _showMobileWalletInputDialog(
-      String walletType) async {
-    final phoneController = TextEditingController();
-
-    final result = await Get.dialog<Map<String, String>>(
-      AlertDialog(
-        title: Text('Enter $walletType Details'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: phoneController,
-              decoration: InputDecoration(
-                labelText: '$walletType Phone Number',
-                hintText: '+880 1XX XXX XXXX',
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'You will receive a payment confirmation on this number.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (phoneController.text.isNotEmpty) {
-                Get.back(result: {
-                  'phoneNumber': phoneController.text,
-                });
-              }
-            },
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-
-    return result;
   }
 
   void clearMarkers() {
@@ -3966,4 +4017,102 @@ class HomeController extends GetxController {
       }
     }
   }
+
+  // Helper methods for fare display
+  String _formatFare(dynamic value) {
+    try {
+      double val;
+      if (value is num) {
+        val = value.toDouble();
+      } else if (value is String) {
+        val = double.tryParse(value) ?? 0.0;
+      } else {
+        return value?.toString() ?? '';
+      }
+
+      final fmt = NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
+      return fmt.format(val);
+    } catch (e) {
+      return value?.toString() ?? '';
+    }
+  }
+
+  // Convert internal fare breakdown keys to simple Bengali labels for normal users
+  String _friendlyFareKey(String key) {
+    final k = key.toLowerCase();
+
+    if (k.contains('distance')) return 'দূরত্বভিত্তিক চার্জ';
+    if (k.contains('time')) return 'সময়ভিত্তিক চার্জ';
+    if (k.contains('base')) return 'বেস ভাড়া';
+    if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
+    if (k.contains('urgency')) return 'জরুরি গুণক';
+    if (k.contains('additional') || k.contains('extra')) return 'অতিরিক্ত চার্জ';
+    if (k.contains('subtotal')) return 'সাবটোটাল';
+    if (k.contains('total')) return 'মোট';
+
+    // Fallback - return key as-is, but capitalized nicely
+    return key[0].toUpperCase() + key.substring(1);
+  }
+
+  // Helper to build a labeled row for fare breakdown with consistent styling
+  Widget _buildBreakdownRow(String label, String value,
+      {Color? valueColor, IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: valueColor ?? Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to call ambulance
+  void _callAmbulance(String? phoneNumber) {
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      final Uri launchUri = Uri(
+        scheme: 'tel',
+        path: phoneNumber,
+      );
+      launchUrl(launchUri);
+    } else {
+      Get.snackbar(
+        'Error',
+        'Phone number not available',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
 }
+

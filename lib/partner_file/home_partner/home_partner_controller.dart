@@ -18,6 +18,7 @@ import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
 import '../../components/success_dialog.dart';
 import '../../services/fares_service.dart';
+import 'package:intl/intl.dart';
 
 class HomePartnerController extends GetxController {
   final bool isNewSignup;
@@ -785,12 +786,91 @@ class HomePartnerController extends GetxController {
     showRequestBottomSheet.value = false;
   }
 
+  // Format a fare value to localized currency string (no decimal places)
+  String _formatFare(dynamic value) {
+    try {
+      double val;
+      if (value is num) {
+        val = value.toDouble();
+      } else if (value is String) {
+        val = double.tryParse(value) ?? 0.0;
+      } else {
+        return value?.toString() ?? '';
+      }
+
+      final fmt = NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
+      return fmt.format(val);
+    } catch (e) {
+      return value?.toString() ?? '';
+    }
+  }
+
+  // Convert internal fare breakdown keys to simple Bengali labels for normal users
+  String _friendlyFareKey(String key) {
+    final k = key.toLowerCase();
+
+    if (k.contains('distance')) return 'দূরত্বভিত্তিক চার্জ';
+    if (k.contains('time')) return 'সময়ভিত্তিক চার্জ';
+    if (k.contains('base')) return 'বেস ভাড়া';
+    if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
+    if (k.contains('urgency')) return 'জরুরি গুণক';
+    if (k.contains('additional') || k.contains('extra')) return 'অতিরিক্ত চার্জ';
+    if (k.contains('subtotal')) return 'সাবটোটাল';
+    if (k.contains('total')) return 'মোট';
+
+    // Fallback - return key as-is, but capitalized nicely
+    return key[0].toUpperCase() + key.substring(1);
+  }
+
+  // Helper to build a labeled row for fare breakdown with consistent styling
+  Widget _buildBreakdownRow(String label, String value,
+      {Color? valueColor, IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: valueColor ?? Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _getCurrentLocation() async {
     try {
       isLoadingLocation.value = true;
 
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied) { 
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           Get.snackbar(
@@ -1254,7 +1334,7 @@ class HomePartnerController extends GetxController {
                                   if (storedFareDetails['breakdown'] !=
                                       null) ...[
                                     const Text(
-                                      'Original Fare Breakdown:',
+                                      'মূল ভাড়ার বিবরণ:',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -1263,32 +1343,84 @@ class HomePartnerController extends GetxController {
                                     ),
                                     const SizedBox(height: 8),
                                     ...((storedFareDetails['breakdown']
-                                            as Map<String, dynamic>)
-                                        .entries
-                                        .map((entry) {
-                                      return Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 4),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              entry.key,
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey),
-                                            ),
-                                            Text(
-                                              '৳${entry.value}',
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                      );
+                                        as Map<String, dynamic>)
+                                      .entries
+                                      // Remove subtotal and surge entries for clarity
+                                      .where((entry) =>
+                                        !entry.key.toLowerCase().contains('subtotal') &&
+                                        !entry.key.toLowerCase().contains('surge'))
+                                      .map((entry) {
+                                      final label = _friendlyFareKey(entry.key);
+                                      String valueText;
+                                      // For multiplier-like entries, show a simple × multiplier with note for normal
+                                      if (entry.key.toLowerCase().contains('multiplier') ||
+                                          entry.key.toLowerCase().contains('surge') ||
+                                          entry.key.toLowerCase().contains('urgency')) {
+                                        final num? rawNum = entry.value is num
+                                            ? entry.value as num
+                                            : num.tryParse(entry.value?.toString() ?? '');
+
+                                        if (rawNum != null) {
+                                          valueText = '×${rawNum.toStringAsFixed(1)}';
+                                          if (rawNum == 1.0) valueText += ' (নিয়মিত)';
+                                        } else {
+                                          valueText = entry.value?.toString() ?? '';
+                                        }
+                                      } else {
+                                        valueText = _formatFare(entry.value);
+                                      }
+
+                                      // Use standardized breakdown row style
+                                      return _buildBreakdownRow(label, valueText,
+                                          valueColor: entry.key
+                                                      .toLowerCase()
+                                                      .contains('multiplier') ||
+                                                  entry.key
+                                                      .toLowerCase()
+                                                      .contains('surge')
+                                              ? Colors.orange.shade700
+                                              : null,
+                                          icon: entry.key
+                                                  .toLowerCase()
+                                                  .contains('distance')
+                                              ? Icons.straighten
+                                              : null);
                                     }).toList()),
+                                    // Add per-km rate if we can compute it (distance cost / distance)
+                                    if (storedFareDetails['distance'] != null)
+                                      (() {
+                                        try {
+                                          final distance =
+                                              (storedFareDetails['distance'] as num).toDouble();
+                                          // Try find a distance charge key
+                                            final distanceEntries =
+                                              (storedFareDetails['breakdown'] as Map<String, dynamic>)
+                                                .entries
+                                                .where((e) =>
+                                                  e.key.toLowerCase().contains('distance') &&
+                                                  (e.value is num ||
+                                                    double.tryParse(e.value?.toString() ?? '') !=
+                                                      null))
+                                                .toList();
+
+                                            if (distanceEntries.isNotEmpty && distance > 0) {
+                                            final distanceEntry = distanceEntries.first;
+                                            final distCharge =
+                                                distanceEntry.value is num
+                                                    ? (distanceEntry.value as num).toDouble()
+                                                    : double.tryParse(distanceEntry.value.toString()) ?? 0.0;
+                                            final ratePerKm = distCharge / distance;
+
+                                            return _buildBreakdownRow(
+                                              'প্রতি কিমি মূল্য',
+                                              '${_formatFare(ratePerKm)}/কিমি',
+                                              valueColor: Colors.green.shade700,
+                                              icon: Icons.straighten,
+                                            );
+                                          }
+                                        } catch (_) {}
+                                        return const SizedBox.shrink();
+                                      }()),
                                     const SizedBox(height: 8),
                                     const Divider(),
                                     const SizedBox(height: 8),
@@ -1307,16 +1439,18 @@ class HomePartnerController extends GetxController {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        const Text(
-                                          '💰 User Agreed Amount',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1976D2),
+                                        Expanded(
+                                          child: const Text(
+                                            '💰 সম্মত ভাড়া',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF1976D2),
+                                            ),
                                           ),
                                         ),
                                         Text(
-                                          '৳${fareFromDetails.toInt()}',
+                                          _formatFare(fareFromDetails),
                                           style: const TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.bold,
@@ -1326,34 +1460,7 @@ class HomePartnerController extends GetxController {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: Colors.green.shade200),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.verified,
-                                            size: 16,
-                                            color: Colors.green.shade700),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'EXACT amount shown to user during booking',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.green.shade800,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                
                                 ],
                               ),
                             );
@@ -1406,7 +1513,7 @@ class HomePartnerController extends GetxController {
                                 if (storedFareDetails != null &&
                                     storedFareDetails['breakdown'] != null) ...[
                                   const Text(
-                                    'Fare Breakdown:',
+                                    'ভাড়ার বিবরণ:',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -1414,32 +1521,80 @@ class HomePartnerController extends GetxController {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  ...((storedFareDetails['breakdown']
-                                          as Map<String, dynamic>)
+                                    ...((storedFareDetails['breakdown']
+                                        as Map<String, dynamic>)
                                       .entries
+                                      // Hide subtotal and surge keys for clarity
+                                      .where((entry) =>
+                                        !entry.key.toLowerCase().contains('subtotal') &&
+                                        !entry.key.toLowerCase().contains('surge'))
                                       .map((entry) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            entry.key,
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey),
-                                          ),
-                                          Text(
-                                            '৳${entry.value}',
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey),
-                                          ),
-                                        ],
-                                      ),
-                                    );
+                                    final label = _friendlyFareKey(entry.key);
+                                    String valueText;
+                                    if (entry.key.toLowerCase().contains('multiplier') ||
+                                        entry.key.toLowerCase().contains('surge') ||
+                                        entry.key.toLowerCase().contains('urgency')) {
+                                      final num? rawNum = entry.value is num
+                                          ? entry.value as num
+                                          : num.tryParse(entry.value?.toString() ?? '');
+
+                                      if (rawNum != null) {
+                                        valueText = '×${rawNum.toStringAsFixed(1)}';
+                                        if (rawNum == 1.0) valueText += ' (নিয়মিত)';
+                                      } else {
+                                        valueText = entry.value?.toString() ?? '';
+                                      }
+                                    } else {
+                                      valueText = _formatFare(entry.value);
+                                    }
+
+                                    return _buildBreakdownRow(label, valueText,
+                                        valueColor: entry.key
+                                                    .toLowerCase()
+                                                    .contains('multiplier') ||
+                                                entry.key
+                                                    .toLowerCase()
+                                                    .contains('surge')
+                                            ? Colors.orange.shade700
+                                            : null,
+                                        icon: entry.key
+                                                .toLowerCase()
+                                                .contains('distance')
+                                            ? Icons.straighten
+                                            : null);
                                   }).toList()),
+                                  // Add per-km rate if we can compute it (distance cost / distance)
+                                  if (storedFareDetails['distance'] != null)
+                                    (() {
+                                      try {
+                                        final distance =
+                                            (storedFareDetails['distance'] as num).toDouble();
+                                        final distanceEntries =
+                                            (storedFareDetails['breakdown'] as Map<String, dynamic>)
+                                                .entries
+                                                .where((e) =>
+                                                    e.key.toLowerCase().contains('distance') &&
+                                                    (e.value is num ||
+                                                        double.tryParse(e.value?.toString() ?? '') != null))
+                                                .toList();
+
+                                        if (distanceEntries.isNotEmpty && distance > 0) {
+                                          final distanceEntry = distanceEntries.first;
+                                          final distCharge =
+                                              distanceEntry.value is num
+                                                  ? (distanceEntry.value as num).toDouble()
+                                                  : double.tryParse(distanceEntry.value.toString()) ?? 0.0;
+                                          final ratePerKm = distCharge / distance;
+
+                                          return _buildBreakdownRow(
+                                              'প্রতি কিমি মূল্য',
+                                              '${_formatFare(ratePerKm)}/কিমি',
+                                              valueColor: Colors.green.shade700,
+                                              icon: Icons.straighten);
+                                        }
+                                      } catch (_) {}
+                                      return const SizedBox.shrink();
+                                    }()),
                                   const SizedBox(height: 8),
                                   const Divider(),
                                   const SizedBox(height: 8),
@@ -1458,16 +1613,18 @@ class HomePartnerController extends GetxController {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text(
-                                        '💰 User Agreed Amount',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1976D2),
+                                      Expanded(
+                                        child: const Text(
+                                          '💰 সম্মত ভাড়া',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1976D2),
+                                          ),
                                         ),
                                       ),
                                       Text(
-                                        '৳${storedTotalAmount.toInt()}',
+                                        _formatFare(storedTotalAmount),
                                         style: const TextStyle(
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
@@ -1494,7 +1651,7 @@ class HomePartnerController extends GetxController {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'This is exactly what the user was charged - DO NOT recalculate',
+                                          'এটাই ইউজারের কাছে চার্জ করা হয়েছে - পুনরায় গণনা করবেন না',
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.amber.shade800,
@@ -1546,8 +1703,8 @@ class HomePartnerController extends GetxController {
                             urgency: request['urgency'] ?? 'normal',
                           );
 
-                          debugPrint(
-                              '📊 Calculated fare: ৳${fareDetails.totalFare}');
+                            debugPrint(
+                              '📊 Calculated fare: ${_formatFare(fareDetails.totalFare)}');
 
                           return Container(
                             padding: const EdgeInsets.all(16),
@@ -1562,7 +1719,7 @@ class HomePartnerController extends GetxController {
                                     color: Colors.orange.shade700, size: 32),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Estimated Fare',
+                                  'আনুমানিক ভাড়া',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1571,7 +1728,7 @@ class HomePartnerController extends GetxController {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '৳${fareDetails.totalFare.toInt()}',
+                                  _formatFare(fareDetails.totalFare),
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
@@ -1580,7 +1737,7 @@ class HomePartnerController extends GetxController {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Calculated for ${calculatedDistance.toStringAsFixed(1)} km',
+                                  '${calculatedDistance.toStringAsFixed(1)} কিমি এর জন্য গণনা করা',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.orange.shade700,
@@ -1602,7 +1759,7 @@ class HomePartnerController extends GetxController {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'No stored user fare found - please confirm amount with user',
+                                          'সংরক্ষিত ইউজার ভাড়া পাওয়া যায়নি - ইউজারের সাথে পরিমাণ নিশ্চিত করুন',
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.red.shade800,
@@ -1632,7 +1789,7 @@ class HomePartnerController extends GetxController {
                                   color: Colors.red.shade700, size: 32),
                               const SizedBox(height: 8),
                               Text(
-                                'No Fare Data Available',
+                                'ভাড়ার তথ্য পাওয়া যায়নি',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1641,7 +1798,7 @@ class HomePartnerController extends GetxController {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Please contact the user to confirm the fare amount before accepting this request',
+                                'এই রিকুয়েস্ট গ্রহণ করার আগে ইউজারের সাথে ভাড়ার পরিমাণ নিশ্চিত করুন',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.red.shade700,

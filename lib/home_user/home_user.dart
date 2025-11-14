@@ -347,22 +347,24 @@ class HomePage extends StatelessWidget {
                       }),
  */
                       // Destination input container
-                      Container(
-                        margin: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: 350),
+                        child: Container(
+                          margin: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 20,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             Padding(
                               padding: EdgeInsets.all(16),
                               child: TextField(
@@ -429,7 +431,7 @@ class HomePage extends StatelessWidget {
                                     bottom: 16, left: 16, right: 16),
                                 constraints: BoxConstraints(
                                   maxHeight:
-                                      300, // Limit height to prevent overflow
+                                      200, // Limit height to prevent overflow
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -471,8 +473,8 @@ class HomePage extends StatelessWidget {
                                             ClampingScrollPhysics(), // Prevent scroll conflicts
                                         itemCount: controller
                                                     .placeSuggestions.length >
-                                                5
-                                            ? 5 // Limit to 5 suggestions to prevent overflow
+                                                3
+                                            ? 3 // Limit to 3 suggestions to prevent overflow
                                             : controller
                                                 .placeSuggestions.length,
                                         itemBuilder: (context, index) {
@@ -490,8 +492,8 @@ class HomePage extends StatelessWidget {
                                                 border: index <
                                                         (controller.placeSuggestions
                                                                     .length >
-                                                                5
-                                                            ? 4
+                                                                3
+                                                            ? 2
                                                             : controller
                                                                     .placeSuggestions
                                                                     .length -
@@ -589,6 +591,7 @@ class HomePage extends StatelessWidget {
                             }),
                           ],
                         ),
+                      ),
                       ),
 
                       // Fare Estimate Display (show only when destination is set and we have partner rates loaded)
