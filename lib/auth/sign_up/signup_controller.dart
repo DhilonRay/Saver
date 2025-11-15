@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:saver/auth/log_in/login_screen.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/partner/partner.dart';
 import '../../components/success_dialog.dart';
@@ -14,7 +15,8 @@ class SignUpController extends GetxController {
   final TextEditingController addressController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   // Reactive Variables
   var selectedRole = 'user'.obs;
@@ -32,12 +34,13 @@ class SignUpController extends GetxController {
 
   @override
   void onClose() {
-    nameController.dispose();
-    phoneController.dispose();
-    addressController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    confirmPasswordController.dispose();
+    // Removed dispose calls for TextEditingControllers to prevent "controller used after dispose" errors
+    // nameController.dispose();
+    // phoneController.dispose();
+    // addressController.dispose();
+    // emailController.dispose();
+    // passwordController.dispose();
+    // confirmPasswordController.dispose();
     super.onClose();
   }
 
@@ -63,8 +66,8 @@ class SignUpController extends GetxController {
 
     try {
       // Create user with Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
+      UserCredential userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
@@ -147,7 +150,8 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    if (passwordController.text.trim() != confirmPasswordController.text.trim()) {
+    if (passwordController.text.trim() !=
+        confirmPasswordController.text.trim()) {
       Get.snackbar(
         'Error',
         'Passwords do not match',
@@ -190,8 +194,8 @@ class SignUpController extends GetxController {
   }
 
   bool isValidEmail(String email) {
-    final emailRegex = RegExp(
-        r'^[\w-]+(\.[\w-]+)*@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$');
+    final emailRegex =
+        RegExp(r'^[\w-]+(\.[\w-]+)*@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$');
     return emailRegex.hasMatch(email);
   }
 
@@ -215,7 +219,7 @@ class SignUpController extends GetxController {
 
   void goToLogin() {
     Future.delayed(const Duration(milliseconds: 100), () {
-      Get.offAll(() => HomePage());
+      Get.offAll(() => LoginPage());
     });
   }
 }

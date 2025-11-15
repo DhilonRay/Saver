@@ -33,10 +33,11 @@ class LoginController extends GetxController {
 
   @override
   void onClose() {
-    emailController.dispose();
-    passwordController.dispose();
-    phoneController.dispose();
-    phonePasswordController.dispose();
+    // Removed dispose calls for TextEditingControllers to prevent "controller used after dispose" errors
+    // emailController.dispose();
+    // passwordController.dispose();
+    // phoneController.dispose();
+    // phonePasswordController.dispose();
     super.onClose();
   }
 
@@ -76,15 +77,13 @@ class LoginController extends GetxController {
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
       // Fetch user data from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
       if (userDoc.exists) {
         final userData = userDoc.data();
         final role = userData?['role'] as String?;
-        
+
         debugPrint('🔍 User document found');
         debugPrint('👤 User data: $userData');
         debugPrint('🎭 Detected role: $role');
@@ -101,10 +100,7 @@ class LoginController extends GetxController {
               'lastLogin': Timestamp.now(),
             }).catchError((error) {
               // If update fails, try to set the token
-              FirebaseFirestore.instance
-                  .collection('partners')
-                  .doc(uid)
-                  .set({
+              FirebaseFirestore.instance.collection('partners').doc(uid).set({
                 'fcmToken': fcmToken.value,
                 'lastLogin': Timestamp.now(),
               }, SetOptions(merge: true));
@@ -366,15 +362,13 @@ class LoginController extends GetxController {
 
   Future<void> checkUserRole(String uid) async {
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
       if (userDoc.exists) {
         final userData = userDoc.data();
         final role = userData?['role'] as String? ?? 'user';
-        
+
         Get.snackbar(
           'User Role Check',
           'Your role: $role\nUID: $uid',
