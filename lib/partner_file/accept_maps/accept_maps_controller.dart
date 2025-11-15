@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:lottie/lottie.dart' as lottie hide Marker;
+import '../../services/notification_service.dart';
 
 class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -84,7 +85,11 @@ class AcceptMapsController extends GetxController {
     final args = Get.arguments;
     if (args != null && args is Map<String, dynamic>) {
       requestData.value = args['request'];
-      showSlidePanel.value = args['fromActivityTab'] == true || args['request']?['status'] == 'in_transit';
+      showSlidePanel.value = args['fromActivityTab'] == true || 
+          args['request']?['status'] == 'in_transit' ||
+          args['request']?['status'] == 'accepted' ||
+          args['request']?['status'] == 'pickup' ||
+          args['request']?['status'] == 'to_destination';
       serviceRate.value = args['request']?['totalAmount']?.toInt() ??
           args['serviceRate'] ??
           2500;
@@ -92,6 +97,10 @@ class AcceptMapsController extends GetxController {
           'AcceptMaps: Received request data with ID: ${args['request']?['id']}');
       debugPrint(
           'AcceptMaps: Received serviceRate from arguments: ${serviceRate.value}');
+      debugPrint(
+          'AcceptMaps: Request status: ${args['request']?['status']}');
+      debugPrint(
+          'AcceptMaps: showSlidePanel set to: ${showSlidePanel.value}');
       if (args['request']?['pickupLat'] != null &&
           args['request']?['pickupLng'] != null) {
         userPosition.value =
@@ -486,6 +495,9 @@ class AcceptMapsController extends GetxController {
           'status': 'in_transit',
         });
         debugPrint('Updated order status to in_transit');
+        // Update local data
+        requestData.value!['status'] = 'in_transit';
+        requestData.refresh();
       } catch (e) {
         debugPrint('Failed to update order status: $e');
       }
@@ -711,5 +723,255 @@ class AcceptMapsController extends GetxController {
   // Navigate back
   void goBack() {
     Get.back();
+  }
+
+  Future<void> updateOrderStatus(String status) async {
+    if (requestData.value != null) {
+      final requestId = requestData.value!['id'];
+      try {
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(requestId)
+            .update({'status': status});
+        debugPrint('Updated order status to $status');
+        // Update local data
+        requestData.value!['status'] = status;
+        requestData.refresh();
+      } catch (e) {
+        debugPrint('Failed to update order status: $e');
+      }
+    }
+  }
+
+  Future<void> generateAndSendPickupOTP() async {
+    if (requestData.value == null) return;
+
+    final requestId = requestData.value!['id'];
+    final userId = requestData.value!['userId'];
+
+    try {
+      // Generate 4-digit OTP
+      final otp = (1000 + Random().nextInt(9000)).toString();
+      debugPrint('Generated OTP: $otp for order: $requestId');
+
+      // Store OTP in order document
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
+        'pickupOTP': otp,
+        'otpGeneratedAt': Timestamp.now(),
+      });
+
+      // Update local data with the generated OTP
+      requestData.value!['pickupOTP'] = otp;
+      requestData.value!['otpGeneratedAt'] = Timestamp.now();
+      requestData.refresh();
+
+      debugPrint('✅ OTP stored in Firestore and local data updated');
+
+      // Get user's FCM token
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      final fcmToken = userDoc.data()?['fcmToken'] as String?;
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        // Send notification with OTP
+        final success = await NotificationService.sendFCMNotification(
+          token: fcmToken,
+          title: 'Pickup OTP',
+          body: 'Your ambulance has arrived. OTP for pickup confirmation: $otp',
+          data: {
+            'type': 'pickup_otp',
+            'orderId': requestId,
+            'otp': otp,
+          },
+        );
+
+        if (success) {
+          debugPrint('✅ Pickup OTP notification sent successfully');
+        } else {
+          debugPrint('❌ Failed to send pickup OTP notification');
+        }
+      } else {
+        debugPrint('⚠️ User FCM token not found, cannot send OTP notification');
+      }
+    } catch (e) {
+      debugPrint('❌ Error generating/sending pickup OTP: $e');
+    }
+  }
+
+  Future<bool> confirmPickupOTP(String enteredOTP) async {
+    if (requestData.value == null) return false;
+
+    final requestId = requestData.value!['id'];
+
+    try {
+      // Fetch the latest order data from Firestore to get the stored OTP
+      final orderDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .get();
+
+      if (!orderDoc.exists) {
+        debugPrint('❌ Order document not found');
+        return false;
+      }
+
+      final orderData = orderDoc.data()!;
+      final storedOTP = orderData['pickupOTP'];
+
+      if (storedOTP == null) {
+        debugPrint('❌ No OTP found in order document');
+        return false;
+      }
+
+      debugPrint('Stored OTP: $storedOTP, Entered OTP: $enteredOTP');
+
+      if (enteredOTP == storedOTP.toString()) {
+        // Update order status to pickup (patient picked up)
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(requestId)
+            .update({
+          'status': 'pickup',
+          'pickupConfirmedAt': Timestamp.now(),
+        });
+
+        // Update local data
+        requestData.value!['status'] = 'pickup';
+        requestData.value!['pickupConfirmedAt'] = Timestamp.now();
+        requestData.refresh();
+
+        debugPrint('✅ Pickup OTP confirmed, status updated to pickup');
+        return true;
+      } else {
+        debugPrint('❌ Invalid OTP entered - does not match stored OTP');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error confirming pickup OTP: $e');
+      return false;
+    }
+  }
+
+  Future<void> goToDestination() async {
+    if (requestData.value == null) return;
+
+    final requestId = requestData.value!['id'];
+
+    try {
+      // Update order status to indicate going to destination
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
+        'status': 'to_destination',
+        'destinationStartedAt': Timestamp.now(),
+      });
+
+      // Update local data
+      requestData.value!['status'] = 'to_destination';
+      requestData.refresh();
+
+      // Update destination location for routing
+      if (requestData.value!['destinationLat'] != null &&
+          requestData.value!['destinationLng'] != null) {
+        final destinationLatLng = LatLng(
+          requestData.value!['destinationLat'],
+          requestData.value!['destinationLng'],
+        );
+
+        // Update user position to destination for new polyline
+        userPosition.value = destinationLatLng;
+
+        // Clear existing polylines and create new route to destination
+        polylines.clear();
+        await _createRouteToDestination();
+
+        // Update markers to show destination
+        _updateDestinationMarker();
+
+        debugPrint('✅ Going to destination, polyline updated');
+      }
+    } catch (e) {
+      debugPrint('❌ Error going to destination: $e');
+    }
+  }
+
+  Future<void> _createRouteToDestination() async {
+    if (partnerPosition.value != null && userPosition.value != null) {
+      try {
+        debugPrint(
+            'Creating route polyline to destination from ${partnerPosition.value} to ${userPosition.value}');
+
+        final origin =
+            '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
+        final destination =
+            '${userPosition.value!.latitude},${userPosition.value!.longitude}';
+
+        final result = await _directions.directions(
+          origin,
+          destination,
+          travelMode: directions.TravelMode.driving,
+        );
+
+        if (result.status == 'OK' && result.routes.isNotEmpty) {
+          final route = result.routes.first;
+          final polylinePoints = <LatLng>[];
+
+          // Decode the polyline points
+          for (var leg in route.legs) {
+            for (var step in leg.steps) {
+              final points = _decodePolyline(step.polyline.points);
+              polylinePoints.addAll(points);
+            }
+          }
+
+          // Create polyline to destination
+          final polyline = Polyline(
+            polylineId: PolylineId('destination_route'),
+            points: polylinePoints,
+            color: Colors.green, // Different color for destination route
+            width: 5,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+          );
+
+          polylines.add(polyline);
+          debugPrint('✅ Destination route polyline created');
+        }
+      } catch (e) {
+        debugPrint('❌ Error creating destination route: $e');
+      }
+    }
+  }
+
+  void _updateDestinationMarker() {
+    if (userPosition.value != null) {
+      // Create a new set with updated markers
+      final updatedMarkers = Set<Marker>.from(markers);
+
+      // Remove existing user marker
+      updatedMarkers
+          .removeWhere((marker) => marker.markerId.value == 'user_location');
+
+      // Add destination marker
+      updatedMarkers.add(
+        Marker(
+          markerId: MarkerId('destination_location'),
+          position: userPosition.value!,
+          infoWindow: InfoWindow(title: 'Destination'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        ),
+      );
+
+      // Reassign to trigger reactivity
+      markers.assignAll(updatedMarkers);
+    }
   }
 }

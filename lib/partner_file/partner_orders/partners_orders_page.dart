@@ -582,6 +582,26 @@ class PartnersOrdersPage extends StatelessWidget {
             label: const Text('View Details'),
           ),
         ];
+      case 'pickup':
+        return [
+          ElevatedButton.icon(
+            onPressed: () {
+              Get.toNamed('/accept-maps', arguments: {
+                'request': {'id': orderId, ...orderData},
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              elevation: 2,
+            ),
+            icon: const Icon(Icons.done_all, size: 20),
+            label: const Text('View Details'),
+          ),
+        ];
       default:
         return []; // No action buttons for completed/cancelled orders
     }

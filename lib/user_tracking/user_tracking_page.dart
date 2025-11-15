@@ -220,12 +220,36 @@ class UserTrackingPage extends StatelessWidget {
                             ),
                           );
                         } else {
-                          return Text(
-                            'Hold your location',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 12,
-                            ),
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hold your location',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time, color: Colors.white.withOpacity(0.9), size: 14),
+                                  SizedBox(width: 4),
+                                  Obx(() => Text(
+                                        controller.estimatedTime.value,
+                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                      )),
+                                  SizedBox(width: 12),
+                                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 14),
+                                  SizedBox(width: 4),
+                                  Obx(() => Text(
+                                        controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
+                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                      )),
+                                ],
+                              ),
+                            ],
                           );
                         }
                       }),
@@ -341,113 +365,83 @@ class UserTrackingPage extends StatelessWidget {
                 padding: EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    // Time and Distance Information
-                    Row(
-                      children: [
-                        // Time Information
-                        Expanded(
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: Colors.blue.shade200, width: 1),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  color: Colors.blue.shade600,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Estimated Time',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue.shade800,
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Obx(() => Text(
-                                            controller.estimatedTime.value,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.blue.shade700,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          )),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                    // OTP Display for Pickup (only show when in_transit and OTP is available)
+                    Obx(() {
+                      final orderData = controller.orderData.value;
+                      final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+                      final pickupOTP = orderData?['pickupOTP'];
+
+                      if ((status.toLowerCase() == 'accepted' || status.toLowerCase() == 'in_transit') && pickupOTP != null && pickupOTP.isNotEmpty) {
+                        return Container(
+                          padding: EdgeInsets.all(16),
+                          margin: EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200, width: 2),
                           ),
-                        ),
-
-                        SizedBox(width: 12),
-
-                        // Distance Information
-                        Expanded(
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: Colors.green.shade200, width: 1),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  color: Colors.green.shade600,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Distance',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green.shade800,
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Obx(() => Text(
-                                            controller.estimatedDistance.value >
-                                                    0
-                                                ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km'
-                                                : '-- km',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.green.shade700,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          )),
-                                    ],
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.security,
+                                    color: Colors.red.shade600,
+                                    size: 24,
                                   ),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Pickup Verification Code',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red.shade300, width: 1),
                                 ),
-                              ],
-                            ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      pickupOTP,
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade700,
+                                        letterSpacing: 4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Show this code to the ambulance driver for pickup verification',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: 12),
+                        );
+                      } else {
+                        return SizedBox.shrink();
+                      }
+                    }),
 
                     // Fare Information
                     Obx(() {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -2153,11 +2154,23 @@ class HomePartnerController extends GetxController {
       // Don't recalculate - use what was already agreed upon
       final storedTotalAmount = request['totalAmount'] as double?;
 
+      // Generate 4-digit OTP
+      String pickupOTP = (1000 + Random().nextInt(9000)).toString();
+
       final updateData = {
         'status': 'accepted',
         'acceptedBy': user.uid,
         'acceptedAt': Timestamp.now(),
+        'pickupOTP': pickupOTP,
       };
+
+      // Add partner's current location if available
+      if (currentPosition.value != null) {
+        updateData['partnerLocation'] = {
+          'latitude': currentPosition.value!.latitude,
+          'longitude': currentPosition.value!.longitude,
+        };
+      }
 
       // Use the stored fare amount if available, otherwise keep existing fareAmount
       if (storedTotalAmount != null) {
@@ -2209,13 +2222,41 @@ class HomePartnerController extends GetxController {
       showRequestBottomSheet.value = false;
       debugPrint('✅ Request accepted: $requestId');
 
-      // Navigate to accept maps page with request data
+      // Fetch the updated request data from Firestore
+      final updatedDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .get();
+      
+      final updatedRequest = {'id': requestId, ...updatedDoc.data()!};
+      debugPrint('✅ Updated request status: ${updatedRequest['status']}');
+
+      // Send notification to user
+      final userId = request['userId'];
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        final fcmToken = userDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: 'Order Accepted',
+            body: 'Your order has been accepted. OTP: $pickupOTP',
+            data: {'type': 'order_accepted', 'orderId': requestId, 'otp': pickupOTP},
+          );
+        }
+      }
+
+      // Navigate to accept maps page with updated request data
       debugPrint(
           'HomePartner: Passing serviceRate to AcceptMaps: ${serviceRate.value}');
 
       // Navigate to accept maps page with request data
       Get.to(() => AcceptMapsPage(),
-          arguments: {'request': request, 'serviceRate': serviceRate.value});
+          arguments: {'request': updatedRequest, 'serviceRate': serviceRate.value});
     } catch (e) {
       Get.snackbar(
         'Error',

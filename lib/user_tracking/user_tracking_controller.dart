@@ -130,6 +130,25 @@ class UserTrackingController extends GetxController {
 
           debugPrint('UserTracking: Processed existing ambulance location: $location');
         }
+      } else if (status == 'accepted') {
+        // If no live location but status is accepted, check for partnerLocation
+        final partnerLocation = orderData['partnerLocation'] as Map<String, dynamic>?;
+        if (partnerLocation != null) {
+          final lat = partnerLocation['latitude'] as double?;
+          final lng = partnerLocation['longitude'] as double?;
+
+          if (lat != null && lng != null) {
+            final location = LatLng(lat, lng);
+            ambulancePosition.value = location;
+
+            // Add initial point to trail
+            if (ambulanceLocationTrail.isEmpty) {
+              ambulanceLocationTrail.add(location);
+            }
+
+            debugPrint('UserTracking: Processed partner location for accepted order: $location');
+          }
+        }
       }
     }
   }
@@ -158,6 +177,7 @@ class UserTrackingController extends GetxController {
       debugPrint('Loading custom icons for user tracking...');
 
       // User location icon (red)
+      
       userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
 
       // Ambulance location icon (blue)

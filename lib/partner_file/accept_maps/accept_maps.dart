@@ -164,18 +164,19 @@ class AcceptMapsPage extends StatelessWidget {
 
               // Sliding panel with ride details
               Obx(() {
+                debugPrint('AcceptMaps UI: showSlidePanel.value = ${controller.showSlidePanel.value}');
                 if (controller.showSlidePanel.value) {
+                  debugPrint('AcceptMaps UI: Showing slide panel');
                   return SlidingUpPanel(
-                    minHeight: 100, // Reduced from 130
-                    maxHeight: MediaQuery.of(context).size.height *
-                        0.7, // Increased from 0.49 to 0.6 to accommodate all content
+                    minHeight: 120,
+                    maxHeight: MediaQuery.of(context).size.height * 0.7,
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                     panelBuilder: (scrollController) =>
                         _buildSlidePanel(scrollController, controller),
-                    body:
-                        Container(), // Empty body since map is already full screen
+                    body: Container(), // Empty body since map is already full screen
                   );
                 } else {
+                  debugPrint('AcceptMaps UI: Slide panel hidden');
                   return Container();
                 }
               }),
@@ -608,14 +609,48 @@ class AcceptMapsPage extends StatelessWidget {
                     // Primary action button
                     Expanded(
                       child: Obx(() {
+                        final status = controller.requestData.value?['status'];
+                        final isTracking = controller.isLiveTracking.value;
+                        
+                        debugPrint('Button logic - Status: $status, IsTracking: $isTracking');
+                        
+                        String buttonText;
+                        VoidCallback onPressed;
+
+                        if (status == 'in_transit') {
+                          buttonText = 'Picked Up';
+                          onPressed = () => _showPickupOTPDialog(controller);
+                          debugPrint('Button: Picked Up (status is in_transit)');
+                        } else if (status == 'pickup') {
+                          buttonText = 'Go to Destination';
+                          onPressed = () => controller.goToDestination();
+                          debugPrint('Button: Go to Destination (status is pickup)');
+                        } else if (status == 'to_destination') {
+                          buttonText = 'Complete Ride';
+                          onPressed = () => _showFareInputDialog(controller);
+                          debugPrint('Button: Complete Ride (status is to_destination)');
+                        } else if (isTracking) {
+                          buttonText = 'Picked Up';
+                          onPressed = () => _showPickupOTPDialog(controller);
+                          debugPrint('Button: Picked Up (is tracking)');
+                        } else {
+                          buttonText = 'Started to tracking';
+                          onPressed = controller.startLiveTracking;
+                          debugPrint('Button: Started to tracking (default)');
+                        }
+
                         return ElevatedButton(
-                          onPressed: controller.isLiveTracking.value
-                              ? () => _showFareInputDialog(controller)
-                              : controller.startLiveTracking,
+                          onPressed: onPressed,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: controller.isLiveTracking.value
-                                ? Colors.orange.shade500
-                                : primaryGreen,
+                            backgroundColor: status == 'in_transit'
+                                ? Colors.red.shade500
+                                : status == 'pickup'
+                                    ? Colors.purple.shade500
+                                    : status == 'to_destination'
+                                        ? Colors.teal.shade500
+                                        : controller.isLiveTracking.value
+                                            ? Colors.red.shade500
+                                            : primaryGreen,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -624,9 +659,7 @@ class AcceptMapsPage extends StatelessWidget {
                             elevation: 2,
                           ),
                           child: Text(
-                            controller.isLiveTracking.value
-                                ? 'Complete'
-                                : 'Start Tracking',
+                            buttonText,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -889,5 +922,198 @@ class AcceptMapsPage extends StatelessWidget {
       ),
       isDismissible: true,
     );
+  }
+
+  void _showPickupOTPDialog(AcceptMapsController controller) {
+    final otpController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    Get.bottomSheet(
+      Container(
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              Row(
+                children: [
+                  Icon(Icons.security, color: primaryGreen),
+                  SizedBox(width: 8),
+                  Text('Pickup Verification'),
+                ],
+              ),
+              /* SizedBox(height: 16),
+              // Show Generated OTP
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Generated OTP',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Obx(() {
+                      final otp = controller.requestData.value?['pickupOTP'];
+                      if (otp == null) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(primaryGreen),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Generating OTP...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return Text(
+                        otp.toString(),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: primaryGreen,
+                          letterSpacing: 4,
+                        ),
+                      );
+                    }),
+                    SizedBox(height: 8),
+                    Text(
+                      'Share this OTP with the patient to confirm pickup',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ), */
+              SizedBox(height: 16),
+              Text(
+                'Enter the OTP provided by the patient to confirm pickup.',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              SizedBox(height: 16),
+              // OTP Input
+              Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: otpController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    labelText: 'Enter Patient\'s OTP',
+                    hintText: '0000',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter the OTP';
+                    }
+                    if (value.length != 4) {
+                      return 'OTP must be 4 digits';
+                    }
+                    if (!RegExp(r'^\d{4}$').hasMatch(value)) {
+                      return 'OTP must contain only numbers';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              SizedBox(height: 16),
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Get.back(),
+                      style: TextButton.styleFrom(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        side: BorderSide(color: Colors.red.shade300),
+                        foregroundColor: Colors.red.shade600,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text('Cancel'),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (formKey.currentState?.validate() ?? false) {
+                          final success = await controller.confirmPickupOTP(otpController.text);
+                          if (success) {
+                            Get.back(); // Close dialog
+                            Get.snackbar(
+                              'Success',
+                              'Pickup confirmed successfully!',
+                              backgroundColor: Colors.green,
+                              colorText: Colors.white,
+                            );
+                          } else {
+                            Get.snackbar(
+                              'Error',
+                              'Invalid OTP. Please try again.',
+                              backgroundColor: Colors.red,
+                              colorText: Colors.white,
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade500,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text('Confirm Pickup'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      isDismissible: true,
+    );
+
+    // Generate and send OTP
+    controller.generateAndSendPickupOTP();
   }
 }

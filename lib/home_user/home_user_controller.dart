@@ -2693,17 +2693,47 @@ class HomeController extends GetxController {
         // Handle status updates
         if (status == 'accepted') {
           isTrackingPartner.value = true;
-          // Show success dialog when order is accepted
+          // Don't show OTP in success dialog - it will be shown when ambulance arrives at pickup
           SuccessDialog.show(
             title: 'Order Accepted',
             message:
-                'Your ambulance order has been accepted. Tap here to start tracking your ambulance.',
+                'Your ambulance has been assigned and is on the way. You will receive a pickup OTP when the ambulance arrives.',
             onTap: () => navigateToTrackingPage(),
-            autoCloseDuration: const Duration(seconds: 10),
+            autoCloseDuration: const Duration(seconds: 8),
           );
         } else if (status == 'in_transit') {
           isTrackingPartner.value = true;
-          // Don't show dialog automatically - user will see it when navigating to tracking
+          // Show OTP when ambulance is in transit (arrived at pickup)
+          final pickupOTP = data?['pickupOTP'];
+          if (pickupOTP != null && pickupOTP != 'N/A') {
+            SuccessDialog.show(
+              title: 'Ambulance Arrived',
+              message:
+                  'Your ambulance has arrived at the pickup location. OTP: $pickupOTP. Please show this OTP to the driver.',
+              onTap: () => navigateToTrackingPage(),
+              autoCloseDuration: const Duration(seconds: 10),
+            );
+          }
+        } else if (status == 'pickup') {
+          isTrackingPartner.value = true;
+          // Ambulance has picked up patient and is going to destination
+          SuccessDialog.show(
+            title: 'Patient Picked Up',
+            message:
+                'Your ambulance has picked up the patient and is heading to the destination.',
+            onTap: () => navigateToTrackingPage(),
+            autoCloseDuration: const Duration(seconds: 5),
+          );
+        } else if (status == 'to_destination') {
+          isTrackingPartner.value = true;
+          // Ambulance is going to destination
+          SuccessDialog.show(
+            title: 'Heading to Destination',
+            message:
+                'Your ambulance is now heading to the destination.',
+            onTap: () => navigateToTrackingPage(),
+            autoCloseDuration: const Duration(seconds: 5),
+          );
         } else if (status == 'completed') {
           isTrackingPartner.value = false;
           currentTrackingOrderId.value = null;
