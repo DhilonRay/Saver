@@ -137,6 +137,7 @@ class FareCalculationService {
     // Create breakdown
     final breakdown = {
       'Base Fare': baseFare,
+      'প্রতি কিলোমিটার রেট': defaultPerKmRate,
       'Distance Charges': distanceFare,
       'Time Charges': timeFare,
       'Additional Charges': additionalCharges,
@@ -188,6 +189,7 @@ class FareCalculationService {
     // Create breakdown
     final breakdown = {
       'Base Fare': baseFare,
+      'প্রতি কিলোমিটার রেট': defaultPerKmRate,
       'Distance Charges (${distanceKm.toStringAsFixed(1)}km)': distanceFare,
       'Time Charges (${estimatedTimeMinutes.toStringAsFixed(0)}min)': timeFare,
       'Additional Charges': additionalCharges,

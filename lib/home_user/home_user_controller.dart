@@ -1127,8 +1127,7 @@ class HomeController extends GetxController {
       destinationPosition.value =
           LatLng((lat as num).toDouble(), (lng as num).toDouble());
 
-      final String? resolvedAddress =
-          result?['formatted_address'] as String?;
+      final String? resolvedAddress = result?['formatted_address'] as String?;
       final String? resolvedName = result?['name'] as String?;
       final displayText = (resolvedAddress?.isNotEmpty == true)
           ? resolvedAddress
@@ -1140,7 +1139,8 @@ class HomeController extends GetxController {
         _selectedPlaceName = displayText;
       }
 
-      debugPrint('getPlaceDetails: resolved via HTTP details call for $placeId');
+      debugPrint(
+          'getPlaceDetails: resolved via HTTP details call for $placeId');
       _addDestinationMarkerAndRoute();
       return true;
     } catch (e, st) {
@@ -1650,49 +1650,74 @@ class HomeController extends GetxController {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header (title)
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Book Ambulance',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            companyName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Text(
-                    'Book Ambulance - $companyName',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.local_hospital,
+                          color: Colors.blue.shade700),
                     ),
-                  ),
+                  ],
                 ),
-                // Destination Display
+                const SizedBox(height: 12),
+                // Destination summary
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.location_on, color: Colors.green, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.location_on_outlined,
+                          size: 20, color: Colors.blue),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Destination: ${_selectedPlaceName ?? destinationQuery.value}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.green.shade800,
-                          ),
+                          _selectedPlaceName ?? destinationQuery.value,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      if (distanceInKm > 0)
+                        Text(
+                          '${distanceInKm.toStringAsFixed(1)} km',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
                     ],
                   ),
                 ),
@@ -1740,7 +1765,7 @@ class HomeController extends GetxController {
                 //     ],
                 //   ),
                 // ),
-                const SizedBox(height: 16),
+
                 // Fare Details Section
                 if (estimatedFare != null) ...[
                   Container(
@@ -1748,15 +1773,16 @@ class HomeController extends GetxController {
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.amber.shade50, Colors.amber.shade100],
+                        colors: [Colors.blue.shade50, Colors.blue.shade100],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.amber.shade300, width: 1.5),
+                      border:
+                          Border.all(color: Colors.blue.shade300, width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.amber.shade100.withOpacity(0.5),
+                          color: Colors.blue.shade100.withOpacity(0.5),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -1771,12 +1797,12 @@ class HomeController extends GetxController {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.amber.shade100,
+                                color: Colors.blue.shade100,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 Icons.receipt_long,
-                                color: Colors.amber.shade800,
+                                color: Colors.blue.shade800,
                                 size: 24,
                               ),
                             ),
@@ -1787,14 +1813,14 @@ class HomeController extends GetxController {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.amber.shade900,
+                                  color: Colors.blue.shade900,
                                 ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Distance and time info in a card-like container
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -1810,7 +1836,8 @@ class HomeController extends GetxController {
                               Expanded(
                                 child: Column(
                                   children: [
-                                    Icon(Icons.straighten, size: 20, color: Colors.blue.shade600),
+                                    Icon(Icons.straighten,
+                                        size: 20, color: Colors.blue.shade600),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${estimatedFare.distance.toStringAsFixed(1)} km',
@@ -1839,7 +1866,8 @@ class HomeController extends GetxController {
                               Expanded(
                                 child: Column(
                                   children: [
-                                    Icon(Icons.access_time, size: 20, color: Colors.green.shade600),
+                                    Icon(Icons.access_time,
+                                        size: 20, color: Colors.green.shade600),
                                     const SizedBox(height: 4),
                                     Text(
                                       '~${estimatedFare.estimatedTime.toStringAsFixed(0)} min',
@@ -1862,9 +1890,9 @@ class HomeController extends GetxController {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Fare breakdown in a cleaner list format
                         Text(
                           'চার্জের বিবরণ:',
@@ -1875,7 +1903,7 @@ class HomeController extends GetxController {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        
+
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -1885,43 +1913,55 @@ class HomeController extends GetxController {
                           child: Column(
                             children: estimatedFare.breakdown.entries
                                 .where((entry) =>
-                                    !entry.key.toLowerCase().contains('subtotal') &&
-                                    !entry.key.toLowerCase().contains('surge'))
+                                    !entry.key
+                                        .toLowerCase()
+                                        .contains('subtotal') &&
+                                    !entry.key
+                                        .toLowerCase()
+                                        .contains('surge') &&
+                                    entry.value != 1.0)
                                 .map((entry) {
                               final label = _friendlyFareKey(entry.key);
                               String valueText;
-                              if (entry.key.toLowerCase().contains('multiplier') ||
-                                  entry.key.toLowerCase().contains('surge') ||
+                              if (entry.key
+                                      .toLowerCase()
+                                      .contains('multiplier') ||
                                   entry.key.toLowerCase().contains('urgency')) {
                                 final num rawNum = entry.value as num;
                                 valueText = '×${rawNum.toStringAsFixed(1)}';
-                                if (rawNum == 1.0) valueText += ' (নিয়মিত)';
                               } else {
                                 valueText = _formatFare(entry.value);
                               }
                               return _buildBreakdownRow(label, valueText,
-                                  valueColor: entry.key.toLowerCase().contains('multiplier') ||
-                                          entry.key.toLowerCase().contains('surge')
+                                  valueColor: entry.key
+                                              .toLowerCase()
+                                              .contains('multiplier') ||
+                                          entry.key
+                                              .toLowerCase()
+                                              .contains('surge')
                                       ? Colors.orange.shade700
                                       : null,
-                                  icon: entry.key.toLowerCase().contains('distance')
+                                  icon: entry.key
+                                          .toLowerCase()
+                                          .contains('distance')
                                       ? Icons.straighten
                                       : null);
                             }).toList(),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 12),
-                        Divider(color: Colors.amber.shade300, thickness: 1),
+                        Divider(color: Colors.blue.shade300, thickness: 1),
                         const SizedBox(height: 8),
-                        
+
                         // Total amount in a highlighted box
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
+                            color: Colors.green.shade900.withOpacity(0.06),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green.shade300, width: 1.5),
+                            border: Border.all(
+                                color: Colors.green.shade200, width: 1.0),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1945,7 +1985,7 @@ class HomeController extends GetxController {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 8),
                         Text(
                           '* এটি আনুমানিক ভাড়া। চূড়ান্ত ভাড়া রাইড শেষে নির্ধারিত হবে।',
@@ -1961,7 +2001,7 @@ class HomeController extends GetxController {
                   ),
                   const SizedBox(height: 16),
                 ],
-               
+
                 TextField(
                   decoration: const InputDecoration(
                     labelText: 'Additional Notes (optional)',
@@ -1978,16 +2018,19 @@ class HomeController extends GetxController {
                     // Call Ambulance button (top)
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton.icon(
+                      child: ElevatedButton.icon(
                         onPressed: () => _callAmbulance(ambulanceData['phone']),
-                        icon: Icon(Icons.call, size: 20),
+                        icon: const Icon(Icons.call, size: 20),
                         label: const Text('Call Ambulance'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.blue.shade800,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.blue.shade100),
                           ),
-                          side: BorderSide(color: Colors.blue.shade300),
                         ),
                       ),
                     ),
@@ -2002,7 +2045,7 @@ class HomeController extends GetxController {
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.grey.shade300),
+                                side: BorderSide(color: Colors.blue.shade300),
                               ),
                             ),
                             child: const Text('Cancel'),
@@ -2012,13 +2055,13 @@ class HomeController extends GetxController {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () => Get.back(result: true),
-                            icon: Icon(Icons.book_online, size: 20),
-                            label: const Text('Book Now'),
+                            icon: const Icon(Icons.book_online, size: 20),
+                            label: const Text('Confirm & Book'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade600,
+                              backgroundColor: Colors.green.shade700,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              elevation: 4,
+                              elevation: 6,
                               shadowColor: Colors.green.shade200,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -2064,282 +2107,381 @@ class HomeController extends GetxController {
     }
   }
 
+  Future<String> _getAmbulanceAddress(Map<String, dynamic> data) async {
+    String address = data['address'] ?? '';
+
+    if (address.isNotEmpty &&
+        address != 'Coverage area not specified' &&
+        address != '321') {
+      return address;
+    }
+
+    // Reverse geocode
+    try {
+      List<geocoding.Placemark> placemarks =
+          await geocoding.placemarkFromCoordinates(
+        data['latitude'] as double,
+        data['longitude'] as double,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        return '${place.street}, ${place.locality}, ${place.country}';
+      }
+    } catch (e) {
+      debugPrint('Error reverse geocoding ambulance address: $e');
+    }
+
+    return 'Address not available';
+  }
+
   void _showAmbulanceProviderDetails(Map<String, dynamic> ambulanceData) {
-    // Show ambulance provider details in a very simple bottom sheet
+    // Show ambulance provider details in a beautifully simple bottom sheet
     Get.bottomSheet(
       Container(
-        padding: EdgeInsets.all(16),
+        constraints: BoxConstraints(maxHeight: Get.height * 0.7),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(Icons.local_hospital, color: Colors.green, size: 28),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      ambulanceData['name'] ?? 'Ambulance Provider',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Simple drag handle
+            Container(
+              margin: EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
-              SizedBox(height: 8),
-              // Availability Status
-              Row(
-                children: [
-                  Icon(Icons.circle, color: Colors.green, size: 12),
-                  SizedBox(width: 8),
-                  Text(
-                    'Online & Available',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
+            ),
 
-              if (ambulanceData['address'] != null) ...[
-                Row(
+            // Main Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(20, 15, 20, 25),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.location_on, color: Colors.grey, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        ambulanceData['address'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
+                    // Clean Header
+                    Row(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.local_hospital,
+                            color: Colors.blue.shade600,
+                            size: 26,
+                          ),
+                        ),
+                        SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ambulanceData['name'] ?? 'Ambulance Provider',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Available Now',
+                                  style: TextStyle(
+                                    color: Colors.green.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 20),
+
+                    // Essential Information
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          // Address
+                          FutureBuilder<String>(
+                            future: _getAmbulanceAddress(ambulanceData),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.location_on,
+                                            color: Colors.blue.shade600,
+                                            size: 18),
+                                        SizedBox(width: 10),
+                                        Text('Loading address...',
+                                            style: TextStyle(
+                                                color: Colors.grey.shade600)),
+                                      ],
+                                    ),
+                                    SizedBox(height: 12),
+                                  ],
+                                );
+                              }
+
+                              final address =
+                                  snapshot.data ?? 'Address not available';
+                              if (address == 'Address not available') {
+                                return SizedBox.shrink();
+                              }
+
+                              return Column(
+                                children: [
+                                  _buildSimpleInfoRow(
+                                    Icons.location_on,
+                                    Colors.blue.shade600,
+                                    'Address',
+                                    address,
+                                    maxLines: 2,
+                                  ),
+                                  SizedBox(height: 12),
+                                ],
+                              );
+                            },
+                          ),
+
+                          // Ambulance Type
+                          if (ambulanceData['ambulanceType'] != null)
+                            _buildSimpleInfoRow(
+                              Icons.directions_car,
+                              Colors.orange.shade600,
+                              'Type',
+                              ambulanceData['ambulanceType'],
+                            ),
+
+                          if (ambulanceData['ambulanceType'] != null)
+                            SizedBox(height: 12),
+
+                          // Phone
+                          _buildSimpleInfoRow(
+                            Icons.phone,
+                            Colors.green.shade600,
+                            'Phone',
+                            ambulanceData['phone'] ?? '+8801581822846',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 16),
+
+                    // Fare Estimation (if applicable)
+                    if (currentPosition.value != null &&
+                        destinationPosition.value != null) ...[
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: FutureBuilder<Map<String, int>>(
+                          future: _fetchPartnerRates(ambulanceData['id']),
+                          builder: (context, rateSnapshot) {
+                            if (rateSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Row(
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.amber.shade600),
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Calculating fare...',
+                                    style:
+                                        TextStyle(color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            final rates =
+                                rateSnapshot.data ?? {'serviceRate': 2500};
+                            final distance =
+                                FareCalculationService.calculateDistance(
+                              currentPosition.value!.latitude,
+                              currentPosition.value!.longitude,
+                              destinationPosition.value!.latitude,
+                              destinationPosition.value!.longitude,
+                            );
+
+                            return FareEstimationWidget(
+                              distance: distance,
+                              serviceType: 'ambulance',
+                              partnerRates: rates,
+                              urgency: 'normal',
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-              ],
-              if (ambulanceData['ambulanceType'] != null) ...[
-                Row(
-                  children: [
-                    Icon(Icons.directions_car, color: Colors.grey, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Type: ${ambulanceData['ambulanceType']}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-              ],
-              Row(
-                children: [
-                  Icon(Icons.phone, color: Colors.grey, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    ambulanceData['phone'] ?? '+8801581822846',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
+                      SizedBox(height: 20),
+                    ],
 
-              // Show fare estimation if destination is set
-              if (currentPosition.value != null &&
-                  destinationPosition.value != null) ...[
-                FutureBuilder<Map<String, int>>(
-                  future: _fetchPartnerRates(ambulanceData['id']),
-                  builder: (context, rateSnapshot) {
-                    if (rateSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return const SizedBox(
-                        height: 60,
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                    // Action Buttons
+                    Row(
+                      children: [
+                        // Call Button - Left side
+                        Expanded(
+                          flex: 1,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final String numberToCall =
+                                  ambulanceData['phone'] ?? '+8801581822846';
+                              final Uri launchUri = Uri(
+                                scheme: 'tel',
+                                path: numberToCall,
+                              );
+                              try {
+                                await launchUrl(launchUri);
+                                SuccessDialog.show(
+                                  title: 'Call Ambulance',
+                                  message:
+                                      'Calling ${ambulanceData['name']}...',
+                                );
+                              } catch (e) {
+                                Get.snackbar(
+                                  'Error',
+                                  'Unable to make call. Please dial $numberToCall manually.',
+                                  backgroundColor: Colors.red.shade100,
+                                  colorText: Colors.red.shade800,
+                                );
+                              }
+                              Get.back();
+                            },
+                            icon: Icon(Icons.call, size: 18),
+                            label: Text('Call'),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.green.shade300),
+                              foregroundColor: Colors.green.shade700,
+                              padding: EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
                         ),
-                      );
-                    }
 
-                    final rates = rateSnapshot.data ?? {'serviceRate': 2500};
-                    final distance = FareCalculationService.calculateDistance(
-                      currentPosition.value!.latitude,
-                      currentPosition.value!.longitude,
-                      destinationPosition.value!.latitude,
-                      destinationPosition.value!.longitude,
-                    );
+                        SizedBox(width: 10),
+                        // Book Now - Right side (Primary Action)
+                        Expanded(
+                          flex: 1,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Get.back();
+                              _bookSpecificAmbulance(ambulanceData);
+                            },
+                            icon: Icon(Icons.book_online, size: 18),
+                            label: Text('Book Now'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
 
-                    return FareEstimationWidget(
-                      distance: distance,
-                      serviceType: 'ambulance',
-                      partnerRates: rates,
-                      urgency: 'normal',
-                    );
-                  },
-                ),
-                SizedBox(height: 16),
-              ],
-
-              // Rates - REMOVED: Static rates replaced with calculated fare estimates during booking
-              // if (partnerId != null) ...[
-              //   FutureBuilder<Map<String, int>>(
-              //     future: _fetchPartnerRates(partnerId),
-              //     builder: (context, rateSnapshot) {
-              //       if (rateSnapshot.connectionState ==
-              //           ConnectionState.waiting) {
-              //         return Row(
-              //           children: [
-              //             CircularProgressIndicator(strokeWidth: 2),
-              //             SizedBox(width: 8),
-              //             Text('Loading rates...'),
-              //           ],
-              //         );
-              //       }
-
-              //       final rates = rateSnapshot.data ?? {'serviceRate': 2500};
-
-              //       return Column(
-              //         crossAxisAlignment: CrossAxisAlignment.start,
-              //         children: [
-              //           Text(
-              //             'Service Rates',
-              //             style: TextStyle(
-              //               fontSize: 16,
-              //               fontWeight: FontWeight.bold,
-              //               color: Colors.black87,
-              //             ),
-              //           ),
-              //           SizedBox(height: 8),
-              //           Center(
-              //             child: Text(
-              //               '💰 Starting from ৳${rates['serviceRate']}',
-              //               style: TextStyle(
-              //                 fontSize: 18,
-              //                 fontWeight: FontWeight.bold,
-              //                 color: Colors.black87,
-              //               ),
-              //             ),
-              //           ),
-              //           SizedBox(height: 4),
-              //           Text(
-              //             '* Final rate may vary based on distance and urgency',
-              //             style: TextStyle(
-              //               fontSize: 12,
-              //               color: Colors.grey,
-              //               fontStyle: FontStyle.italic,
-              //             ),
-              //           ),
-              //         ],
-              //       );
-              //     },
-              //   ),
-              //   SizedBox(height: 20),
-              // ],
-
-              // Primary Action Button - Book Now (full width, prominent)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Get.back();
-                    _bookSpecificAmbulance(ambulanceData);
-                  },
-                  icon: Icon(Icons.book_online),
-                  label: Text('Book Now'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                  ),
+                    SizedBox(height: 10),
+                  ],
                 ),
               ),
-              SizedBox(height: 12),
+            ),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
 
-              // Secondary Actions - Call and Directions side by side
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final String numberToCall =
-                            ambulanceData['phone'] ?? '+8801581822846';
-                        final Uri launchUri = Uri(
-                          scheme: 'tel',
-                          path: numberToCall,
-                        );
-                        try {
-                          await launchUrl(launchUri);
-                          SuccessDialog.show(
-                            title: 'Call Ambulance',
-                            message: 'Calling ${ambulanceData['name']}...',
-                          );
-                        } catch (e) {
-                          Get.snackbar(
-                            'Error',
-                            'Unable to make call. Please dial $numberToCall manually.',
-                            backgroundColor: Colors.red.shade100,
-                            colorText: Colors.red.shade800,
-                          );
-                        }
-                        Get.back();
-                      },
-                      icon: Icon(Icons.call),
-                      label: Text('Call Now'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        final lat = ambulanceData['latitude'] as double?;
-                        final lng = ambulanceData['longitude'] as double?;
-                        if (lat != null && lng != null) {
-                          destinationPosition.value = LatLng(lat, lng);
-                          _addDestinationMarkerAndRoute();
-                          Get.back();
-                          SuccessDialog.show(
-                            title: 'Navigation',
-                            message:
-                                'Navigating to ${ambulanceData['name']}...',
-                          );
-                        }
-                      },
-                      icon: Icon(Icons.directions),
-                      label: Text('Directions'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
+  // Simplified info row helper
+  Widget _buildSimpleInfoRow(
+      IconData icon, Color iconColor, String label, String value,
+      {int maxLines = 1}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: iconColor, size: 18),
+        SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+                maxLines: maxLines,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-      ),
-      isScrollControlled: true,
+      ],
     );
   }
 
@@ -4030,7 +4172,8 @@ class HomeController extends GetxController {
         return value?.toString() ?? '';
       }
 
-      final fmt = NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
+      final fmt =
+          NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
       return fmt.format(val);
     } catch (e) {
       return value?.toString() ?? '';
@@ -4046,7 +4189,8 @@ class HomeController extends GetxController {
     if (k.contains('base')) return 'বেস ভাড়া';
     if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
     if (k.contains('urgency')) return 'জরুরি গুণক';
-    if (k.contains('additional') || k.contains('extra')) return 'অতিরিক্ত চার্জ';
+    if (k.contains('additional') || k.contains('extra'))
+      return 'অতিরিক্ত চার্জ';
     if (k.contains('subtotal')) return 'সাবটোটাল';
     if (k.contains('total')) return 'মোট';
 
@@ -4115,4 +4259,3 @@ class HomeController extends GetxController {
     }
   }
 }
-
