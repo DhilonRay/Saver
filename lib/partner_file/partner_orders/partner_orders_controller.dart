@@ -37,7 +37,7 @@ class PartnerOrdersController extends GetxController {
       
       activeOrders.value = docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return data['status'] == 'active' || data['status'] == 'accepted';
+        return data['status'] == 'active' || data['status'] == 'accepted' || data['status'] == 'in_transit' || data['status'] == 'declined';
       }).toList();
       
       completedOrders.value = docs.where((doc) {

@@ -180,7 +180,7 @@ class PartnersOrdersPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(
-                            width: 80,
+                            width: 85,
                             child: Row(
                               children: [
                                 Icon(Icons.attach_money,
@@ -541,19 +541,13 @@ class PartnersOrdersPage extends StatelessWidget {
       case 'accepted':
         return [
           ElevatedButton.icon(
-            onPressed: () {
-              // Navigate to AcceptMapsPage with order data
+            onPressed: () async {
+              // Update status to in_transit first
+              await controller.updateOrderStatus(orderId, 'in_transit');
+              // Then navigate to AcceptMapsPage with order data
               Get.toNamed('/accept-maps', arguments: {
-                'id': orderId,
-                'patientName': orderData['patientName'] ?? 'Patient',
-                'phone': orderData['phone'] ?? '',
-                'pickupAddress': orderData['pickupAddress'] ?? '',
-                'emergencyType': orderData['urgency'] ?? '',
-                'notes': orderData['notes'] ?? '',
-                'pickupLat': orderData['pickupLat'] ?? 0.0,
-                'pickupLng': orderData['pickupLng'] ?? 0.0,
-                'userId': orderData['userId'] ?? '',
-                'type': orderData['type'] ?? '',
+                'request': {'id': orderId, ...orderData},
+                'fromActivityTab': true,
               });
             },
             style: ElevatedButton.styleFrom(
@@ -571,17 +565,21 @@ class PartnersOrdersPage extends StatelessWidget {
       case 'in_transit':
         return [
           ElevatedButton.icon(
-            onPressed: () => controller.updateOrderStatus(orderId, 'completed'),
+            onPressed: () {
+              Get.toNamed('/accept-maps', arguments: {
+                'request': {'id': orderId, ...orderData},
+              });
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade600,
+              backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               elevation: 2,
             ),
-            icon: const Icon(Icons.done_all, size: 20),
-            label: const Text('Mark Complete'),
+            icon: const Icon(Icons.visibility, size: 20),
+            label: const Text('View Details'),
           ),
         ];
       default:

@@ -1984,35 +1984,14 @@ class HomePartnerController extends GetxController {
               // Action Buttons
               Row(
                 children: [
-                  Expanded(
+                    Expanded(
                     child: Container(
                       height: 50,
                       child: ElevatedButton.icon(
-                        onPressed: () => acceptRequest(request['id']),
-                        icon: Icon(Icons.check_circle, size: 24),
-                        label: Text(
-                          'গ্রহণ করুন',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade600,
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          shadowColor: Colors.green.shade200,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: () => declineRequest(request['id']),
+                        onPressed: () {
+                          Get.back();
+                          declineRequest(request['id']);
+                        },
                         icon: Icon(Icons.cancel, size: 24),
                         label: Text(
                           'প্রত্যাখ্যান',
@@ -2031,6 +2010,35 @@ class HomePartnerController extends GetxController {
                       ),
                     ),
                   ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Get.back();
+                          acceptRequest(request['id']);
+                        },
+                        icon: Icon(Icons.check_circle, size: 24),
+                        label: Text(
+                          'গ্রহণ করুন',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shadowColor: Colors.green.shade200,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                 
+                
                 ],
               ),
 
@@ -2132,7 +2140,10 @@ class HomePartnerController extends GetxController {
   Future<void> acceptRequest(String requestId) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        Get.back();
+        return;
+      }
 
       // Get the request data before updating status (since it will be filtered out)
       final request =
@@ -2195,7 +2206,6 @@ class HomePartnerController extends GetxController {
           .doc(requestId)
           .update(updateData);
 
-      Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
       debugPrint('✅ Request accepted: $requestId');
 
@@ -2231,6 +2241,7 @@ class HomePartnerController extends GetxController {
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
+        Get.back();
         return;
       }
 
@@ -2264,7 +2275,6 @@ class HomePartnerController extends GetxController {
         }
       }
 
-      Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
       debugPrint('❌ Request declined: $requestId');
 

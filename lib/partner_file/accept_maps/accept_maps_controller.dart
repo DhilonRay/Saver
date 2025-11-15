@@ -25,6 +25,7 @@ class AcceptMapsController extends GetxController {
   var polylines = <Polyline>{}.obs;
   var isLoadingLocation = true.obs;
   var requestData = Rx<Map<String, dynamic>?>(null);
+  var showSlidePanel = false.obs;
 
   // Service rate from home partner
   var serviceRate = 2500.obs;
@@ -83,6 +84,7 @@ class AcceptMapsController extends GetxController {
     final args = Get.arguments;
     if (args != null && args is Map<String, dynamic>) {
       requestData.value = args['request'];
+      showSlidePanel.value = args['fromActivityTab'] == true || args['request']?['status'] == 'in_transit';
       serviceRate.value = args['request']?['totalAmount']?.toInt() ??
           args['serviceRate'] ??
           2500;

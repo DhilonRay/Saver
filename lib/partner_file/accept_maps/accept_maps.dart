@@ -163,16 +163,22 @@ class AcceptMapsPage extends StatelessWidget {
               ),
 
               // Sliding panel with ride details
-              SlidingUpPanel(
-                minHeight: 100, // Reduced from 130
-                maxHeight: MediaQuery.of(context).size.height *
-                    0.7, // Increased from 0.49 to 0.6 to accommodate all content
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                panelBuilder: (scrollController) =>
-                    _buildSlidePanel(scrollController, controller),
-                body:
-                    Container(), // Empty body since map is already full screen
-              ),
+              Obx(() {
+                if (controller.showSlidePanel.value) {
+                  return SlidingUpPanel(
+                    minHeight: 100, // Reduced from 130
+                    maxHeight: MediaQuery.of(context).size.height *
+                        0.7, // Increased from 0.49 to 0.6 to accommodate all content
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    panelBuilder: (scrollController) =>
+                        _buildSlidePanel(scrollController, controller),
+                    body:
+                        Container(), // Empty body since map is already full screen
+                  );
+                } else {
+                  return Container();
+                }
+              }),
             ],
           ),
         );
