@@ -2720,6 +2720,30 @@ class HomeController extends GetxController {
             title: 'Service Completed',
             message: 'Your ambulance service has been completed.',
           );
+        } else if (status == 'declined') {
+          // Show cancellation dialog
+          Get.dialog(
+            AlertDialog(
+              title: Text('অর্ডার বাতিল'),
+              content: Text('আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।'),
+              actions: [
+                TextButton(
+                  onPressed: () => Get.back(),
+                  child: Text('ঠিক আছে'),
+                ),
+              ],
+            ),
+          );
+          // Stop tracking
+          isTrackingPartner.value = false;
+          currentTrackingOrderId.value = null;
+          partnerLiveLocation.value = null;
+          partnerLocationTrail.clear();
+          // Clear markers
+          markers
+              .removeWhere((marker) => marker.markerId.value == 'partner_live');
+          polylines.removeWhere(
+              (polyline) => polyline.polylineId.value == 'partner_trail');
         }
 
         // Handle live location updates

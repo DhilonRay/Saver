@@ -26,6 +26,9 @@ class AcceptMapsController extends GetxController {
   var isLoadingLocation = true.obs;
   var requestData = Rx<Map<String, dynamic>?>(null);
 
+  // Service rate from home partner
+  var serviceRate = 2500.obs;
+
   // ETA variables
   var estimatedTime = Rx<String>('Calculating...');
   var estimatedDistance = Rx<double>(0.0);
@@ -79,10 +82,18 @@ class AcceptMapsController extends GetxController {
     // Get request data from arguments first
     final args = Get.arguments;
     if (args != null && args is Map<String, dynamic>) {
-      requestData.value = args;
-      debugPrint('AcceptMaps: Received request data with ID: ${args['id']}');
-      if (args['pickupLat'] != null && args['pickupLng'] != null) {
-        userPosition.value = LatLng(args['pickupLat'], args['pickupLng']);
+      requestData.value = args['request'];
+      serviceRate.value = args['request']?['totalAmount']?.toInt() ??
+          args['serviceRate'] ??
+          2500;
+      debugPrint(
+          'AcceptMaps: Received request data with ID: ${args['request']?['id']}');
+      debugPrint(
+          'AcceptMaps: Received serviceRate from arguments: ${serviceRate.value}');
+      if (args['request']?['pickupLat'] != null &&
+          args['request']?['pickupLng'] != null) {
+        userPosition.value =
+            LatLng(args['request']['pickupLat'], args['request']['pickupLng']);
       }
     }
 
@@ -353,7 +364,8 @@ class AcceptMapsController extends GetxController {
 
     try {
       isCalculatingETA.value = true;
-      debugPrint('AcceptMaps: Calculating ETA from ${partnerPosition.value} to ${userPosition.value}');
+      debugPrint(
+          'AcceptMaps: Calculating ETA from ${partnerPosition.value} to ${userPosition.value}');
 
       final origin =
           '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
@@ -378,7 +390,8 @@ class AcceptMapsController extends GetxController {
         estimatedDistance.value = distanceInKm;
         estimatedTime.value = _formatDuration(durationInMinutes);
 
-        debugPrint('AcceptMaps: ETA calculated successfully - ${estimatedTime.value}, Distance: ${distanceInKm.toStringAsFixed(1)} km');
+        debugPrint(
+            'AcceptMaps: ETA calculated successfully - ${estimatedTime.value}, Distance: ${distanceInKm.toStringAsFixed(1)} km');
       } else {
         estimatedTime.value = 'গণনা করা যায়নি';
         debugPrint('AcceptMaps: ETA calculation failed: ${result.status}');

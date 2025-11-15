@@ -488,11 +488,7 @@ class AcceptMapsPage extends StatelessWidget {
                       // Fare information
                       SizedBox(height: 8),
                       Obx(() {
-                        final orderData = controller.requestData.value;
-                        final fareAmount =
-                            orderData?['fareAmount'] ?? orderData?['totalFare'];
-
-                        if (fareAmount != null) {
+                        if (controller.serviceRate.value > 0) {
                           return Container(
                             padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
@@ -524,7 +520,7 @@ class AcceptMapsPage extends StatelessWidget {
                                       ),
                                       SizedBox(height: 2),
                                       Text(
-                                        '৳${fareAmount.toString()}',
+                                        '৳${controller.serviceRate.value}',
                                         style: TextStyle(
                                           fontSize: 14,
                                           color: Colors.green.shade700,
@@ -542,7 +538,7 @@ class AcceptMapsPage extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    'EARN',
+                                    'RATE',
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.green.shade800,
@@ -692,20 +688,27 @@ class AcceptMapsPage extends StatelessWidget {
     final fareController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    Get.dialog(
-      AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.receipt, color: primaryGreen),
-            SizedBox(width: 8),
-            Text('Complete Ride & Enter Fare'),
-          ],
+    Get.bottomSheet(
+      Container(
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        content: SingleChildScrollView(
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Title
+              Row(
+                children: [
+                  Icon(Icons.receipt, color: primaryGreen),
+                  SizedBox(width: 8),
+                  Text('Complete Ride & Enter Fare'),
+                ],
+              ),
+              SizedBox(height: 16),
               // Order Summary
               Container(
                 padding: EdgeInsets.all(12),
@@ -739,9 +742,7 @@ class AcceptMapsPage extends StatelessWidget {
                   ],
                 ),
               ),
-
               SizedBox(height: 16),
-
               // Fare Input
               Form(
                 key: formKey,
@@ -786,9 +787,7 @@ class AcceptMapsPage extends StatelessWidget {
                   ],
                 ),
               ),
-
-              SizedBox(height: 16),
-
+              /*  SizedBox(height: 16),
               // Fare Guidelines
               Container(
                 padding: EdgeInsets.all(12),
@@ -827,9 +826,7 @@ class AcceptMapsPage extends StatelessWidget {
                   ],
                 ),
               ),
-
-              SizedBox(height: 16),
-
+              SizedBox(height: 16), */
               Text(
                 'This fare will be recorded in the ride history and visible to the user. Please ensure accuracy.',
                 style: TextStyle(
@@ -838,31 +835,53 @@ class AcceptMapsPage extends StatelessWidget {
                     fontStyle: FontStyle.italic),
                 textAlign: TextAlign.center,
               ),
+              SizedBox(height: 16),
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Get.back(),
+                      style: TextButton.styleFrom(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        side: BorderSide(color: Colors.red.shade300),
+                        foregroundColor: Colors.red.shade600,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text('Cancel'),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (formKey.currentState?.validate() ?? false) {
+                          final fare = double.parse(fareController.text);
+                          Get.back();
+                          controller.completeRide(fareAmount: fare);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade500,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text('Complete Ride'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                final fare = double.parse(fareController.text);
-                Get.back();
-                controller.completeRide(fareAmount: fare);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryGreen,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: Text('Complete Ride'),
-          ),
-        ],
       ),
-      barrierDismissible: false,
+      isDismissible: true,
     );
   }
 }

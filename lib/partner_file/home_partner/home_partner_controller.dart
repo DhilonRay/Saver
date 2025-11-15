@@ -17,6 +17,7 @@ import '../../chat_page/sos_chat_page.dart';
 import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
 import '../../components/success_dialog.dart';
+import '../../services/notification_service.dart';
 import '../../services/fares_service.dart';
 import 'package:intl/intl.dart';
 
@@ -798,7 +799,8 @@ class HomePartnerController extends GetxController {
         return value?.toString() ?? '';
       }
 
-      final fmt = NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
+      final fmt =
+          NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
       return fmt.format(val);
     } catch (e) {
       return value?.toString() ?? '';
@@ -814,7 +816,8 @@ class HomePartnerController extends GetxController {
     if (k.contains('base')) return 'বেস ভাড়া';
     if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
     if (k.contains('urgency')) return 'জরুরি গুণক';
-    if (k.contains('additional') || k.contains('extra')) return 'অতিরিক্ত চার্জ';
+    if (k.contains('additional') || k.contains('extra'))
+      return 'অতিরিক্ত চার্জ';
     if (k.contains('subtotal')) return 'সাবটোটাল';
     if (k.contains('total')) return 'মোট';
 
@@ -870,7 +873,7 @@ class HomePartnerController extends GetxController {
       isLoadingLocation.value = true;
 
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) { 
+      if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           Get.snackbar(
@@ -1014,7 +1017,7 @@ class HomePartnerController extends GetxController {
             children: [
               // Header with emergency icon
               Container(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Colors.red.shade600, Colors.red.shade800],
@@ -1022,13 +1025,20 @@ class HomePartnerController extends GetxController {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.shade200.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.emergency,
                       color: Colors.white,
-                      size: 32,
+                      size: 28,
                     ),
                     SizedBox(width: 16),
                     Expanded(
@@ -1038,7 +1048,7 @@ class HomePartnerController extends GetxController {
                           Text(
                             'অ্যাম্বুলেন্স অনুরোধ',
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -1057,7 +1067,7 @@ class HomePartnerController extends GetxController {
                 ),
               ),
 
-              SizedBox(height: 24),
+              SizedBox(height: 20),
 
               // Patient Information Card
               Container(
@@ -1066,6 +1076,13 @@ class HomePartnerController extends GetxController {
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: Colors.blue.shade200, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1096,7 +1113,7 @@ class HomePartnerController extends GetxController {
                       Icons.phone,
                       'ফোন',
                       request['phone'] ?? 'ফোন নম্বর নেই - ইমেইল চেক করুন',
-                      Colors.green.shade700,
+                      Colors.blue.shade700,
                     ),
                     if (request['email'] != null &&
                         request['email'].toString().isNotEmpty)
@@ -1104,21 +1121,21 @@ class HomePartnerController extends GetxController {
                         Icons.email,
                         'ইমেইল',
                         request['email'],
-                        Colors.orange.shade700,
+                        Colors.blue.shade700,
                       ),
                     if (request['patientAge'] != null)
                       _buildInfoRow(
                         Icons.calendar_today,
                         'বয়স',
                         '${request['patientAge']} বছর',
-                        Colors.purple.shade700,
+                        Colors.blue.shade700,
                       ),
                     if (request['bloodGroup'] != null)
                       _buildInfoRow(
                         Icons.bloodtype,
                         'রক্তের গ্রুপ',
                         request['bloodGroup'],
-                        Colors.red.shade700,
+                        Colors.blue.shade700,
                       ),
                   ],
                 ),
@@ -1130,9 +1147,16 @@ class HomePartnerController extends GetxController {
               Container(
                 padding: EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.green.shade200, width: 1),
+                  border: Border.all(color: Colors.blue.shade200, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1140,14 +1164,14 @@ class HomePartnerController extends GetxController {
                     Row(
                       children: [
                         Icon(Icons.location_on,
-                            color: Colors.green.shade700, size: 24),
+                            color: Colors.blue.shade700, size: 24),
                         SizedBox(width: 12),
                         Text(
                           'অবস্থান তথ্য',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green.shade800,
+                            color: Colors.blue.shade800,
                           ),
                         ),
                       ],
@@ -1157,7 +1181,7 @@ class HomePartnerController extends GetxController {
                       Icons.location_city,
                       'অবস্থান',
                       _formatAddress(request['pickupAddress']),
-                      Colors.green.shade700,
+                      Colors.blue.shade700,
                     ),
                     if (request['detailedAddress'] != null &&
                         request['detailedAddress'].toString().isNotEmpty)
@@ -1165,7 +1189,7 @@ class HomePartnerController extends GetxController {
                         Icons.home,
                         'বিস্তারিত ঠিকানা',
                         request['detailedAddress'],
-                        Colors.green.shade600,
+                        Colors.blue.shade700,
                       ),
                   ],
                 ),
@@ -1180,9 +1204,16 @@ class HomePartnerController extends GetxController {
                 Container(
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.orange.shade200, width: 1),
+                    border: Border.all(color: Colors.blue.shade200, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade100.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1190,14 +1221,14 @@ class HomePartnerController extends GetxController {
                       Row(
                         children: [
                           Icon(Icons.medical_services,
-                              color: Colors.orange.shade700, size: 24),
+                              color: Colors.blue.shade700, size: 24),
                           SizedBox(width: 12),
                           Text(
                             'চিকিৎসা তথ্য',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade800,
+                              color: Colors.blue.shade800,
                             ),
                           ),
                         ],
@@ -1208,21 +1239,21 @@ class HomePartnerController extends GetxController {
                           Icons.warning,
                           'বর্তমান অসুস্থতা',
                           request['currentCondition'],
-                          Colors.red.shade700,
+                          Colors.blue.shade700,
                         ),
                       if (request['medicalHistory'] != null)
                         _buildInfoRow(
                           Icons.history,
                           'চিকিৎসা ইতিহাস',
                           request['medicalHistory'],
-                          Colors.orange.shade700,
+                          Colors.blue.shade700,
                         ),
                       if (request['allergies'] != null)
                         _buildInfoRow(
                           Icons.warning_amber,
                           'অ্যালার্জি',
                           request['allergies'],
-                          Colors.red.shade600,
+                          Colors.blue.shade700,
                         ),
                     ],
                   ),
@@ -1232,26 +1263,50 @@ class HomePartnerController extends GetxController {
 
               // Fare Information Card
               Container(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
+                margin: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade50, Colors.blue.shade100],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.amber.shade200, width: 1),
+                  border: Border.all(color: Colors.blue.shade300, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.attach_money,
-                            color: Colors.amber.shade700, size: 24),
-                        SizedBox(width: 12),
-                        Text(
-                          'ভাড়া তথ্য',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber.shade800,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.receipt_long,
+                            color: Colors.blue.shade800,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'ভাড়ার বিবরণ',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade900,
+                            ),
                           ),
                         ),
                       ],
@@ -1296,10 +1351,9 @@ class HomePartnerController extends GetxController {
                             return Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade50,
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: Colors.green.shade200),
+                                border: Border.all(color: Colors.blue.shade200),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1343,35 +1397,53 @@ class HomePartnerController extends GetxController {
                                     ),
                                     const SizedBox(height: 8),
                                     ...((storedFareDetails['breakdown']
-                                        as Map<String, dynamic>)
-                                      .entries
-                                      // Remove subtotal and surge entries for clarity
-                                      .where((entry) =>
-                                        !entry.key.toLowerCase().contains('subtotal') &&
-                                        !entry.key.toLowerCase().contains('surge'))
-                                      .map((entry) {
+                                            as Map<String, dynamic>)
+                                        .entries
+                                        // Remove subtotal, surge, and multiplier entries for clarity
+                                        .where((entry) =>
+                                            !entry.key
+                                                .toLowerCase()
+                                                .contains('subtotal') &&
+                                            !entry.key
+                                                .toLowerCase()
+                                                .contains('surge') &&
+                                            !entry.key
+                                                .toLowerCase()
+                                                .contains('multiplier'))
+                                        .map((entry) {
                                       final label = _friendlyFareKey(entry.key);
                                       String valueText;
                                       // For multiplier-like entries, show a simple × multiplier with note for normal
-                                      if (entry.key.toLowerCase().contains('multiplier') ||
-                                          entry.key.toLowerCase().contains('surge') ||
-                                          entry.key.toLowerCase().contains('urgency')) {
+                                      if (entry.key
+                                              .toLowerCase()
+                                              .contains('multiplier') ||
+                                          entry.key
+                                              .toLowerCase()
+                                              .contains('surge') ||
+                                          entry.key
+                                              .toLowerCase()
+                                              .contains('urgency')) {
                                         final num? rawNum = entry.value is num
                                             ? entry.value as num
-                                            : num.tryParse(entry.value?.toString() ?? '');
+                                            : num.tryParse(
+                                                entry.value?.toString() ?? '');
 
                                         if (rawNum != null) {
-                                          valueText = '×${rawNum.toStringAsFixed(1)}';
-                                          if (rawNum == 1.0) valueText += ' (নিয়মিত)';
+                                          valueText =
+                                              '×${rawNum.toStringAsFixed(1)}';
+                                          if (rawNum == 1.0)
+                                            valueText += ' (নিয়মিত)';
                                         } else {
-                                          valueText = entry.value?.toString() ?? '';
+                                          valueText =
+                                              entry.value?.toString() ?? '';
                                         }
                                       } else {
                                         valueText = _formatFare(entry.value);
                                       }
 
                                       // Use standardized breakdown row style
-                                      return _buildBreakdownRow(label, valueText,
+                                      return _buildBreakdownRow(
+                                          label, valueText,
                                           valueColor: entry.key
                                                       .toLowerCase()
                                                       .contains('multiplier') ||
@@ -1391,25 +1463,41 @@ class HomePartnerController extends GetxController {
                                       (() {
                                         try {
                                           final distance =
-                                              (storedFareDetails['distance'] as num).toDouble();
+                                              (storedFareDetails['distance']
+                                                      as num)
+                                                  .toDouble();
                                           // Try find a distance charge key
-                                            final distanceEntries =
-                                              (storedFareDetails['breakdown'] as Map<String, dynamic>)
-                                                .entries
-                                                .where((e) =>
-                                                  e.key.toLowerCase().contains('distance') &&
-                                                  (e.value is num ||
-                                                    double.tryParse(e.value?.toString() ?? '') !=
-                                                      null))
-                                                .toList();
+                                          final distanceEntries =
+                                              (storedFareDetails['breakdown']
+                                                      as Map<String, dynamic>)
+                                                  .entries
+                                                  .where((e) =>
+                                                      e.key
+                                                          .toLowerCase()
+                                                          .contains(
+                                                              'distance') &&
+                                                      (e.value is num ||
+                                                          double.tryParse(e
+                                                                      .value
+                                                                      ?.toString() ??
+                                                                  '') !=
+                                                              null))
+                                                  .toList();
 
-                                            if (distanceEntries.isNotEmpty && distance > 0) {
-                                            final distanceEntry = distanceEntries.first;
-                                            final distCharge =
-                                                distanceEntry.value is num
-                                                    ? (distanceEntry.value as num).toDouble()
-                                                    : double.tryParse(distanceEntry.value.toString()) ?? 0.0;
-                                            final ratePerKm = distCharge / distance;
+                                          if (distanceEntries.isNotEmpty &&
+                                              distance > 0) {
+                                            final distanceEntry =
+                                                distanceEntries.first;
+                                            final distCharge = distanceEntry
+                                                    .value is num
+                                                ? (distanceEntry.value as num)
+                                                    .toDouble()
+                                                : double.tryParse(distanceEntry
+                                                        .value
+                                                        .toString()) ??
+                                                    0.0;
+                                            final ratePerKm =
+                                                distCharge / distance;
 
                                             return _buildBreakdownRow(
                                               'প্রতি কিমি মূল্য',
@@ -1460,7 +1548,6 @@ class HomePartnerController extends GetxController {
                                       ],
                                     ),
                                   ),
-                                
                                 ],
                               ),
                             );
@@ -1474,9 +1561,9 @@ class HomePartnerController extends GetxController {
                           return Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade50,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green.shade200),
+                              border: Border.all(color: Colors.blue.shade200),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1521,28 +1608,45 @@ class HomePartnerController extends GetxController {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                    ...((storedFareDetails['breakdown']
-                                        as Map<String, dynamic>)
+                                  ...((storedFareDetails['breakdown']
+                                          as Map<String, dynamic>)
                                       .entries
-                                      // Hide subtotal and surge keys for clarity
+                                      // Hide subtotal, surge, and multiplier keys for clarity
                                       .where((entry) =>
-                                        !entry.key.toLowerCase().contains('subtotal') &&
-                                        !entry.key.toLowerCase().contains('surge'))
+                                          !entry.key
+                                              .toLowerCase()
+                                              .contains('subtotal') &&
+                                          !entry.key
+                                              .toLowerCase()
+                                              .contains('surge') &&
+                                          !entry.key
+                                              .toLowerCase()
+                                              .contains('multiplier'))
                                       .map((entry) {
                                     final label = _friendlyFareKey(entry.key);
                                     String valueText;
-                                    if (entry.key.toLowerCase().contains('multiplier') ||
-                                        entry.key.toLowerCase().contains('surge') ||
-                                        entry.key.toLowerCase().contains('urgency')) {
+                                    if (entry.key
+                                            .toLowerCase()
+                                            .contains('multiplier') ||
+                                        entry.key
+                                            .toLowerCase()
+                                            .contains('surge') ||
+                                        entry.key
+                                            .toLowerCase()
+                                            .contains('urgency')) {
                                       final num? rawNum = entry.value is num
                                           ? entry.value as num
-                                          : num.tryParse(entry.value?.toString() ?? '');
+                                          : num.tryParse(
+                                              entry.value?.toString() ?? '');
 
                                       if (rawNum != null) {
-                                        valueText = '×${rawNum.toStringAsFixed(1)}';
-                                        if (rawNum == 1.0) valueText += ' (নিয়মিত)';
+                                        valueText =
+                                            '×${rawNum.toStringAsFixed(1)}';
+                                        if (rawNum == 1.0)
+                                          valueText += ' (নিয়মিত)';
                                       } else {
-                                        valueText = entry.value?.toString() ?? '';
+                                        valueText =
+                                            entry.value?.toString() ?? '';
                                       }
                                     } else {
                                       valueText = _formatFare(entry.value);
@@ -1568,23 +1672,38 @@ class HomePartnerController extends GetxController {
                                     (() {
                                       try {
                                         final distance =
-                                            (storedFareDetails['distance'] as num).toDouble();
+                                            (storedFareDetails['distance']
+                                                    as num)
+                                                .toDouble();
                                         final distanceEntries =
-                                            (storedFareDetails['breakdown'] as Map<String, dynamic>)
+                                            (storedFareDetails['breakdown']
+                                                    as Map<String, dynamic>)
                                                 .entries
                                                 .where((e) =>
-                                                    e.key.toLowerCase().contains('distance') &&
+                                                    e.key
+                                                        .toLowerCase()
+                                                        .contains('distance') &&
                                                     (e.value is num ||
-                                                        double.tryParse(e.value?.toString() ?? '') != null))
+                                                        double.tryParse(e.value
+                                                                    ?.toString() ??
+                                                                '') !=
+                                                            null))
                                                 .toList();
 
-                                        if (distanceEntries.isNotEmpty && distance > 0) {
-                                          final distanceEntry = distanceEntries.first;
+                                        if (distanceEntries.isNotEmpty &&
+                                            distance > 0) {
+                                          final distanceEntry =
+                                              distanceEntries.first;
                                           final distCharge =
                                               distanceEntry.value is num
-                                                  ? (distanceEntry.value as num).toDouble()
-                                                  : double.tryParse(distanceEntry.value.toString()) ?? 0.0;
-                                          final ratePerKm = distCharge / distance;
+                                                  ? (distanceEntry.value as num)
+                                                      .toDouble()
+                                                  : double.tryParse(
+                                                          distanceEntry.value
+                                                              .toString()) ??
+                                                      0.0;
+                                          final ratePerKm =
+                                              distCharge / distance;
 
                                           return _buildBreakdownRow(
                                               'প্রতি কিমি মূল্য',
@@ -1703,27 +1822,27 @@ class HomePartnerController extends GetxController {
                             urgency: request['urgency'] ?? 'normal',
                           );
 
-                            debugPrint(
+                          debugPrint(
                               '📊 Calculated fare: ${_formatFare(fareDetails.totalFare)}');
 
                           return Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange.shade200),
+                              border: Border.all(color: Colors.blue.shade200),
                             ),
                             child: Column(
                               children: [
                                 Icon(Icons.calculate,
-                                    color: Colors.orange.shade700, size: 32),
+                                    color: Colors.blue.shade700, size: 32),
                                 const SizedBox(height: 8),
                                 Text(
                                   'আনুমানিক ভাড়া',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.orange.shade800,
+                                    color: Colors.blue.shade800,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1732,7 +1851,7 @@ class HomePartnerController extends GetxController {
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.orange.shade900,
+                                    color: Colors.blue.shade900,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1740,7 +1859,7 @@ class HomePartnerController extends GetxController {
                                   '${calculatedDistance.toStringAsFixed(1)} কিমি এর জন্য গণনা করা',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.orange.shade700,
+                                    color: Colors.blue.shade700,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1779,21 +1898,21 @@ class HomePartnerController extends GetxController {
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.red.shade200),
+                            border: Border.all(color: Colors.blue.shade200),
                           ),
                           child: Column(
                             children: [
                               Icon(Icons.error,
-                                  color: Colors.red.shade700, size: 32),
+                                  color: Colors.blue.shade700, size: 32),
                               const SizedBox(height: 8),
                               Text(
                                 'ভাড়ার তথ্য পাওয়া যায়নি',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.red.shade800,
+                                  color: Colors.blue.shade800,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1801,7 +1920,7 @@ class HomePartnerController extends GetxController {
                                 'এই রিকুয়েস্ট গ্রহণ করার আগে ইউজারের সাথে ভাড়ার পরিমাণ নিশ্চিত করুন',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.red.shade700,
+                                  color: Colors.blue.shade700,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -1820,9 +1939,16 @@ class HomePartnerController extends GetxController {
                 Container(
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.purple.shade200, width: 1),
+                    border: Border.all(color: Colors.blue.shade200, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade100.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1830,14 +1956,14 @@ class HomePartnerController extends GetxController {
                       Row(
                         children: [
                           Icon(Icons.flag,
-                              color: Colors.purple.shade700, size: 24),
+                              color: Colors.blue.shade700, size: 24),
                           SizedBox(width: 12),
                           Text(
                             'গন্তব্য তথ্য',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.purple.shade800,
+                              color: Colors.blue.shade800,
                             ),
                           ),
                         ],
@@ -1847,7 +1973,7 @@ class HomePartnerController extends GetxController {
                         Icons.location_on,
                         'গন্তব্য ঠিকানা',
                         request['destinationAddress'],
-                        Colors.purple.shade700,
+                        Colors.blue.shade700,
                       ),
                     ],
                   ),
@@ -1913,16 +2039,23 @@ class HomePartnerController extends GetxController {
               // Emergency Contact Info
               if (request['emergencyContact'] != null)
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200, width: 1),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.blue.shade200, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade100.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.contact_emergency,
-                          color: Colors.red.shade700, size: 20),
+                          color: Colors.blue.shade700, size: 24),
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -1931,16 +2064,16 @@ class HomePartnerController extends GetxController {
                             Text(
                               'জরুরী যোগাযোগ',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.red.shade800,
+                                color: Colors.blue.shade800,
                               ),
                             ),
                             Text(
                               request['emergencyContact'],
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.red.shade700,
+                                color: Colors.blue.shade700,
                               ),
                             ),
                           ],
@@ -2067,7 +2200,12 @@ class HomePartnerController extends GetxController {
       debugPrint('✅ Request accepted: $requestId');
 
       // Navigate to accept maps page with request data
-      Get.to(() => AcceptMapsPage(), arguments: request);
+      debugPrint(
+          'HomePartner: Passing serviceRate to AcceptMaps: ${serviceRate.value}');
+
+      // Navigate to accept maps page with request data
+      Get.to(() => AcceptMapsPage(),
+          arguments: {'request': request, 'serviceRate': serviceRate.value});
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -2080,6 +2218,26 @@ class HomePartnerController extends GetxController {
 
   Future<void> declineRequest(String requestId) async {
     try {
+      // First, get the request data to find userId
+      final doc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .get();
+
+      if (!doc.exists) {
+        Get.snackbar(
+          'Error',
+          'Request not found',
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+        );
+        return;
+      }
+
+      final requestData = doc.data()!;
+      final userId = requestData['userId'];
+
+      // Update status to declined
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(requestId)
@@ -2087,6 +2245,24 @@ class HomePartnerController extends GetxController {
         'status': 'declined',
         'declinedAt': Timestamp.now(),
       });
+
+      // Send notification to user if userId exists
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        final fcmToken = userDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: 'অর্ডার বাতিল',
+            body: 'আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে',
+            data: {'type': 'order_cancelled', 'orderId': requestId},
+          );
+        }
+      }
 
       Get.back(); // Close bottom sheet
       showRequestBottomSheet.value = false;
