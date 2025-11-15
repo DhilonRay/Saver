@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'login_screen_controller.dart';
+import '../forgot_page/forgot_page.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -34,7 +35,8 @@ class LoginPage extends StatelessWidget {
             ),
             child: SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -51,7 +53,6 @@ class LoginPage extends StatelessWidget {
                       textPrimary,
                       textSecondary,
                     ),
-                 
                   ],
                 ),
               ),
@@ -135,7 +136,6 @@ class LoginPage extends StatelessWidget {
             ],
           ),
         ),
-       
       ],
     );
   }
@@ -198,7 +198,6 @@ class LoginPage extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-               
               ],
             ),
           ),
@@ -211,84 +210,84 @@ class LoginPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Obx(() => Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => controller.changeTab(0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: controller.selectedTabIndex.value == 0
-                            ? primaryBlue
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.email,
-                            size: 18,
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => controller.changeTab(0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
                             color: controller.selectedTabIndex.value == 0
-                                ? Colors.white
-                                : primaryBlue,
+                                ? primaryBlue
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Email Login',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: controller.selectedTabIndex.value == 0
-                                  ? Colors.white
-                                  : primaryBlue,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.email,
+                                size: 18,
+                                color: controller.selectedTabIndex.value == 0
+                                    ? Colors.white
+                                    : primaryBlue,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Email Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: controller.selectedTabIndex.value == 0
+                                      ? Colors.white
+                                      : primaryBlue,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => controller.changeTab(1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: controller.selectedTabIndex.value == 1
-                            ? primaryBlue
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 18,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => controller.changeTab(1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
                             color: controller.selectedTabIndex.value == 1
-                                ? Colors.white
-                                : primaryBlue,
+                                ? primaryBlue
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Phone Login',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: controller.selectedTabIndex.value == 1
-                                  ? Colors.white
-                                  : primaryBlue,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.phone,
+                                size: 18,
+                                color: controller.selectedTabIndex.value == 1
+                                    ? Colors.white
+                                    : primaryBlue,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Phone Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: controller.selectedTabIndex.value == 1
+                                      ? Colors.white
+                                      : primaryBlue,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            )),
+                  ],
+                )),
           ),
           const SizedBox(height: 20),
 
@@ -443,8 +442,10 @@ class LoginPage extends StatelessWidget {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     bool isPasswordField = false,
-    bool isEmailPasswordField = false, // New parameter to distinguish field types
-    bool isPhonePasswordField = false, // New parameter to distinguish field types
+    bool isEmailPasswordField =
+        false, // New parameter to distinguish field types
+    bool isPhonePasswordField =
+        false, // New parameter to distinguish field types
     LoginController? loginController,
     Widget? customPrefix,
   }) {
@@ -480,34 +481,35 @@ class LoginPage extends StatelessWidget {
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
-          prefixIcon: customPrefix ?? Container(
-            padding: const EdgeInsets.all(12),
-            child: Icon(
-              Icons.phone_outlined, // Default icon for phone
-              color: primaryColor,
-              size: 20,
-            ),
-          ),
+          prefixIcon: customPrefix ??
+              Container(
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  Icons.phone_outlined, // Default icon for phone
+                  color: primaryColor,
+                  size: 20,
+                ),
+              ),
           suffixIcon: isPasswordField && loginController != null
               ? Obx(() => IconButton(
-                  icon: Icon(
-                    isEmailPasswordField
-                        ? (loginController.isPasswordVisible.value
-                            ? Icons.visibility_off
-                            : Icons.visibility)
+                    icon: Icon(
+                      isEmailPasswordField
+                          ? (loginController.isPasswordVisible.value
+                              ? Icons.visibility_off
+                              : Icons.visibility)
+                          : isPhonePasswordField
+                              ? (loginController.isPhonePasswordVisible.value
+                                  ? Icons.visibility_off
+                                  : Icons.visibility)
+                              : Icons.visibility, // fallback
+                      color: primaryColor,
+                    ),
+                    onPressed: isEmailPasswordField
+                        ? loginController.togglePasswordVisibility
                         : isPhonePasswordField
-                        ? (loginController.isPhonePasswordVisible.value
-                            ? Icons.visibility_off
-                            : Icons.visibility)
-                        : Icons.visibility, // fallback
-                    color: primaryColor,
-                  ),
-                  onPressed: isEmailPasswordField
-                      ? loginController.togglePasswordVisibility
-                      : isPhonePasswordField
-                      ? loginController.togglePhonePasswordVisibility
-                      : null,
-                ))
+                            ? loginController.togglePhonePasswordVisibility
+                            : null,
+                  ))
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
@@ -561,23 +563,23 @@ class LoginPage extends StatelessWidget {
 
         // Password Field
         Obx(() => _buildEnhancedTextField(
-          controller: controller.passwordController,
-          hintText: 'Password',
-          primaryColor: primaryBlue,
-          backgroundColor: lightBlue,
-          obscureText: !controller.isPasswordVisible.value,
-          isPasswordField: true,
-          isEmailPasswordField: true, // This is the email password field
-          loginController: controller,
-          customPrefix: Container(
-            padding: const EdgeInsets.all(12),
-            child: Icon(
-              Icons.lock_outline,
-              color: primaryBlue,
-              size: 20,
-            ),
-          ),
-        )),
+              controller: controller.passwordController,
+              hintText: 'Password',
+              primaryColor: primaryBlue,
+              backgroundColor: lightBlue,
+              obscureText: !controller.isPasswordVisible.value,
+              isPasswordField: true,
+              isEmailPasswordField: true, // This is the email password field
+              loginController: controller,
+              customPrefix: Container(
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  Icons.lock_outline,
+                  color: primaryBlue,
+                  size: 20,
+                ),
+              ),
+            )),
         const SizedBox(height: 12),
 
         // Forgot Password
@@ -585,15 +587,7 @@ class LoginPage extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              Get.snackbar(
-                'Forgot Password',
-                'Please contact support to reset your password',
-                backgroundColor: Colors.blue[600],
-                colorText: Colors.white,
-                snackPosition: SnackPosition.TOP,
-                borderRadius: 10,
-                margin: const EdgeInsets.all(10),
-              );
+              Get.to(() => const ForgotPasswordPage());
             },
             style: TextButton.styleFrom(
               foregroundColor: accentBlue,
@@ -666,23 +660,23 @@ class LoginPage extends StatelessWidget {
 
         // Password Field
         Obx(() => _buildEnhancedTextField(
-          controller: controller.phonePasswordController,
-          hintText: 'Password',
-          primaryColor: primaryBlue,
-          backgroundColor: lightBlue,
-          obscureText: !controller.isPhonePasswordVisible.value,
-          isPasswordField: true,
-          isPhonePasswordField: true, // This is the phone password field
-          loginController: controller,
-          customPrefix: Container(
-            padding: const EdgeInsets.all(12),
-            child: Icon(
-              Icons.lock_outline,
-              color: primaryBlue,
-              size: 20,
-            ),
-          ),
-        )),
+              controller: controller.phonePasswordController,
+              hintText: 'Password',
+              primaryColor: primaryBlue,
+              backgroundColor: lightBlue,
+              obscureText: !controller.isPhonePasswordVisible.value,
+              isPasswordField: true,
+              isPhonePasswordField: true, // This is the phone password field
+              loginController: controller,
+              customPrefix: Container(
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  Icons.lock_outline,
+                  color: primaryBlue,
+                  size: 20,
+                ),
+              ),
+            )),
         const SizedBox(height: 12),
 
         // Forgot Password
@@ -690,15 +684,7 @@ class LoginPage extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              Get.snackbar(
-                'Forgot Password',
-                'Please contact support to reset your password',
-                backgroundColor: Colors.blue[600],
-                colorText: Colors.white,
-                snackPosition: SnackPosition.TOP,
-                borderRadius: 10,
-                margin: const EdgeInsets.all(10),
-              );
+              Get.to(() => const ForgotPasswordPage());
             },
             style: TextButton.styleFrom(
               foregroundColor: accentBlue,
@@ -712,4 +698,5 @@ class LoginPage extends StatelessWidget {
         ),
       ],
     );
-  }}
+  }
+}

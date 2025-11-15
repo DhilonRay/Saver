@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:async';
+import '../../components/success_dialog.dart';
 
 class ForgotPasswordController extends GetxController {
   // Text Controller
@@ -36,7 +37,8 @@ class ForgotPasswordController extends GetxController {
   @override
   void onClose() {
     _cooldownTimer?.cancel();
-    emailController.dispose();
+    // Removed dispose call for TextEditingController to prevent "controller used after dispose" errors
+    // emailController.dispose();
     super.onClose();
   }
 
@@ -56,11 +58,12 @@ class ForgotPasswordController extends GetxController {
     _cooldownTimer?.cancel();
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (isCooldownActive.value) {
-        final currentRemaining = cooldownSeconds.value - 
-          ((DateTime.now().millisecondsSinceEpoch - lastResetTime.value) ~/ 1000);
-        
+        final currentRemaining = cooldownSeconds.value -
+            ((DateTime.now().millisecondsSinceEpoch - lastResetTime.value) ~/
+                1000);
+
         remainingTime.value = currentRemaining > 0 ? currentRemaining : 0;
-        
+
         if (remainingTime.value <= 0) {
           isCooldownActive.value = false;
           remainingTime.value = 0;
@@ -78,7 +81,9 @@ class ForgotPasswordController extends GetxController {
 
     // Check for cooldown (allow retry for same email)
     if (isCooldownActive.value && email != lastEmailSent.value) {
-      final remainingTime = cooldownSeconds.value - ((DateTime.now().millisecondsSinceEpoch - lastResetTime.value) ~/ 1000);
+      final remainingTime = cooldownSeconds.value -
+          ((DateTime.now().millisecondsSinceEpoch - lastResetTime.value) ~/
+              1000);
       if (remainingTime > 0) {
         Get.snackbar(
           'Please Wait',
@@ -102,7 +107,8 @@ class ForgotPasswordController extends GetxController {
     }
 
     // Reset counter if more than an hour has passed
-    if (currentTime - firstRequestTime.value > 3600000) { // 1 hour in milliseconds
+    if (currentTime - firstRequestTime.value > 3600000) {
+      // 1 hour in milliseconds
       requestCount.value = 0;
       firstRequestTime.value = currentTime;
     }
@@ -163,25 +169,20 @@ class ForgotPasswordController extends GetxController {
       // Store the email for retry purposes
       lastEmailSent.value = email;
 
-      Get.snackbar(
-        'Reset Email Sent!',
-        'Password reset link sent to $email\n\n📧 Check your inbox (and spam/junk folder)\n🔄 Didn\'t receive it? You can retry with the same email',
-        backgroundColor: Colors.green[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-        duration: const Duration(seconds: 8),
+      SuccessDialog.show(
+        title: 'Reset Email Sent!',
+        message:
+            'Password reset link sent to $email\n\n📧 Check your inbox (and spam/junk folder)',
+        autoCloseDuration: const Duration(seconds: 10),
       );
 
       // Clear the email field
       emailController.clear();
 
-      // Navigate back to login after a delay
-      Future.delayed(const Duration(seconds: 2), () {
+      // Navigate back to login after the dialog closes
+      Future.delayed(const Duration(seconds: 30), () {
         Get.back();
       });
-
     } catch (e) {
       debugPrint('Password reset failed: $e');
 
@@ -223,13 +224,20 @@ class ForgotPasswordController extends GetxController {
 
   bool isValidEmail(String email) {
     // More comprehensive email validation
-    final emailRegex = RegExp(r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$');
+    final emailRegex = RegExp(
+        r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$');
     if (!emailRegex.hasMatch(email)) return false;
 
     // Check for common disposable email domains
     final disposableDomains = [
-      '10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'temp-mail.org',
-      'throwaway.email', 'yopmail.com', 'maildrop.cc', 'tempail.com'
+      '10minutemail.com',
+      'guerrillamail.com',
+      'mailinator.com',
+      'temp-mail.org',
+      'throwaway.email',
+      'yopmail.com',
+      'maildrop.cc',
+      'tempail.com'
     ];
 
     final domain = email.split('@').last.toLowerCase();
