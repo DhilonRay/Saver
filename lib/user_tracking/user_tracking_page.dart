@@ -192,11 +192,20 @@ class UserTrackingPage extends StatelessWidget {
                             orderData?['status'] ??
                             'unknown';
                         final isCompleted = status.toLowerCase() == 'completed';
+                        final isPickedUp = status.toLowerCase() == 'pickup';
+
+                        String titleText;
+
+                        if (isCompleted) {
+                          titleText = 'Service Completed';
+                        } else if (isPickedUp) {
+                          titleText = 'Safe Journey!';
+                        } else {
+                          titleText = 'Ambulance is Coming';
+                        }
 
                         return Text(
-                          isCompleted
-                              ? 'Service Completed'
-                              : 'Ambulance is Coming',
+                          titleText,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -210,6 +219,7 @@ class UserTrackingPage extends StatelessWidget {
                             orderData?['status'] ??
                             'unknown';
                         final isCompleted = status.toLowerCase() == 'completed';
+                        final isPickedUp = status.toLowerCase() == 'pickup';
 
                         if (isCompleted) {
                           return Text(
@@ -218,6 +228,38 @@ class UserTrackingPage extends StatelessWidget {
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 12,
                             ),
+                          );
+                        } else if (isPickedUp) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Heading to destination',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time, color: Colors.white.withOpacity(0.9), size: 14),
+                                  SizedBox(width: 4),
+                                  Obx(() => Text(
+                                        controller.estimatedTime.value,
+                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                      )),
+                                  SizedBox(width: 12),
+                                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 14),
+                                  SizedBox(width: 4),
+                                  Obx(() => Text(
+                                        controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
+                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                      )),
+                                ],
+                              ),
+                            ],
                           );
                         } else {
                           return Column(
@@ -327,6 +369,7 @@ class UserTrackingPage extends StatelessWidget {
             final status =
                 orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
             final isCompleted = status.toLowerCase() == 'completed';
+            final isPickedUp = status.toLowerCase() == 'pickup';
 
             if (isCompleted) {
               return Padding(
@@ -360,6 +403,165 @@ class UserTrackingPage extends StatelessWidget {
                   ),
                 ),
               );
+            } else if (isPickedUp) {
+              // Show destination information when picked up
+              return Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.purple.shade200, width: 1),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.flag,
+                                color: Colors.purple.shade600,
+                                size: 24,
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Destination',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.purple.shade800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      orderData?['destinationAddress'] ?? 'Destination not specified',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.purple.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.access_time, color: Colors.purple.shade600, size: 16),
+                                    SizedBox(width: 8),
+                                    Obx(() => Text(
+                                          'Time: ${controller.estimatedTime.value}',
+                                          style: TextStyle(
+                                            color: Colors.purple.shade700,
+                                            fontSize: 14,
+                                          ),
+                                        )),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.location_on, color: Colors.purple.shade600, size: 16),
+                                    SizedBox(width: 8),
+                                    Obx(() => Text(
+                                          'Distance: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km'}',
+                                          style: TextStyle(
+                                            color: Colors.purple.shade700,
+                                            fontSize: 14,
+                                          ),
+                                        )),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    // Fare Information
+                    Obx(() {
+                      final fareAmount =
+                          orderData?['fareAmount'] ?? orderData?['totalFare'];
+
+                      if (fareAmount != null) {
+                        return Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.orange.shade200, width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.attach_money,
+                                color: Colors.orange.shade600,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Service Charge',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      '৳${fareAmount.toString()}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.orange.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'PAID',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        return SizedBox.shrink();
+                      }
+                    }),
+                  ],
+                ),
+              );
             } else {
               return Padding(
                 padding: EdgeInsets.all(16),
@@ -371,7 +573,7 @@ class UserTrackingPage extends StatelessWidget {
                       final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
                       final pickupOTP = orderData?['pickupOTP'];
 
-                      if ((status.toLowerCase() == 'accepted' || status.toLowerCase() == 'in_transit') && pickupOTP != null && pickupOTP.isNotEmpty) {
+                      if (status.toLowerCase() == 'in_transit' && pickupOTP != null && pickupOTP.isNotEmpty) {
                         return Container(
                           padding: EdgeInsets.all(16),
                           margin: EdgeInsets.only(bottom: 12),
@@ -431,6 +633,84 @@ class UserTrackingPage extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.red.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        return SizedBox.shrink();
+                      }
+                    }),
+
+                    // OTP Display for Destination (only show when to_destination and OTP is available)
+                    Obx(() {
+                      final orderData = controller.orderData.value;
+                      final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+                      final destinationOTP = orderData?['destinationOTP'];
+
+                      if (status.toLowerCase() == 'to_destination' && destinationOTP != null && destinationOTP.isNotEmpty) {
+                        return Container(
+                          padding: EdgeInsets.all(16),
+                          margin: EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green.shade200, width: 2),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.flag,
+                                    color: Colors.green.shade600,
+                                    size: 24,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Destination Arrival Code',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.green.shade300, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      destinationOTP,
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade700,
+                                        letterSpacing: 4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Show this code to the ambulance driver when you arrive at destination',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green.shade600,
                                   fontStyle: FontStyle.italic,
                                 ),
                                 textAlign: TextAlign.center,
@@ -576,6 +856,10 @@ class UserTrackingPage extends StatelessWidget {
         return Icons.check_circle;
       case 'in_transit':
         return Icons.local_shipping;
+      case 'pickup':
+        return Icons.people;
+      case 'to_destination':
+        return Icons.flag;
       case 'completed':
         return Icons.done_all;
       case 'cancelled':
@@ -591,6 +875,10 @@ class UserTrackingPage extends StatelessWidget {
         return Colors.blue.shade600;
       case 'in_transit':
         return Colors.orange.shade600;
+      case 'pickup':
+        return Colors.purple.shade600;
+      case 'to_destination':
+        return Colors.teal.shade600;
       case 'completed':
         return Colors.green.shade600;
       case 'cancelled':
@@ -606,6 +894,10 @@ class UserTrackingPage extends StatelessWidget {
         return 'Ambulance Accepted';
       case 'in_transit':
         return 'Delivering On the Way';
+      case 'pickup':
+        return 'Patient Picked Up';
+      case 'to_destination':
+        return 'Heading to Destination';
       case 'completed':
         return 'Service Completed';
       case 'cancelled':

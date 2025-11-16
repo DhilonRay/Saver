@@ -435,6 +435,7 @@ class AcceptMapsController extends GetxController {
     try {
       if (requestData.value != null) {
         final requestId = requestData.value!['id'];
+        final userId = requestData.value!['userId'];
         debugPrint(
             'AcceptMaps: Completing ride with request ID: $requestId and fare: $fareAmount');
 
@@ -448,6 +449,29 @@ class AcceptMapsController extends GetxController {
           'fareAmount': fareAmount,
           'finalFare': fareAmount,
         });
+
+        // Send notification to user with fare amount
+        if (userId != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+
+          final fcmToken = userDoc.data()?['fcmToken'];
+          if (fcmToken != null) {
+            await NotificationService.sendFCMNotification(
+              token: fcmToken,
+              title: 'রাইড সম্পন্ন',
+              body: 'আপনার রাইড সম্পন্ন হয়েছে। মোট খরচ: ৳${fareAmount.toStringAsFixed(0)}',
+              data: {
+                'type': 'ride_completed',
+                'orderId': requestId,
+                'fareAmount': fareAmount.toString(),
+              },
+            );
+            debugPrint('✅ Completion notification sent with fare: ৳$fareAmount');
+          }
+        }
 
         // Update partner status back to available
         final user = FirebaseAuth.instance.currentUser;
@@ -469,8 +493,8 @@ class AcceptMapsController extends GetxController {
         }
 
         Get.back(); // Go back to home partner page
-        _showSuccessDialog('Success',
-            'Ride completed successfully! Fare: ৳${fareAmount.toStringAsFixed(0)}');
+        _showSuccessDialog('রাইড সম্পন্ন',
+            'রাইড সফলভাবে সম্পন্ন হয়েছে!\n\nমোট খরচ: ৳${fareAmount.toStringAsFixed(0)}');
       }
     } catch (e) {
       _showSuccessDialog('Error', 'Failed to complete ride: $e');
@@ -646,6 +670,46 @@ class AcceptMapsController extends GetxController {
     );
   }
 
+  Future<void> _animateCameraToShowRoute() async {
+    if (partnerPosition.value != null && userPosition.value != null) {
+      try {
+        final GoogleMapController controller = await _controller.future;
+        
+        // Calculate bounds to show both partner and destination
+        final double southWestLat = min(
+          partnerPosition.value!.latitude,
+          userPosition.value!.latitude,
+        );
+        final double southWestLng = min(
+          partnerPosition.value!.longitude,
+          userPosition.value!.longitude,
+        );
+        final double northEastLat = max(
+          partnerPosition.value!.latitude,
+          userPosition.value!.latitude,
+        );
+        final double northEastLng = max(
+          partnerPosition.value!.longitude,
+          userPosition.value!.longitude,
+        );
+
+        final LatLngBounds bounds = LatLngBounds(
+          southwest: LatLng(southWestLat, southWestLng),
+          northeast: LatLng(northEastLat, northEastLng),
+        );
+
+        // Animate camera to show the complete route
+        controller.animateCamera(
+          CameraUpdate.newLatLngBounds(bounds, 100), // 100 pixels padding
+        );
+        
+        debugPrint('✅ Camera animated to show destination route');
+      } catch (e) {
+        debugPrint('❌ Error animating camera to route: $e');
+      }
+    }
+  }
+
   void _updatePartnerMarker() {
     if (partnerPosition.value != null) {
       // Create a new set with updated markers to trigger reactivity
@@ -804,6 +868,67 @@ class AcceptMapsController extends GetxController {
     }
   }
 
+  Future<void> generateAndSendDestinationOTP() async {
+    if (requestData.value == null) return;
+
+    final requestId = requestData.value!['id'];
+    final userId = requestData.value!['userId'];
+
+    try {
+      // Generate 4-digit OTP
+      final otp = (1000 + Random().nextInt(9000)).toString();
+      debugPrint('Generated destination OTP: $otp for order: $requestId');
+
+      // Store OTP in order document
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
+        'destinationOTP': otp,
+        'destinationOTPGeneratedAt': Timestamp.now(),
+      });
+
+      // Update local data with the generated OTP
+      requestData.value!['destinationOTP'] = otp;
+      requestData.value!['destinationOTPGeneratedAt'] = Timestamp.now();
+      requestData.refresh();
+
+      debugPrint('✅ Destination OTP stored in Firestore and local data updated');
+
+      // Get user's FCM token
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      final fcmToken = userDoc.data()?['fcmToken'] as String?;
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        // Send notification with OTP
+        final success = await NotificationService.sendFCMNotification(
+          token: fcmToken,
+          title: 'Destination OTP',
+          body: 'Your ambulance has started heading to destination. OTP for arrival confirmation: $otp',
+          data: {
+            'type': 'destination_otp',
+            'orderId': requestId,
+            'otp': otp,
+          },
+        );
+
+        if (success) {
+          debugPrint('✅ Destination OTP notification sent successfully');
+        } else {
+          debugPrint('❌ Failed to send destination OTP notification');
+        }
+      } else {
+        debugPrint('⚠️ User FCM token not found, cannot send destination OTP notification');
+      }
+    } catch (e) {
+      debugPrint('❌ Error generating/sending destination OTP: $e');
+    }
+  }
+
   Future<bool> confirmPickupOTP(String enteredOTP) async {
     if (requestData.value == null) return false;
 
@@ -877,6 +1002,9 @@ class AcceptMapsController extends GetxController {
       requestData.value!['status'] = 'to_destination';
       requestData.refresh();
 
+      // Generate and send destination OTP
+      await generateAndSendDestinationOTP();
+
       // Update destination location for routing
       if (requestData.value!['destinationLat'] != null &&
           requestData.value!['destinationLng'] != null) {
@@ -894,6 +1022,9 @@ class AcceptMapsController extends GetxController {
 
         // Update markers to show destination
         _updateDestinationMarker();
+
+        // Animate camera to show both current location and destination
+        await _animateCameraToShowRoute();
 
         debugPrint('✅ Going to destination, polyline updated');
       }

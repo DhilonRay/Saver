@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,6 +11,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../../chat_page/sos_chat_page.dart';
@@ -60,6 +60,8 @@ class HomePartnerController extends GetxController {
   var showRequestBottomSheet = false.obs;
   var shownRequestIds =
       <String>{}.obs; // Track requests that have already been shown
+  var declinedRequestIds =
+      <String>{}.obs; // Track declined requests to prevent showing again
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
 
   // Helper function to format address display
@@ -758,6 +760,7 @@ class HomePartnerController extends GetxController {
     super.onInit();
     _loadCustomIcons();
     _getCurrentLocation();
+    _loadDeclinedRequestIds(); // Load previously declined requests
     _listenForRequests();
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
@@ -779,6 +782,7 @@ class HomePartnerController extends GetxController {
   void onClose() {
     _requestsSubscription?.cancel();
     shownRequestIds.clear(); // Clear shown requests when controller closes
+    // Don't clear declinedRequestIds - they should persist across sessions
     super.onClose();
   }
 
@@ -786,6 +790,37 @@ class HomePartnerController extends GetxController {
   void resetShownRequests() {
     shownRequestIds.clear();
     showRequestBottomSheet.value = false;
+  }
+
+  /// Load declined request IDs from shared preferences
+  Future<void> _loadDeclinedRequestIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final user = _auth.currentUser;
+      if (user != null) {
+        final key = 'declined_requests_${user.uid}';
+        final declinedIds = prefs.getStringList(key) ?? [];
+        declinedRequestIds.addAll(declinedIds);
+        debugPrint('✅ Loaded ${declinedIds.length} declined request IDs');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading declined request IDs: $e');
+    }
+  }
+
+  /// Save declined request IDs to shared preferences
+  Future<void> _saveDeclinedRequestIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final user = _auth.currentUser;
+      if (user != null) {
+        final key = 'declined_requests_${user.uid}';
+        await prefs.setStringList(key, declinedRequestIds.toList());
+        debugPrint('✅ Saved ${declinedRequestIds.length} declined request IDs');
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving declined request IDs: $e');
+    }
   }
 
   // Format a fare value to localized currency string (no decimal places)
@@ -970,16 +1005,22 @@ class HomePartnerController extends GetxController {
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
-        pendingRequests.value = snapshot.docs.map((doc) {
-          return {
-            'id': doc.id,
-            ...doc.data(),
-          };
-        }).toList();
+        // Filter out declined requests
+        pendingRequests.value = snapshot.docs
+            .map((doc) {
+              return {
+                'id': doc.id,
+                ...doc.data(),
+              };
+            })
+            .where((request) => !declinedRequestIds.contains(request['id']))
+            .toList();
 
-        // Show bottom sheet if there are pending requests that haven't been shown yet
+        // Show bottom sheet if there are pending requests that haven't been shown yet and aren't declined
         final newRequests = pendingRequests
-            .where((request) => !shownRequestIds.contains(request['id']))
+            .where((request) => 
+                !shownRequestIds.contains(request['id']) &&
+                !declinedRequestIds.contains(request['id']))
             .toList();
 
         if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
@@ -2154,14 +2195,10 @@ class HomePartnerController extends GetxController {
       // Don't recalculate - use what was already agreed upon
       final storedTotalAmount = request['totalAmount'] as double?;
 
-      // Generate 4-digit OTP
-      String pickupOTP = (1000 + Random().nextInt(9000)).toString();
-
       final updateData = {
         'status': 'accepted',
         'acceptedBy': user.uid,
         'acceptedAt': Timestamp.now(),
-        'pickupOTP': pickupOTP,
       };
 
       // Add partner's current location if available
@@ -2244,8 +2281,8 @@ class HomePartnerController extends GetxController {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
             title: 'Order Accepted',
-            body: 'Your order has been accepted. OTP: $pickupOTP',
-            data: {'type': 'order_accepted', 'orderId': requestId, 'otp': pickupOTP},
+            body: 'Your order has been accepted. The ambulance is on the way.',
+            data: {'type': 'order_accepted', 'orderId': requestId},
           );
         }
       }
@@ -2289,6 +2326,10 @@ class HomePartnerController extends GetxController {
       final requestData = doc.data()!;
       final userId = requestData['userId'];
 
+      // Add to declined list and save to preferences
+      declinedRequestIds.add(requestId);
+      await _saveDeclinedRequestIds();
+
       // Update status to declined
       await FirebaseFirestore.instance
           .collection('orders')
@@ -2296,6 +2337,7 @@ class HomePartnerController extends GetxController {
           .update({
         'status': 'declined',
         'declinedAt': Timestamp.now(),
+        'declinedBy': _auth.currentUser?.uid,
       });
 
       // Send notification to user if userId exists
@@ -2317,7 +2359,7 @@ class HomePartnerController extends GetxController {
       }
 
       showRequestBottomSheet.value = false;
-      debugPrint('❌ Request declined: $requestId');
+      debugPrint('❌ Request declined and saved: $requestId');
 
       Get.snackbar(
         'Success',

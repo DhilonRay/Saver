@@ -2726,14 +2726,25 @@ class HomeController extends GetxController {
           );
         } else if (status == 'to_destination') {
           isTrackingPartner.value = true;
-          // Ambulance is going to destination
-          SuccessDialog.show(
-            title: 'Heading to Destination',
-            message:
-                'Your ambulance is now heading to the destination.',
-            onTap: () => navigateToTrackingPage(),
-            autoCloseDuration: const Duration(seconds: 5),
-          );
+          // Ambulance is going to destination - show destination OTP
+          final destinationOTP = data?['destinationOTP'];
+          if (destinationOTP != null && destinationOTP != 'N/A') {
+            SuccessDialog.show(
+              title: 'Heading to Destination',
+              message:
+                  'Your ambulance is now heading to the destination. Arrival OTP: $destinationOTP. Please show this OTP to the driver when you arrive.',
+              onTap: () => navigateToTrackingPage(),
+              autoCloseDuration: const Duration(seconds: 8),
+            );
+          } else {
+            SuccessDialog.show(
+              title: 'Heading to Destination',
+              message:
+                  'Your ambulance is now heading to the destination.',
+              onTap: () => navigateToTrackingPage(),
+              autoCloseDuration: const Duration(seconds: 5),
+            );
+          }
         } else if (status == 'completed') {
           isTrackingPartner.value = false;
           currentTrackingOrderId.value = null;

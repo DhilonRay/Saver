@@ -282,6 +282,24 @@ class UserTrackingController extends GetxController {
           debugPrint('UserTracking: Service completed - cleared ambulance location');
         }
 
+        // Handle destination route when status changes to to_destination
+        if (status == 'to_destination') {
+          final destinationLat = data?['destinationLat'];
+          final destinationLng = data?['destinationLng'];
+          
+          if (destinationLat != null && destinationLng != null && ambulancePosition.value != null) {
+            final destinationLocation = LatLng(destinationLat, destinationLng);
+            // Update user position to destination for polyline calculation
+            userPosition.value = destinationLocation;
+            
+            // Clear old route and calculate new route to destination
+            routePoints.clear();
+            calculateRouteToDestination(destinationLocation);
+            
+            debugPrint('UserTracking: Status changed to to_destination, creating route to destination');
+          }
+        }
+
         // Handle live location updates (only if not completed)
         if (status != 'completed') {
           final liveLocation = data?['partnerLiveLocation'] as Map<String, dynamic>?;
@@ -337,12 +355,15 @@ class UserTrackingController extends GetxController {
   void _updatePolylines() {
     polylines.clear();
 
+    final status = orderData.value?['orderStatus'] ?? orderData.value?['status'];
+    final isGoingToDestination = status == 'to_destination';
+
     // Add ambulance trail polyline
     if (ambulanceLocationTrail.length > 1) {
       polylines.add(
         Polyline(
           polylineId: const PolylineId('ambulance_trail'),
-          color: Colors.blue.shade600,
+          color: isGoingToDestination ? Colors.green.shade600 : Colors.blue.shade600,
           width: 4,
           points: ambulanceLocationTrail,
           zIndex: 2,
@@ -350,12 +371,12 @@ class UserTrackingController extends GetxController {
       );
     }
 
-    // Add route from ambulance to user if both positions available
+    // Add route from ambulance to user/destination if both positions available
     if (routePoints.isNotEmpty) {
       polylines.add(
         Polyline(
           polylineId: const PolylineId('route_to_user'),
-          color: Colors.blue.shade700,
+          color: isGoingToDestination ? Colors.green.shade700 : Colors.blue.shade700,
           width: 6,
           points: routePoints,
           zIndex: 1,
@@ -366,7 +387,7 @@ class UserTrackingController extends GetxController {
       polylines.add(
         Polyline(
           polylineId: const PolylineId('route_to_user'),
-          color: Colors.blue.shade700,
+          color: isGoingToDestination ? Colors.green.shade700 : Colors.blue.shade700,
           width: 6,
           points: [ambulancePosition.value!, userPosition.value!],
           zIndex: 1,
@@ -421,10 +442,59 @@ class UserTrackingController extends GetxController {
     }
   }
 
+  // Calculate route to destination
+  Future<void> calculateRouteToDestination(LatLng destination) async {
+    if (ambulancePosition.value == null) {
+      debugPrint('UserTracking: Cannot calculate route - ambulance position unknown');
+      return;
+    }
+
+    try {
+      debugPrint('UserTracking: Calculating route to destination');
+
+      final origin = '${ambulancePosition.value!.latitude},${ambulancePosition.value!.longitude}';
+      final dest = '${destination.latitude},${destination.longitude}';
+
+      final result = await _directions.directions(
+        origin,
+        dest,
+        travelMode: directions.TravelMode.driving,
+        units: directions.Unit.metric,
+      );
+
+      if (result.status == 'OK' && result.routes.isNotEmpty) {
+        final route = result.routes.first;
+        final leg = route.legs.first;
+
+        // Extract and decode route polyline points
+        final encodedPolyline = route.overviewPolyline.points;
+        final decodedPoints = _decodePolyline(encodedPolyline);
+        routePoints.value = decodedPoints;
+
+        // Update ETA for destination
+        final duration = leg.duration.text;
+        final distance = leg.distance.value.toDouble();
+        estimatedTime.value = duration;
+        estimatedDistance.value = distance / 1000; // Convert to km
+
+        // Update polylines and markers
+        _updatePolylines();
+        _updateMarkers();
+        _fitBounds();
+
+        debugPrint('UserTracking: Route to destination calculated - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
+      } else {
+        debugPrint('UserTracking: Failed to get route to destination: ${result.status}');
+      }
+    } catch (e) {
+      debugPrint('UserTracking: Error calculating route to destination: $e');
+    }
+  }
+
   // ETA Calculation
   Future<void> calculateETA() async {
     if (ambulancePosition.value == null || userPosition.value == null) {
-      estimatedTime.value = 'অনুমানিক সময়';
+      estimatedTime.value = 'অনুমানিক সময়';
       return;
     }
 
