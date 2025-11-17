@@ -228,14 +228,21 @@ class UserTrackingController extends GetxController {
   void _updateMarkers() {
     markers.clear();
 
-    // Add user location marker
+    final status = orderData.value?['orderStatus'] ?? orderData.value?['status'];
+    final isGoingToDestination = status == 'to_destination';
+
+    // Add user location or destination marker
     if (userPosition.value != null) {
       markers.add(
         Marker(
-          markerId: MarkerId('user_location'),
+          markerId: MarkerId(isGoingToDestination ? 'destination_location' : 'user_location'),
           position: userPosition.value!,
-          infoWindow: InfoWindow(title: 'আপনার অবস্থান'),
-          icon: userLocationIcon,
+          infoWindow: InfoWindow(
+            title: isGoingToDestination ? '🏁 গন্তব্য' : 'আপনার অবস্থান',
+          ),
+          icon: isGoingToDestination 
+              ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
+              : userLocationIcon,
         ),
       );
     }
@@ -282,24 +289,6 @@ class UserTrackingController extends GetxController {
           debugPrint('UserTracking: Service completed - cleared ambulance location');
         }
 
-        // Handle destination route when status changes to to_destination
-        if (status == 'to_destination') {
-          final destinationLat = data?['destinationLat'];
-          final destinationLng = data?['destinationLng'];
-          
-          if (destinationLat != null && destinationLng != null && ambulancePosition.value != null) {
-            final destinationLocation = LatLng(destinationLat, destinationLng);
-            // Update user position to destination for polyline calculation
-            userPosition.value = destinationLocation;
-            
-            // Clear old route and calculate new route to destination
-            routePoints.clear();
-            calculateRouteToDestination(destinationLocation);
-            
-            debugPrint('UserTracking: Status changed to to_destination, creating route to destination');
-          }
-        }
-
         // Handle live location updates (only if not completed)
         if (status != 'completed') {
           final liveLocation = data?['partnerLiveLocation'] as Map<String, dynamic>?;
@@ -309,6 +298,7 @@ class UserTrackingController extends GetxController {
 
             if (lat != null && lng != null) {
               final newLocation = LatLng(lat, lng);
+              final previousPosition = ambulancePosition.value;
 
               // Update ambulance live location
               ambulancePosition.value = newLocation;
@@ -323,18 +313,47 @@ class UserTrackingController extends GetxController {
                 }
               }
 
+              // Handle destination route when status is to_destination
+              if (status == 'to_destination') {
+                final destinationLat = data?['destinationLat'];
+                final destinationLng = data?['destinationLng'];
+                
+                if (destinationLat != null && destinationLng != null) {
+                  final destinationLocation = LatLng(destinationLat, destinationLng);
+                  
+                  // Update user position to destination only if not already set
+                  if (userPosition.value == null || 
+                      (userPosition.value!.latitude != destinationLat || 
+                       userPosition.value!.longitude != destinationLng)) {
+                    userPosition.value = destinationLocation;
+                    debugPrint('UserTracking: Updated destination to $destinationLocation');
+                  }
+                  
+                  // Recalculate route if ambulance position changed significantly
+                  if (previousPosition == null || 
+                      routePoints.isEmpty ||
+                      _calculateDistance(previousPosition, newLocation) > 0.05) {
+                    routePoints.clear();
+                    calculateRouteToDestination(destinationLocation);
+                    debugPrint('UserTracking: Recalculating route to destination');
+                  }
+                }
+              }
+
               // Update markers and polylines
               _updateMarkers();
               _updatePolylines();
 
               // Calculate ETA immediately for the first time or when route is empty
-              if (routePoints.isEmpty && userPosition.value != null) {
+              if (routePoints.isEmpty && userPosition.value != null && status != 'to_destination') {
                 debugPrint('UserTracking: Calculating initial ETA for route display');
                 calculateETA();
               }
 
-              // Calculate ETA periodically
-              _scheduleETAUpdate();
+              // Calculate ETA periodically (not for destination as it's calculated in calculateRouteToDestination)
+              if (status != 'to_destination') {
+                _scheduleETAUpdate();
+              }
 
               debugPrint('UserTracking: Ambulance location updated: $newLocation');
             }
@@ -594,6 +613,16 @@ class UserTrackingController extends GetxController {
       points.add(LatLng(lat / 1E5, lng / 1E5));
     }
     return points;
+  }
+
+  // Calculate distance between two points in kilometers
+  double _calculateDistance(LatLng start, LatLng end) {
+    return Geolocator.distanceBetween(
+      start.latitude,
+      start.longitude,
+      end.latitude,
+      end.longitude,
+    ) / 1000; // Convert meters to kilometers
   }
 
   void _scheduleETAUpdate() {

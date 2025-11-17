@@ -1048,19 +1048,27 @@ class AcceptMapsController extends GetxController {
           origin,
           destination,
           travelMode: directions.TravelMode.driving,
+          units: directions.Unit.metric,
         );
 
         if (result.status == 'OK' && result.routes.isNotEmpty) {
           final route = result.routes.first;
+          final leg = route.legs.first;
           final polylinePoints = <LatLng>[];
 
           // Decode the polyline points
-          for (var leg in route.legs) {
-            for (var step in leg.steps) {
+          for (var legItem in route.legs) {
+            for (var step in legItem.steps) {
               final points = _decodePolyline(step.polyline.points);
               polylinePoints.addAll(points);
             }
           }
+
+          // Update ETA and distance to destination
+          final duration = leg.duration.text;
+          final distance = leg.distance.value.toDouble();
+          estimatedTime.value = duration;
+          estimatedDistance.value = distance / 1000; // Convert to km
 
           // Create polyline to destination
           final polyline = Polyline(
@@ -1074,7 +1082,7 @@ class AcceptMapsController extends GetxController {
           );
 
           polylines.add(polyline);
-          debugPrint('✅ Destination route polyline created');
+          debugPrint('✅ Destination route polyline created - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
         }
       } catch (e) {
         debugPrint('❌ Error creating destination route: $e');
