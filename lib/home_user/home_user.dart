@@ -640,7 +640,7 @@ class HomePage extends StatelessWidget {
                         }
                       }),
 
-                      // Spacer to push floating buttons to bottom
+                      /* // Spacer to push floating buttons to bottom
                       Expanded(child: SizedBox()),
 
                       // Emergency action buttons at bottom
@@ -686,7 +686,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ],
                         ),
-                      ),
+                      ), */
                     ],
                   ),
                 ),

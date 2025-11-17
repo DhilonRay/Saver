@@ -205,48 +205,8 @@ class HomePartnerPage extends StatelessWidget {
                               fontWeight: FontWeight.w300,
                             ),
                           ),
-                          SizedBox(height: 8),
-                          Obx(() => Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: controller.isOnline.value 
-                                  ? Colors.green.shade50 
-                                  : Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: controller.isOnline.value 
-                                    ? Colors.green.shade300 
-                                    : Colors.orange.shade300,
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: controller.isOnline.value 
-                                        ? Colors.green.shade600 
-                                        : Colors.orange.shade600,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  controller.isOnline.value ? 'অনলাইন' : 'অফলাইন',
-                                  style: TextStyle(
-                                    color: controller.isOnline.value 
-                                        ? Colors.green.shade700 
-                                        : Colors.orange.shade700,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )),
+                        
+                         
                         ],
                       ),
                     ),
@@ -260,7 +220,7 @@ class HomePartnerPage extends StatelessWidget {
                             title: 'My Orders',
                             onTap: controller.navigateToPartnersOrders,
                           ),
-                          Obx(() => _buildDrawerItem(
+                      /*     Obx(() => _buildDrawerItem(
                             icon: controller.isOnline.value 
                                 ? Icons.toggle_on_rounded 
                                 : Icons.toggle_off_rounded,
@@ -269,7 +229,7 @@ class HomePartnerPage extends StatelessWidget {
                             iconColor: controller.isOnline.value 
                                 ? Colors.green.shade600 
                                 : Colors.orange.shade600,
-                          )),
+                          )), */
                           _buildDrawerItem(
                             icon: Icons.person,
                             title: 'Profile',

@@ -122,7 +122,7 @@ class TermsConditionPage extends StatelessWidget {
 
                   _buildSection(
                     title: 'Contact Information',
-                    content: 'If you have any questions about these Terms & Conditions, please contact us at:\n\nEmail: nobita105176@gmail.com\nPhone: +01581822846'
+                    content: 'If you have any questions about these Terms & Conditions, please contact us at:\n\nEmail:neosaver@gmail.com\nPhone: +01793399913'
                   ),
 
                   const SizedBox(height: 30),

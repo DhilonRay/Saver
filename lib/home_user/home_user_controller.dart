@@ -2757,6 +2757,18 @@ class HomeController extends GetxController {
           polylines.removeWhere(
               (polyline) => polyline.polylineId.value == 'partner_trail');
 
+          // Clear destination when order is completed
+          destinationPosition.value = null;
+          destinationController.clear();
+          destinationQuery.value = '';
+          placeSuggestions.clear();
+          _selectedPlaceName = null;
+          
+          // Clear all polylines and destination markers
+          polylines.clear();
+          markers.removeWhere((marker) => marker.markerId.value == 'destination');
+          markers.removeWhere((marker) => marker.markerId.value == 'start');
+
           SuccessDialog.show(
             title: 'Service Completed',
             message: 'Your ambulance service has been completed.',
@@ -2780,11 +2792,22 @@ class HomeController extends GetxController {
           currentTrackingOrderId.value = null;
           partnerLiveLocation.value = null;
           partnerLocationTrail.clear();
-          // Clear markers
+          
+          // Clear destination when order is declined
+          destinationPosition.value = null;
+          destinationController.clear();
+          destinationQuery.value = '';
+          placeSuggestions.clear();
+          _selectedPlaceName = null;
+          
+          // Clear all markers and polylines
           markers
               .removeWhere((marker) => marker.markerId.value == 'partner_live');
           polylines.removeWhere(
               (polyline) => polyline.polylineId.value == 'partner_trail');
+          polylines.clear();
+          markers.removeWhere((marker) => marker.markerId.value == 'destination');
+          markers.removeWhere((marker) => marker.markerId.value == 'start');
         }
 
         // Handle live location updates
@@ -3303,7 +3326,21 @@ class HomeController extends GetxController {
     polylines.clear();
     destinationPosition.value = null;
     destinationController.clear();
+    destinationQuery.value = '';
     placeSuggestions.clear();
+    _selectedPlaceName = null;
+    
+    // Re-add current location marker if available
+    if (currentPosition.value != null) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('currentLocation'),
+          position: currentPosition.value!,
+          infoWindow: InfoWindow(title: 'Your Location'),
+          icon: currentLocationIcon,
+        ),
+      );
+    }
   }
 
   void onMapCreated(GoogleMapController controller) {

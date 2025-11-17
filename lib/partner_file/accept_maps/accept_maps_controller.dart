@@ -47,13 +47,13 @@ class AcceptMapsController extends GetxController {
   Position? _lastFirestorePosition;
   Position? _lastCameraPosition;
   static const Duration _firestoreUpdateInterval =
-      Duration(seconds: 3); // Update every 3 seconds
+      Duration(seconds: 5); // Update every 5 seconds
   static const Duration _cameraUpdateInterval =
-      Duration(seconds: 5); // Camera update every 5 seconds
+      Duration(seconds: 8); // Camera update every 8 seconds
   static const Duration _etaUpdateInterval =
-      Duration(seconds: 10); // ETA update every 10 seconds
+      Duration(seconds: 15); // ETA update every 15 seconds
   static const double _minDistanceForCameraUpdate =
-      20.0; // 20 meters minimum for camera update
+      30.0; // 30 meters minimum for camera update
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
@@ -78,12 +78,14 @@ class AcceptMapsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _initializeDirections();
-    _loadCustomIcons();
+    
+    try {
+      _initializeDirections();
+      _loadCustomIcons();
 
-    // Get request data from arguments first
-    final args = Get.arguments;
-    if (args != null && args is Map<String, dynamic>) {
+      // Get request data from arguments first
+      final args = Get.arguments;
+      if (args != null && args is Map<String, dynamic>) {
       requestData.value = args['request'];
       showSlidePanel.value = args['fromActivityTab'] == true || 
           args['request']?['status'] == 'in_transit' ||
@@ -109,14 +111,24 @@ class AcceptMapsController extends GetxController {
     }
 
     // Get current location and then calculate ETA
-    _getCurrentLocation();
+      _getCurrentLocation();
+    } catch (e) {
+      debugPrint('❌ Error initializing AcceptMapsController: $e');
+      // Set default values if initialization fails
+      serviceRate.value = 2500;
+      showSlidePanel.value = false;
+    }
   }
 
   void _initializeDirections() {
-    // Initialize Google Maps Directions API
-    // Note: You'll need to add your API key here
-    _directions = directions.GoogleMapsDirections(
-        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+    try {
+      // Initialize Google Maps Directions API
+      _directions = directions.GoogleMapsDirections(
+          apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+      debugPrint('✅ Google Maps Directions API initialized');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize Google Maps Directions: $e');
+    }
   }
 
   Future<void> _loadCustomIcons() async {
@@ -556,7 +568,7 @@ class AcceptMapsController extends GetxController {
             break;
         }
 
-        await NotificationService.sendFCMNotification(
+        final success = await NotificationService.sendFCMNotification(
           token: fcmToken,
           title: title,
           body: body,
@@ -566,7 +578,12 @@ class AcceptMapsController extends GetxController {
             'status': status,
           },
         );
-        debugPrint('✅ Status change notification sent successfully for status: $status');
+        
+        if (success) {
+          debugPrint('✅ Status change notification sent successfully for status: $status');
+        } else {
+          debugPrint('⚠️ Failed to send notification - user may have uninstalled app or token expired');
+        }
       } else {
         debugPrint('❌ FCM token not found or empty for user: $userId');
       }
@@ -607,37 +624,47 @@ class AcceptMapsController extends GetxController {
     // Start listening to position changes with optimized timing
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // Update every 5 meters
+        accuracy: LocationAccuracy.medium,
+        distanceFilter: 10, // Update every 10 meters
+        timeLimit: Duration(seconds: 30), // Timeout after 30 seconds
       ),
-    ).listen((Position position) {
-      final newPosition = LatLng(position.latitude, position.longitude);
-      partnerPosition.value = newPosition;
+    ).listen(
+      (Position position) {
+        final newPosition = LatLng(position.latitude, position.longitude);
+        partnerPosition.value = newPosition;
 
-      // Update marker position immediately for smooth UI
-      _updatePartnerMarker();
+        // Update marker position immediately for smooth UI
+        _updatePartnerMarker();
 
-      // Debounced Firestore update (every 3 seconds)
-      _scheduleFirestoreUpdate(position);
+        // Debounced Firestore update
+        _scheduleFirestoreUpdate(position);
 
-      // Conditional camera update (every 5 seconds and minimum distance)
-      _scheduleCameraUpdate(position);
+        // Conditional camera update
+        _scheduleCameraUpdate(position);
 
-      // Periodic ETA update (every 10 seconds)
-      _scheduleETAUpdate();
+        // Periodic ETA update
+        _scheduleETAUpdate();
 
-      debugPrint(
-          'Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
-    });
+        // Reduce debug print frequency (only every 10th update)
+        if (DateTime.now().millisecondsSinceEpoch % 10000 < 1000) {
+          debugPrint(
+              'Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
+        }
+      },
+      onError: (error) {
+        debugPrint('❌ Location stream error: $error');
+        // Continue tracking even if there's an error
+      },
+    );
 
     _showSuccessDialog('Live Tracking Started',
         'Your location is now being tracked in real-time');
   }
 
   void _scheduleFirestoreUpdate(Position position) {
-    // Check if position has changed significantly (at least 10 meters)
+    // Check if position has changed significantly (at least 15 meters)
     if (_lastFirestorePosition != null &&
-        _calculateDistance(_lastFirestorePosition!, position) < 10) {
+        _calculateDistance(_lastFirestorePosition!, position) < 15) {
       return; // Skip update if not moved enough
     }
 
@@ -706,15 +733,15 @@ class AcceptMapsController extends GetxController {
   }
 
   void _scheduleETAUpdate() {
-    // Cancel existing timer
-    _etaUpdateTimer?.cancel();
-
-    // Schedule ETA update
-    _etaUpdateTimer = Timer(_etaUpdateInterval, () {
-      if (isLiveTracking.value) {
-        calculateETA();
-      }
-    });
+    // Only update ETA if we don't have a pending timer
+    if (_etaUpdateTimer?.isActive != true) {
+      // Schedule ETA update
+      _etaUpdateTimer = Timer(_etaUpdateInterval, () {
+        if (isLiveTracking.value && partnerPosition.value != null && userPosition.value != null) {
+          calculateETA();
+        }
+      });
+    }
   }
 
   void stopLiveTracking() {
@@ -1198,5 +1225,18 @@ class AcceptMapsController extends GetxController {
       // Reassign to trigger reactivity
       markers.assignAll(updatedMarkers);
     }
+  }
+
+  @override
+  void onClose() {
+    // Cancel all timers
+    _firestoreUpdateTimer?.cancel();
+    _cameraUpdateTimer?.cancel();
+    _etaUpdateTimer?.cancel();
+
+    // Cancel position subscription
+    _positionSubscription?.cancel();
+
+    super.onClose();
   }
 }
