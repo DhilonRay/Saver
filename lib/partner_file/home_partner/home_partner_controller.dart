@@ -48,6 +48,9 @@ class HomePartnerController extends GetxController {
   var isLoadingLocation = true.obs;
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
+  
+  // Online/Offline status
+  var isOnline = true.obs;
   var partnerName = 'NeoSaver Partner'.obs;
 
   // Profile image
@@ -765,6 +768,12 @@ class HomePartnerController extends GetxController {
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
     _loadProfileImage(); // Load partner's profile image
+    _loadInitialOnlineStatus(); // Load online/offline status
+
+    // Debug: Check for existing orders after a delay
+    Future.delayed(const Duration(seconds: 3), () {
+      _debugCheckOrders();
+    });
 
     // Show success dialog for new driver signups
     if (isNewSignup) {
@@ -985,7 +994,7 @@ class HomePartnerController extends GetxController {
           'latitude': currentPosition.value!.latitude,
           'longitude': currentPosition.value!.longitude,
           'lastUpdated': Timestamp.now(),
-          'isOnline': true,
+          'isOnline': isOnline.value, // Use the observable value
         });
       }
     } catch (e) {
@@ -994,9 +1003,17 @@ class HomePartnerController extends GetxController {
   }
 
   void _listenForRequests() {
+    debugPrint('🚀 _listenForRequests() method called - Starting setup...');
+    
     try {
       final user = _auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('❌ No authenticated user for listening to requests');
+        return;
+      }
+
+      debugPrint('🔍 Setting up request listener for partner: ${user.uid}');
+      debugPrint('🔍 Querying orders collection with: type=ambulance, status=pending, partnerId=${user.uid}');
 
       _requestsSubscription = FirebaseFirestore.instance
           .collection('orders')
@@ -1005,8 +1022,16 @@ class HomePartnerController extends GetxController {
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
+        debugPrint('📡 Request listener triggered - found ${snapshot.docs.length} documents');
+        
+        // Log each document for debugging
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          debugPrint('📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
+        }
+
         // Filter out declined requests
-        pendingRequests.value = snapshot.docs
+        final allRequests = snapshot.docs
             .map((doc) {
               return {
                 'id': doc.id,
@@ -1016,6 +1041,9 @@ class HomePartnerController extends GetxController {
             .where((request) => !declinedRequestIds.contains(request['id']))
             .toList();
 
+        pendingRequests.value = allRequests;
+        debugPrint('📋 Filtered pending requests: ${allRequests.length} (after excluding ${declinedRequestIds.length} declined)');
+
         // Show bottom sheet if there are pending requests that haven't been shown yet and aren't declined
         final newRequests = pendingRequests
             .where((request) => 
@@ -1023,17 +1051,35 @@ class HomePartnerController extends GetxController {
                 !declinedRequestIds.contains(request['id']))
             .toList();
 
+        debugPrint('🆕 New requests to show: ${newRequests.length}');
+        debugPrint('🚫 Already shown: ${shownRequestIds.length}, Declined: ${declinedRequestIds.length}');
+        debugPrint('📱 Bottom sheet currently showing: ${showRequestBottomSheet.value}');
+
         if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
           final firstNewRequest = newRequests.first;
           shownRequestIds.add(firstNewRequest['id']); // Mark as shown
           showRequestBottomSheet.value = true;
-          debugPrint(
-              '🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
+          debugPrint('🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
+          debugPrint('👤 Patient: ${firstNewRequest['patientName']}, Phone: ${firstNewRequest['phone']}');
           _showRequestBottomSheet(firstNewRequest);
+        } else if (newRequests.isEmpty) {
+          debugPrint('ℹ️ No new requests to show');
+        } else {
+          debugPrint('⏳ Bottom sheet already showing, queuing request');
+        }
+      }, onError: (error) {
+        debugPrint('❌ Error in request listener: $error');
+        debugPrint('❌ Error type: ${error.runtimeType}');
+        
+        // Check for network connectivity issues
+        if (error.toString().contains('UNAVAILABLE') || 
+            error.toString().contains('firestore.googleapis.com') ||
+            error.toString().contains('Unable to resolve host')) {
+          debugPrint('🌐 Network connectivity issue detected. Firestore offline mode will handle sync when connection returns.');
         }
       });
     } catch (e) {
-      debugPrint('Failed to listen for requests: $e');
+      debugPrint('❌ Failed to set up request listener: $e');
     }
   }
 
@@ -2415,6 +2461,80 @@ class HomePartnerController extends GetxController {
     }
   }
 
+  /// Debug method to check orders in database
+  Future<void> _debugCheckOrders() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        debugPrint('❌ No user for debug check');
+        return;
+      }
+
+      debugPrint('🔍 DEBUG: Checking orders for partner: ${user.uid}');
+
+      // Check all orders in the collection
+      final allOrders = await FirebaseFirestore.instance
+          .collection('orders')
+          .get();
+      
+      debugPrint('📊 Total orders in database: ${allOrders.docs.length}');
+
+      // Check orders with this partner ID
+      final partnerOrders = allOrders.docs.where((doc) {
+        final data = doc.data();
+        return data['partnerId'] == user.uid;
+      }).toList();
+
+      debugPrint('🎯 Orders for this partner: ${partnerOrders.length}');
+
+      // Check pending ambulance orders for this partner
+      final pendingAmbulance = partnerOrders.where((doc) {
+        final data = doc.data();
+        return data['type'] == 'ambulance' && data['status'] == 'pending';
+      }).toList();
+
+      debugPrint('🚑 Pending ambulance orders for this partner: ${pendingAmbulance.length}');
+
+      // Log details of pending orders
+      for (var doc in pendingAmbulance) {
+        final data = doc.data();
+        debugPrint('📋 Pending Order ${doc.id}: patient=${data['patientName']}, phone=${data['phone']}, urgency=${data['urgency']}');
+      }
+
+      // Check if there are any orders for other partner IDs
+      final otherPartnerOrders = allOrders.docs.where((doc) {
+        final data = doc.data();
+        final partnerId = data['partnerId'];
+        return partnerId != null && partnerId != user.uid && data['status'] == 'pending';
+      }).toList();
+
+      debugPrint('👥 Pending orders for other partners: ${otherPartnerOrders.length}');
+
+      if (pendingAmbulance.isNotEmpty) {
+        debugPrint('✅ Found pending orders! Bottom sheet should show.');
+        // Force show the first one if not already showing
+        if (!showRequestBottomSheet.value && pendingAmbulance.isNotEmpty) {
+          final firstOrder = pendingAmbulance.first;
+          final request = {
+            'id': firstOrder.id,
+            ...firstOrder.data(),
+          };
+          debugPrint('🔔 Force showing bottom sheet for debug');
+          _showRequestBottomSheet(request);
+        }
+      } else {
+        debugPrint('❌ No pending orders found for this partner');
+      }
+
+    } catch (e) {
+      debugPrint('❌ Debug check failed: $e');
+    }
+  }
+
+
+
+
+
   /// Show bottom sheet for a specific request (used when notification is clicked)
   void showBottomSheetForRequest(String orderId) {
     try {
@@ -2474,6 +2594,143 @@ class HomePartnerController extends GetxController {
       Get.offAll(() => LoginPage());
     } catch (e) {
       Get.snackbar('Error', 'Failed to sign out: $e');
+    }
+  }
+
+  /// Toggle online/offline status
+  Future<void> toggleOnlineStatus() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        Get.snackbar(
+          'ত্রুটি',
+          'অনুগ্রহ করে লগইন করুন',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+        );
+        return;
+      }
+
+      // Show confirmation dialog when going offline
+      if (isOnline.value) {
+        final confirmed = await Get.dialog<bool>(
+          AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade600),
+                SizedBox(width: 8),
+                Text('অফলাইনে যেতে চান?'),
+              ],
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'আপনি অফলাইনে গেলে:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 8),
+                Text('• রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারবেন না'),
+                Text('• নতুন রাইড রিকোয়েস্ট পাবেন না'),
+                Text('• ম্যাপে আপনার অবস্থান দেখানো হবে না'),
+                SizedBox(height: 12),
+                Text(
+                  'আপনি কি নিশ্চিত যে অফলাইনে যেতে চান?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Get.back(result: false),
+                    // ignore: sort_child_properties_last
+                    child: Text('Cancel'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      backgroundColor: Colors.red.shade100,
+                      minimumSize: Size(120, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Get.back(result: true),
+                   
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(120, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Text('Yes,Confirm'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return; // User cancelled
+      }
+
+      // Toggle the local status first for immediate UI update
+      isOnline.value = !isOnline.value;
+      
+      // Update in Firestore
+      await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .update({
+        'isOnline': isOnline.value,
+        'lastStatusUpdate': Timestamp.now(),
+      });
+
+      
+
+      debugPrint('✅ Partner status updated to: ${isOnline.value ? "Online" : "Offline"}');
+    } catch (e) {
+      // Revert the local status if Firestore update failed
+      isOnline.value = !isOnline.value;
+      
+    
+      debugPrint('❌ Error updating online status: $e');
+    }
+  }
+
+  /// Load initial online status from Firestore
+  Future<void> _loadInitialOnlineStatus() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        isOnline.value = data['isOnline'] ?? true;
+        debugPrint('✅ Initial online status loaded: ${isOnline.value}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading initial online status: $e');
+      // Default to online if there's an error
+      isOnline.value = true;
     }
   }
 

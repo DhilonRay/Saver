@@ -60,6 +60,7 @@ class HomePartnerPage extends StatelessWidget {
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
               actions: [
+               
                 IconButton(
                   icon: Icon(
                     Icons.notifications,
@@ -204,6 +205,48 @@ class HomePartnerPage extends StatelessWidget {
                               fontWeight: FontWeight.w300,
                             ),
                           ),
+                          SizedBox(height: 8),
+                          Obx(() => Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: controller.isOnline.value 
+                                  ? Colors.green.shade50 
+                                  : Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: controller.isOnline.value 
+                                    ? Colors.green.shade300 
+                                    : Colors.orange.shade300,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: controller.isOnline.value 
+                                        ? Colors.green.shade600 
+                                        : Colors.orange.shade600,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  controller.isOnline.value ? 'অনলাইন' : 'অফলাইন',
+                                  style: TextStyle(
+                                    color: controller.isOnline.value 
+                                        ? Colors.green.shade700 
+                                        : Colors.orange.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
                         ],
                       ),
                     ),
@@ -217,6 +260,16 @@ class HomePartnerPage extends StatelessWidget {
                             title: 'My Orders',
                             onTap: controller.navigateToPartnersOrders,
                           ),
+                          Obx(() => _buildDrawerItem(
+                            icon: controller.isOnline.value 
+                                ? Icons.toggle_on_rounded 
+                                : Icons.toggle_off_rounded,
+                            title: controller.isOnline.value ? 'Go Offline' : 'Go Online',
+                            onTap: controller.toggleOnlineStatus,
+                            iconColor: controller.isOnline.value 
+                                ? Colors.green.shade600 
+                                : Colors.orange.shade600,
+                          )),
                           _buildDrawerItem(
                             icon: Icons.person,
                             title: 'Profile',
@@ -353,50 +406,122 @@ class HomePartnerPage extends StatelessWidget {
                 SafeArea(
                   child: Stack(
                     children: [
-                      // Status indicator
+                      // Online/Offline Toggle Button
                       Positioned(
                         top: 16,
                         left: 0,
                         right: 0,
                         child: Center(
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 4,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
+                          child: Obx(() => GestureDetector(
+                            onTap: controller.toggleOnlineStatus,
+                            child: AnimatedContainer(
+                              duration: Duration(milliseconds: 300),
+                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 3),
                                   ),
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Online',
-                                  style: TextStyle(
-                                    color: Colors.green.shade700,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                 
+                                 
+                                  Text(
+                                    controller.isOnline.value ? 'Online' : 'Offline',
+                                    style: TextStyle(
+                                      color: controller.isOnline.value 
+                                          ? Colors.green.shade700 
+                                          : Colors.orange.shade700,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 4),
+                                  Icon(
+                                    controller.isOnline.value 
+                                        ? Icons.toggle_on_rounded 
+                                        : Icons.toggle_off_rounded,
+                                    color: controller.isOnline.value 
+                                        ? Colors.green.shade600 
+                                        : Colors.grey.shade500,
+                                    size: 24,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          )),
                         ),
+                      ),
+
+                      // Status Information Card (Bottom Left)
+                      Positioned(
+                        left: 16,
+                        bottom: 20,
+                        child: Obx(() => AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    controller.isOnline.value 
+                                        ? Icons.radio_button_checked 
+                                        : Icons.radio_button_unchecked,
+                                    color: controller.isOnline.value 
+                                        ? Colors.green.shade600 
+                                        : Colors.grey.shade500,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'স্থিতি',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                controller.isOnline.value 
+                                    ? 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে'
+                                    : 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে না',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: controller.isOnline.value 
+                                      ? Colors.green.shade700 
+                                      : Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
                       ),
 
                       // Zoom controls positioned on the right side
@@ -476,6 +601,7 @@ class HomePartnerPage extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    Color? iconColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -491,7 +617,7 @@ class HomePartnerPage extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                color: primaryBlue,
+                color: iconColor ?? primaryBlue,
                 size: 20,
               ),
             ),

@@ -501,6 +501,80 @@ class AcceptMapsController extends GetxController {
     }
   }
 
+  // Send notification to user when order status changes
+  Future<void> _sendStatusChangeNotification(String status) async {
+    if (requestData.value == null) {
+      debugPrint('❌ Cannot send status notification: requestData is null');
+      return;
+    }
+
+    final requestId = requestData.value!['id'];
+    final userId = requestData.value!['userId'];
+
+    debugPrint('📤 Attempting to send status change notification for status: $status, userId: $userId, requestId: $requestId');
+
+    try {
+      // Get user's FCM token
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        debugPrint('❌ User document not found for userId: $userId');
+        return;
+      }
+
+      final fcmToken = userDoc.data()?['fcmToken'];
+      debugPrint('📱 FCM Token retrieved: ${fcmToken != null ? 'YES (${fcmToken.substring(0, 20)}...)' : 'NO'}');
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        String title = 'Order Status Update';
+        String body = 'Your order status has been updated to: $status';
+
+        // Customize message based on status
+        switch (status) {
+          case 'accepted':
+            title = 'রাইড গ্রহণ করা হয়েছে';
+            body = 'আপনার রাইড গ্রহণ করা হয়েছে। অ্যাম্বুলেন্স আসছে।';
+            break;
+          case 'in_transit':
+            title = 'অ্যাম্বুলেন্স রওনা হয়েছে';
+            body = 'আপনার অ্যাম্বুলেন্স রওনা হয়েছে।';
+            break;
+          case 'pickup':
+            title = 'পেশেন্ট পিকআপ সম্পন্ন';
+            body = 'পেশেন্ট পিকআপ সম্পন্ন হয়েছে। গন্তব্যের দিকে যাচ্ছে।';
+            break;
+          case 'to_destination':
+            title = 'গন্তব্যের দিকে যাচ্ছে';
+            body = 'অ্যাম্বুলেন্স গন্তব্যের দিকে যাচ্ছে।';
+            break;
+          case 'completed':
+            title = 'রাইড সম্পন্ন';
+            body = 'আপনার রাইড সম্পন্ন হয়েছে।';
+            break;
+        }
+
+        await NotificationService.sendFCMNotification(
+          token: fcmToken,
+          title: title,
+          body: body,
+          data: {
+            'type': 'status_update',
+            'orderId': requestId,
+            'status': status,
+          },
+        );
+        debugPrint('✅ Status change notification sent successfully for status: $status');
+      } else {
+        debugPrint('❌ FCM token not found or empty for user: $userId');
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending status change notification: $e');
+    }
+  }
+
   // Live tracking functions
   void startLiveTracking() async {
     if (isLiveTracking.value) return;
@@ -522,6 +596,9 @@ class AcceptMapsController extends GetxController {
         // Update local data
         requestData.value!['status'] = 'in_transit';
         requestData.refresh();
+
+        // Send notification to user
+        await _sendStatusChangeNotification('in_transit');
       } catch (e) {
         debugPrint('Failed to update order status: $e');
       }
@@ -801,6 +878,9 @@ class AcceptMapsController extends GetxController {
         // Update local data
         requestData.value!['status'] = status;
         requestData.refresh();
+
+        // Send notification to user about status change
+        await _sendStatusChangeNotification(status);
       } catch (e) {
         debugPrint('Failed to update order status: $e');
       }
@@ -868,7 +948,7 @@ class AcceptMapsController extends GetxController {
     }
   }
 
-  Future<void> generateAndSendDestinationOTP() async {
+  /* Future<void> generateAndSendDestinationOTP() async {
     if (requestData.value == null) return;
 
     final requestId = requestData.value!['id'];
@@ -927,7 +1007,7 @@ class AcceptMapsController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error generating/sending destination OTP: $e');
     }
-  }
+  } */
 
   Future<bool> confirmPickupOTP(String enteredOTP) async {
     if (requestData.value == null) return false;
@@ -971,6 +1051,9 @@ class AcceptMapsController extends GetxController {
         requestData.value!['pickupConfirmedAt'] = Timestamp.now();
         requestData.refresh();
 
+        // Send notification to user
+        await _sendStatusChangeNotification('pickup');
+
         debugPrint('✅ Pickup OTP confirmed, status updated to pickup');
         return true;
       } else {
@@ -1002,8 +1085,11 @@ class AcceptMapsController extends GetxController {
       requestData.value!['status'] = 'to_destination';
       requestData.refresh();
 
-      // Generate and send destination OTP
-      await generateAndSendDestinationOTP();
+      // Send notification to user
+      await _sendStatusChangeNotification('to_destination');
+
+      // Generate and send destination OTP - REMOVED as per requirement
+      // await generateAndSendDestinationOTP();
 
       // Update destination location for routing
       if (requestData.value!['destinationLat'] != null &&

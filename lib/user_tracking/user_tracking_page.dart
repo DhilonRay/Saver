@@ -459,28 +459,40 @@ class UserTrackingPage extends StatelessWidget {
                                   children: [
                                     Icon(Icons.access_time, color: Colors.purple.shade600, size: 16),
                                     SizedBox(width: 8),
-                                    Obx(() => Text(
-                                          'Time: ${controller.estimatedTime.value}',
-                                          style: TextStyle(
-                                            color: Colors.purple.shade700,
-                                            fontSize: 14,
-                                          ),
-                                        )),
+                                    Flexible(
+                                      child: Obx(() => Text(
+                                            'Time: ${controller.estimatedTime.value}',
+                                            style: TextStyle(
+                                              color: Colors.purple.shade700,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )),
+                                    ),
                                   ],
                                 ),
                               ),
+                            ],
+                          ),
+                          Row(
+                            children: [
                               Expanded(
                                 child: Row(
                                   children: [
                                     Icon(Icons.location_on, color: Colors.purple.shade600, size: 16),
                                     SizedBox(width: 8),
-                                    Obx(() => Text(
-                                          'Distance: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km'}',
-                                          style: TextStyle(
-                                            color: Colors.purple.shade700,
-                                            fontSize: 14,
-                                          ),
-                                        )),
+                                    Flexible(
+                                      child: Obx(() => Text(
+                                            'Distance: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km'}',
+                                            style: TextStyle(
+                                              color: Colors.purple.shade700,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -492,6 +504,7 @@ class UserTrackingPage extends StatelessWidget {
                     SizedBox(height: 12),
                     // Fare Information
                     Obx(() {
+                      final orderData = controller.orderData.value;
                       final fareAmount =
                           orderData?['fareAmount'] ?? orderData?['totalFare'];
 
@@ -645,83 +658,7 @@ class UserTrackingPage extends StatelessWidget {
                       }
                     }),
 
-                    // OTP Display for Destination (only show when to_destination and OTP is available)
-                    Obx(() {
-                      final orderData = controller.orderData.value;
-                      final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
-                      final destinationOTP = orderData?['destinationOTP'];
-
-                      if (status.toLowerCase() == 'to_destination' && destinationOTP != null && destinationOTP.isNotEmpty) {
-                        return Container(
-                          padding: EdgeInsets.all(16),
-                          margin: EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green.shade200, width: 2),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.flag,
-                                    color: Colors.green.shade600,
-                                    size: 24,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Destination Arrival Code',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 12),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.green.shade300, width: 1),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      destinationOTP,
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade700,
-                                        letterSpacing: 4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Show this code to the ambulance driver when you arrive at destination',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green.shade600,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return SizedBox.shrink();
-                      }
-                    }),
+                   
 
                     // Fare Information
                     Obx(() {

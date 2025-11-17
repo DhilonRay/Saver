@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/notification_service.dart';
 
 class PartnerOrdersController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -58,6 +59,9 @@ class PartnerOrdersController extends GetxController {
     try {
       await _firestore.collection('orders').doc(orderId).update({'status': newStatus});
 
+      // Send notification to user about status change
+      await _sendStatusChangeNotification(orderId, newStatus);
+
       Get.snackbar(
         'Success',
         'Order status updated to $newStatus',
@@ -75,6 +79,71 @@ class PartnerOrdersController extends GetxController {
         colorText: Colors.white,
         duration: const Duration(seconds: 3),
       );
+    }
+  }
+
+  // Send notification to user when order status changes
+  Future<void> _sendStatusChangeNotification(String orderId, String status) async {
+    try {
+      // Get order data to find userId
+      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
+      if (!orderDoc.exists) return;
+
+      final orderData = orderDoc.data();
+      final userId = orderData?['userId'];
+      if (userId == null) return;
+
+      // Get user's FCM token
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return;
+
+      final fcmToken = userDoc.data()?['fcmToken'];
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        String title = 'Order Status Update';
+        String body = 'Your order status has been updated to: $status';
+
+        // Customize message based on status
+        switch (status) {
+          case 'accepted':
+            title = 'রাইড গ্রহণ করা হয়েছে';
+            body = 'আপনার রাইড গ্রহণ করা হয়েছে। অ্যাম্বুলেন্স আসছে।';
+            break;
+          case 'in_transit':
+            title = 'অ্যাম্বুলেন্স রওনা হয়েছে';
+            body = 'আপনার অ্যাম্বুলেন্স রওনা হয়েছে।';
+            break;
+          case 'pickup':
+            title = 'পেশেন্ট পিকআপ সম্পন্ন';
+            body = 'পেশেন্ট পিকআপ সম্পন্ন হয়েছে। গন্তব্যের দিকে যাচ্ছে।';
+            break;
+          case 'to_destination':
+            title = 'গন্তব্যের দিকে যাচ্ছে';
+            body = 'অ্যাম্বুলেন্স গন্তব্যের দিকে যাচ্ছে।';
+            break;
+          case 'completed':
+            title = 'রাইড সম্পন্ন';
+            body = 'আপনার রাইড সম্পন্ন হয়েছে।';
+            break;
+          case 'cancelled':
+            title = 'রাইড বাতিল';
+            body = 'আপনার রাইড বাতিল করা হয়েছে।';
+            break;
+        }
+
+        await NotificationService.sendFCMNotification(
+          token: fcmToken,
+          title: title,
+          body: body,
+          data: {
+            'type': 'status_update',
+            'orderId': orderId,
+            'status': status,
+          },
+        );
+        debugPrint('✅ Status change notification sent for status: $status');
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending status change notification: $e');
     }
   }
 
