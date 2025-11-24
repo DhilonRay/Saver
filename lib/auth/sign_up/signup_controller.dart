@@ -73,8 +73,9 @@ class SignUpController extends GetxController {
       );
 
       // Save user data to Firestore
+      String collectionName = selectedRole.value == 'driver' ? 'drivers' : 'users';
       await FirebaseFirestore.instance
-          .collection('users')
+          .collection(collectionName)
           .doc(userCredential.user!.uid)
           .set({
         'name': nameController.text.trim(),

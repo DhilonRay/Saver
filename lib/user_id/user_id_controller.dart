@@ -17,6 +17,7 @@ class UserIdController extends GetxController {
   final Rx<Map<String, dynamic>?> partnerData = Rx<Map<String, dynamic>?>(null);
   final RxBool isEditing = false.obs;
   final RxBool isLoading = true.obs;
+  final RxString userCollection = 'users'.obs; // To store which collection the user data is in
 
   // Profile image
   var profileImageUrl = Rx<String?>(null);
@@ -45,11 +46,18 @@ class UserIdController extends GetxController {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       try {
-        final userDocRef = FirebaseFirestore.instance.collection('users').doc(uid);
-        final userDoc = await userDocRef.get();
+        // Check users collection first, then drivers
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        String collectionName = 'users';
+        if (!userDoc.exists) {
+          userDoc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+          collectionName = 'drivers';
+        }
+        userCollection.value = collectionName;
+        final userDocRef = FirebaseFirestore.instance.collection(collectionName).doc(uid);
 
         if (userDoc.exists) {
-          userData.value = userDoc.data();
+          userData.value = userDoc.data() as Map<String, dynamic>?;
           nameController.text = userData.value?['name'] ?? '';
           phoneController.text = userData.value?['phone'] ?? '';
           addressController.text = userData.value?['address'] ?? '';
@@ -111,7 +119,7 @@ class UserIdController extends GetxController {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       try {
-        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        await FirebaseFirestore.instance.collection(userCollection.value).doc(uid).update({
           'name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'address': addressController.text.trim(),
@@ -170,7 +178,7 @@ class UserIdController extends GetxController {
   Future<void> _updateLocation(String uid) async {
     try {
       Position position = await _getCurrentLocation();
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await FirebaseFirestore.instance.collection(userCollection.value).doc(uid).update({
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
@@ -381,7 +389,7 @@ class UserIdController extends GetxController {
         debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
         // Update Firestore with the new image URL
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        await FirebaseFirestore.instance.collection(userCollection.value).doc(user.uid).update({
           'profileImageUrl': downloadUrl,
         });
 
@@ -575,7 +583,7 @@ class UserIdController extends GetxController {
       if (user == null) return;
 
       // Remove from Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance.collection(userCollection.value).doc(user.uid).update({
         'profileImageUrl': FieldValue.delete(),
       });
 

@@ -73,6 +73,9 @@ class HomeController extends GetxController {
   StreamSubscription<DocumentSnapshot>? _orderSubscription;
   var currentTrackingOrderId = Rx<String?>(null);
 
+  // Currently online ambulance providers cached as simple maps so UI can show a list
+  var onlineAmbulances = <Map<String, dynamic>>[].obs;
+
   // Autocomplete variables
   var placeSuggestions = <Map<String, dynamic>>[].obs;
   var isLoadingSuggestions = false.obs;
@@ -165,6 +168,9 @@ class HomeController extends GetxController {
         markers.removeWhere(
             (marker) => marker.markerId.value.startsWith('ambulance_'));
 
+        // Build a simple list of online ambulances for UI (drawer quick-access)
+        final List<Map<String, dynamic>> onlineList = [];
+
         // Only add ambulance markers if showAmbulances is true
         if (showAmbulances.value) {
           for (var doc in partnersSnapshot.docs) {
@@ -194,6 +200,18 @@ class HomeController extends GetxController {
                 'isOnline': isOnline,
               };
 
+              // Add a compact representation to the list visible in drawer
+              onlineList.add({
+                'id': doc.id,
+                'name': name,
+                'phone': phone ?? '+8801793399913',
+                'address': address ?? 'Coverage area not specified',
+                'ambulanceType': ambulanceType ?? 'General Ambulance',
+                'latitude': latitude,
+                'longitude': longitude,
+                'isOnline': isOnline,
+              });
+
               markers.add(
                 Marker(
                   markerId: MarkerId('ambulance_${doc.id}'),
@@ -209,6 +227,9 @@ class HomeController extends GetxController {
               );
             }
           }
+
+            // Update the reactive list so UI elements (drawer) can show it
+            onlineAmbulances.assignAll(onlineList);
         }
 
         debugPrint('✅ Real-time ambulance providers updated successfully');
@@ -2446,6 +2467,40 @@ class HomeController extends GetxController {
     );
   }
 
+  /// Dial the central call center number for manual ambulance booking.
+  /// Opens the phone dialer with the call-center number.
+  Future<void> callCenter() async {
+    const String phoneNumber = '+8801793399913';
+    final uri = Uri(scheme: 'tel', path: phoneNumber);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        Get.snackbar(
+          'Cannot Call',
+          'Unable to open the phone dialer on this device.',
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade800,
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to launch dialer: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to start call. Please manually dial $phoneNumber',
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade800,
+      );
+    }
+  }
+
+  /// Public wrapper so UI code can open ambulance details (calls the private
+  /// bottom-sheet implementation already present in this controller).
+  void viewAmbulanceDetails(Map<String, dynamic> ambulanceData) {
+    _showAmbulanceProviderDetails(ambulanceData);
+  }
+
   // Simplified info row helper
   Widget _buildSimpleInfoRow(
       IconData icon, Color iconColor, String label, String value,
@@ -2651,6 +2706,34 @@ class HomeController extends GetxController {
           requestData: requestData,
         );
         debugPrint('✅ Ambulance notification sent to partner: $partnerId');
+
+        // Add notification for user about request creation
+        await _addUserNotification(
+          title: '🚑 অ্যাম্বুলেন্স অনুরোধ পাঠানো হয়েছে',
+          message: 'আপনার অ্যাম্বুলেন্স অনুরোধ সফলভাবে পাঠানো হয়েছে। পার্টনার খুব শীঘ্রই আপনার সাথে যোগাযোগ করবে।',
+          type: 'ambulance',
+          data: {
+            'type': 'ambulance_request',
+            'requestId': docRef.id,
+            'partnerId': partnerId,
+            'status': 'sent',
+          },
+        );
+
+        // Send FCM push notification
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await NotificationService.sendUserNotification(
+            userId: currentUser.uid,
+            title: '🚑 অ্যাম্বুলেন্স অনুরোধ পাঠানো হয়েছে',
+            message: 'আপনার অ্যাম্বুলেন্স অনুরোধ সফলভাবে পাঠানো হয়েছে।',
+            data: {
+              'type': 'ambulance_request',
+              'requestId': docRef.id,
+              'status': 'sent',
+            },
+          );
+        }
       } catch (notificationError) {
         debugPrint(
             '❌ Failed to send ambulance notification: $notificationError');
@@ -2701,6 +2784,33 @@ class HomeController extends GetxController {
             onTap: () => navigateToTrackingPage(),
             autoCloseDuration: const Duration(seconds: 8),
           );
+
+          // Add notification for user
+          _addUserNotification(
+            title: '✅ অ্যাম্বুলেন্স নিশ্চিত হয়েছে',
+            message: 'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে। অ্যাম্বুলেন্স পৌঁছালে পিকআপ OTP পাবেন।',
+            type: 'ambulance',
+            data: {
+              'type': 'status_update',
+              'requestId': orderId,
+              'status': 'accepted',
+            },
+          );
+
+          // Send FCM push notification
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            NotificationService.sendUserNotification(
+              userId: user.uid,
+              title: '✅ অ্যাম্বুলেন্স নিশ্চিত হয়েছে',
+              message: 'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে।',
+              data: {
+                'type': 'status_update',
+                'requestId': orderId,
+                'status': 'accepted',
+              },
+            );
+          }
         } else if (status == 'in_transit') {
           isTrackingPartner.value = true;
           // Show OTP when ambulance is in transit (arrived at pickup)
@@ -2713,6 +2823,34 @@ class HomeController extends GetxController {
               onTap: () => navigateToTrackingPage(),
               autoCloseDuration: const Duration(seconds: 10),
             );
+
+            // Add notification for user
+            _addUserNotification(
+              title: '🚑 অ্যাম্বুলেন্স পৌঁছেছে',
+              message: 'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP। ড্রাইভারকে এই OTP দেখান।',
+              type: 'ambulance',
+              data: {
+                'type': 'otp_received',
+                'requestId': orderId,
+                'status': 'in_transit',
+                'pickupOTP': pickupOTP,
+              },
+            );
+
+            // Send FCM push notification
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              NotificationService.sendUserNotification(
+                userId: user.uid,
+                title: '🚑 অ্যাম্বুলেন্স পৌঁছেছে',
+                message: 'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP',
+                data: {
+                  'type': 'otp_received',
+                  'requestId': orderId,
+                  'pickupOTP': pickupOTP,
+                },
+              );
+            }
           }
         } else if (status == 'pickup') {
           isTrackingPartner.value = true;
@@ -2724,6 +2862,33 @@ class HomeController extends GetxController {
             onTap: () => navigateToTrackingPage(),
             autoCloseDuration: const Duration(seconds: 5),
           );
+
+          // Add notification for user
+          _addUserNotification(
+            title: '🏥 রোগী তুলে নেয়া হয়েছে',
+            message: 'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
+            type: 'ambulance',
+            data: {
+              'type': 'status_update',
+              'requestId': orderId,
+              'status': 'pickup',
+            },
+          );
+
+          // Send FCM push notification
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            NotificationService.sendUserNotification(
+              userId: user.uid,
+              title: '🏥 রোগী তুলে নেয়া হয়েছে',
+              message: 'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
+              data: {
+                'type': 'status_update',
+                'requestId': orderId,
+                'status': 'pickup',
+              },
+            );
+          }
         } else if (status == 'to_destination') {
           isTrackingPartner.value = true;
           // Ambulance is going to destination - show destination OTP
@@ -2736,6 +2901,34 @@ class HomeController extends GetxController {
               onTap: () => navigateToTrackingPage(),
               autoCloseDuration: const Duration(seconds: 8),
             );
+
+            // Add notification for user
+            _addUserNotification(
+              title: '🎯 গন্তব্যের দিকে যাচ্ছে',
+              message: 'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। পৌঁছানোর OTP: $destinationOTP। পৌঁছালে ড্রাইভারকে এই OTP দেখান।',
+              type: 'ambulance',
+              data: {
+                'type': 'otp_received',
+                'requestId': orderId,
+                'status': 'to_destination',
+                'destinationOTP': destinationOTP,
+              },
+            );
+
+            // Send FCM push notification
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              NotificationService.sendUserNotification(
+                userId: user.uid,
+                title: '🎯 গন্তব্যের দিকে যাচ্ছে',
+                message: 'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। OTP: $destinationOTP',
+                data: {
+                  'type': 'otp_received',
+                  'requestId': orderId,
+                  'destinationOTP': destinationOTP,
+                },
+              );
+            }
           } else {
             SuccessDialog.show(
               title: 'Heading to Destination',
@@ -2743,6 +2936,18 @@ class HomeController extends GetxController {
                   'Your ambulance is now heading to the destination.',
               onTap: () => navigateToTrackingPage(),
               autoCloseDuration: const Duration(seconds: 5),
+            );
+
+            // Add notification for user
+            _addUserNotification(
+              title: '🎯 গন্তব্যের দিকে যাচ্ছে',
+              message: 'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে।',
+              type: 'ambulance',
+              data: {
+                'type': 'status_update',
+                'requestId': orderId,
+                'status': 'to_destination',
+              },
             );
           }
         } else if (status == 'completed') {
@@ -2773,6 +2978,33 @@ class HomeController extends GetxController {
             title: 'Service Completed',
             message: 'Your ambulance service has been completed.',
           );
+
+          // Add notification for user
+          _addUserNotification(
+            title: '🎉 সেবা সম্পন্ন হয়েছে',
+            message: 'আপনার অ্যাম্বুলেন্স সেবা সম্পন্ন হয়েছে। আমাদের সেবা ব্যবহার করার জন্য ধন্যবাদ।',
+            type: 'ambulance',
+            data: {
+              'type': 'service_completed',
+              'requestId': orderId,
+              'status': 'completed',
+            },
+          );
+
+          // Send FCM push notification
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            NotificationService.sendUserNotification(
+              userId: user.uid,
+              title: '🎉 সেবা সম্পন্ন হয়েছে',
+              message: 'আপনার অ্যাম্বুলেন্স সেবা সম্পন্ন হয়েছে।',
+              data: {
+                'type': 'service_completed',
+                'requestId': orderId,
+                'status': 'completed',
+              },
+            );
+          }
         } else if (status == 'declined') {
           // Show cancellation dialog
           Get.dialog(
@@ -2787,6 +3019,34 @@ class HomeController extends GetxController {
               ],
             ),
           );
+
+          // Add notification for user
+          _addUserNotification(
+            title: '❌ অর্ডার বাতিল',
+            message: 'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে। দয়া করে আবার চেষ্টা করুন।',
+            type: 'ambulance',
+            data: {
+              'type': 'order_declined',
+              'requestId': orderId,
+              'status': 'declined',
+            },
+          );
+
+          // Send FCM push notification
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            NotificationService.sendUserNotification(
+              userId: user.uid,
+              title: '❌ অর্ডার বাতিল',
+              message: 'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।',
+              data: {
+                'type': 'order_declined',
+                'requestId': orderId,
+                'status': 'declined',
+              },
+            );
+          }
+
           // Stop tracking
           isTrackingPartner.value = false;
           currentTrackingOrderId.value = null;
@@ -4358,6 +4618,38 @@ class HomeController extends GetxController {
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+    }
+  }
+
+  // Add notification for user
+  Future<void> _addUserNotification({
+    required String title,
+    required String message,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final notificationData = {
+        'title': title,
+        'message': message,
+        'type': type,
+        'isRead': false,
+        'timestamp': FieldValue.serverTimestamp(),
+        'data': data ?? {},
+      };
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('notifications')
+          .add(notificationData);
+
+      debugPrint('✅ User notification added: $title');
+    } catch (e) {
+      debugPrint('❌ Failed to add user notification: $e');
     }
   }
 }

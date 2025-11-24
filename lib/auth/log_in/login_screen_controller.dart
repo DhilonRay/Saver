@@ -76,20 +76,33 @@ class LoginController extends GetxController {
 
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
-      // Fetch user data from Firestore
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // Fetch user data from Firestore - check users first, then drivers
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      String collectionName = 'users';
+      if (!userDoc.exists) {
+        userDoc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+        collectionName = 'drivers';
+      }
 
       if (userDoc.exists) {
-        final userData = userDoc.data();
+        final userData = userDoc.data() as Map<String, dynamic>?;
         final role = userData?['role'] as String?;
 
-        debugPrint('🔍 User document found');
+        debugPrint('🔍 User document found in $collectionName');
         debugPrint('👤 User data: $userData');
         debugPrint('🎭 Detected role: $role');
 
+        // Check if it's a partner by checking partners collection if role is null
+        bool isPartner = false;
+        if (role == null) {
+          final partnerDoc = await FirebaseFirestore.instance.collection('partners').doc(uid).get();
+          if (partnerDoc.exists) {
+            isPartner = true;
+          }
+        }
+
         // Navigate based on role
-        if (role == 'partner' || role == 'ambulance' || role == 'driver') {
+        if ((role != null && role != 'user') || isPartner) {
           // Also store FCM token in partners collection
           if (fcmToken.value.isNotEmpty) {
             await FirebaseFirestore.instance

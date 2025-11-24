@@ -6,6 +6,8 @@ import 'package:saver/loader/loader.dart';
 import 'home_user_controller.dart';
 import '../widgets/fares_widgets.dart';
 import '../services/fares_service.dart';
+import '../user_notification/user_notification.dart';
+import '../user_notification/user_notification_controller.dart';
 
 class HomePage extends StatelessWidget {
   final bool isNewSignup;
@@ -26,6 +28,11 @@ class HomePage extends StatelessWidget {
     return GetBuilder<HomeController>(
       init: HomeController(isNewSignup: isNewSignup),
       builder: (controller) {
+        // Initialize UserNotificationController if not already initialized
+        if (!Get.isRegistered<UserNotificationController>()) {
+          Get.put(UserNotificationController());
+        }
+
         return Container(
           decoration: BoxDecoration(),
           child: Scaffold(
@@ -40,6 +47,46 @@ class HomePage extends StatelessWidget {
                 ),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
+              actions: [
+                Obx(() {
+                  final notificationController = Get.find<UserNotificationController>();
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.notifications,
+                          color: primaryBlue,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          Get.to(() => const UserNotificationPage());
+                        },
+                      ),
+                      if (notificationController.unreadCount.value > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                       
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              notificationController.unreadCount.value.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+              ],
             ),
             drawer: Drawer(
               child: Container(
@@ -202,6 +249,98 @@ class HomePage extends StatelessWidget {
                             title: 'Tracking',
                             onTap: controller.navigateToTrackingPage,
                           ),
+
+                          // Quick access: available/online ambulances (live list)
+                          _buildDrawerItem(
+                            icon: Icons.local_hospital,
+                            title: 'Available Ambulances',
+                            onTap: controller.navigateToAmbulanceServices,
+                          ),
+
+                          Obx(() {
+                            final online = controller.onlineAmbulances;
+                            if (online.isEmpty) return SizedBox.shrink();
+
+                            final count = online.length;
+                            // show up to 3 providers as quick links
+                            final displayItems = online.length > 3 ? 3 : online.length;
+                            return Column(
+                              children: [
+                                for (var i = 0; i < displayItems; i++)
+                                  InkWell(
+                                    onTap: () => controller.viewAmbulanceDetails(online[i]),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              Icons.local_taxi,
+                                              size: 18,
+                                              color: Colors.red.shade700,
+                                            ),
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  online[i]['name']?.toString() ?? 'Ambulance',
+                                                  style: TextStyle(
+                                                    color: Colors.blueGrey.shade800,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                SizedBox(height: 4),
+                                                Text(
+                                                  online[i]['ambulanceType']?.toString() ?? '',
+                                                  style: TextStyle(
+                                                    color: Colors.blueGrey.shade500,
+                                                    fontSize: 12,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.chevron_right,
+                                            color: Colors.grey.shade400,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                if (count > 3)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: controller.navigateToAmbulanceServices,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('See all available ambulances', style: TextStyle(color: Colors.blueGrey.shade700, fontSize: 13)),
+                                          Icon(Icons.arrow_forward_ios, size: 12, color: Colors.blueGrey.shade400),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          }),
+
                           Divider(height: 40, thickness: 1),
                           _buildDrawerItem(
                             icon: Icons.info_outline,
@@ -270,6 +409,7 @@ class HomePage extends StatelessWidget {
                   ],
                 ),
               ),
+
             ),
             body: Stack(
               children: [
@@ -692,6 +832,36 @@ class HomePage extends StatelessWidget {
                 ),
 
                 // Zoom controls positioned on the right side
+                // Call center floating button - bottom-left
+                Positioned(
+                  left: 16,
+                  bottom: 24,
+                  child: GestureDetector(
+                    onTap: () => controller.callCenter(),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 10,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.call,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 Positioned(
                   right: 16,
                   bottom: 120, // Position above the emergency buttons

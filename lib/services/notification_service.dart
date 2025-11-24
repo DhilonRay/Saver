@@ -573,7 +573,7 @@ class NotificationService {
   /// Initialize local notifications
   static Future<void> _initializeLocalNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/notification_icon');
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings();
@@ -609,9 +609,22 @@ class NotificationService {
       playSound: true,
     );
 
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    // Create user notification channel
+    const AndroidNotificationChannel userChannel = AndroidNotificationChannel(
+      'user_notifications',
+      'User Notifications',
+      description: 'This channel is used for user ambulance notifications.',
+      importance: Importance.high,
+      showBadge: true,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    final androidPlugin = _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    await androidPlugin?.createNotificationChannel(channel);
+    await androidPlugin?.createNotificationChannel(userChannel);
   }
 
   /// Show local notification
@@ -635,6 +648,8 @@ class NotificationService {
         showWhen: true,
         enableVibration: true,
         playSound: true,
+        icon: '@drawable/notification_icon',
+        largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -888,20 +903,40 @@ class NotificationService {
       // Show local notification for foreground messages
       await _showLocalNotification(message);
 
-      // Add notification to partner's notification list for UI display
+      // Add notification to user/partner notification list for UI display
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null && message.notification != null) {
         try {
-          await addPartnerNotification(
-            partnerId: currentUser.uid,
-            title: message.notification!.title ?? 'Notification',
-            message: message.notification!.body ?? '',
-            type: message.data['type'] ?? 'info',
-            data: message.data,
-          );
-          print('✅ Foreground notification added to partner list');
+          // Check if this is a user notification
+          final notificationType = message.data['type'] ?? 'info';
+          if (notificationType.contains('ambulance') || notificationType.contains('user')) {
+            // Add to user notifications
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(currentUser.uid)
+                .collection('notifications')
+                .add({
+              'title': message.notification!.title ?? 'Notification',
+              'message': message.notification!.body ?? '',
+              'type': notificationType,
+              'isRead': false,
+              'timestamp': FieldValue.serverTimestamp(),
+              'data': message.data,
+            });
+            print('✅ Foreground notification added to user list');
+          } else {
+            // Add to partner notifications (existing logic)
+            await addPartnerNotification(
+              partnerId: currentUser.uid,
+              title: message.notification!.title ?? 'Notification',
+              message: message.notification!.body ?? '',
+              type: notificationType,
+              data: message.data,
+            );
+            print('✅ Foreground notification added to partner list');
+          }
         } catch (e) {
-          print('❌ Error adding foreground notification to partner list: $e');
+          print('❌ Error adding foreground notification to list: $e');
         }
       }
 
@@ -1006,6 +1041,8 @@ class NotificationService {
       showWhen: true,
       enableVibration: true,
       playSound: true,
+      icon: '@drawable/notification_icon',
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -1146,6 +1183,104 @@ class NotificationService {
       debugPrint('✅ Notified ${partnersSnapshot.docs.length} online partners');
     } catch (e) {
       debugPrint('❌ Failed to notify partners: $e');
+    }
+  }
+
+  /// Send push notification to user via FCM
+  static Future<bool> sendUserNotification({
+    required String userId,
+    required String title,
+    required String message,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      debugPrint('📱 Sending notification to user: $userId');
+      debugPrint('📱 Title: $title');
+      debugPrint('📱 Message: $message');
+
+      // Get user's FCM token from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        debugPrint('❌ User not found');
+        return false;
+      }
+
+      final userData = userDoc.data();
+      final fcmToken = userData?['fcmToken'] as String?;
+
+      debugPrint('📱 User FCM Token: ${fcmToken?.substring(0, 20)}...');
+
+      // Validate FCM token format
+      if (fcmToken == null || fcmToken.isEmpty || fcmToken.length < 100) {
+        debugPrint('⚠️ User FCM token invalid or too short (length: ${fcmToken?.length})');
+        return false;
+      }
+
+      // Get access token for FCM V1 API
+      final accessToken = await _getAccessToken();
+      debugPrint('📱 Access token obtained for FCM V1');
+
+      // Prepare notification payload for FCM V1
+      final payload = {
+        'message': {
+          'token': fcmToken,
+          'notification': {
+            'title': title,
+            'body': message,
+          },
+          'data': data != null ? Map<String, String>.from(data.map((k, v) => MapEntry(k, v.toString()))) : <String, String>{},
+          'android': {
+            'notification': {
+              'channel_id': 'user_notifications',
+              'sound': 'default',
+              'default_vibrate_timings': true,
+            },
+            'priority': 'high',
+          },
+          'apns': {
+            'payload': {
+              'aps': {
+                'alert': {
+                  'title': title,
+                  'body': message,
+                },
+                'sound': 'default',
+                'badge': 1,
+              },
+            },
+          },
+        },
+      };
+
+      debugPrint('📱 Sending FCM V1 request...');
+
+      // Send notification via FCM V1 API
+      final response = await http.post(
+        Uri.parse(_fcmUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: json.encode(payload),
+      );
+
+      debugPrint('📱 FCM Response Status: ${response.statusCode}');
+      debugPrint('📱 FCM Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ User notification sent successfully');
+        return true;
+      } else {
+        debugPrint('❌ Failed to send user notification: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending user notification: $e');
+      return false;
     }
   }
 }
