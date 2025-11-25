@@ -2474,14 +2474,25 @@ class HomeController extends GetxController {
     final uri = Uri(scheme: 'tel', path: phoneNumber);
 
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
+      // Request phone call permission
+      var status = await Permission.phone.request();
+      if (status.isGranted) {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          Get.snackbar(
+            'Cannot Call',
+            'Unable to open the phone dialer on this device.',
+            backgroundColor: Colors.red.shade100,
+            colorText: Colors.red.shade800,
+          );
+        }
       } else {
         Get.snackbar(
-          'Cannot Call',
-          'Unable to open the phone dialer on this device.',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
+          'Permission Denied',
+          'Phone call permission is required to make calls.',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
         );
       }
     } catch (e) {

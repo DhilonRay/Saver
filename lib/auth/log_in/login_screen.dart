@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'login_screen_controller.dart';
 import '../forgot_page/forgot_page.dart';
+import '../../terms_condition/terms_condition.dart';
+import '../../privacy_policy/privacy_policy.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -355,9 +357,83 @@ class LoginPage extends StatelessWidget {
                     )),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // Divider with text
+          // Terms and Conditions Checkbox
+          Obx(() => Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: controller.agreedToTerms.value,
+                  onChanged: (value) {
+                    controller.agreedToTerms.value = value ?? false;
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  activeColor: primaryBlue,
+                  checkColor: Colors.white,
+                  side: BorderSide(
+                    color: primaryBlue,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  children: [
+                    Text(
+                      'By continuing, you agree to our ',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Get.to(() => const TermsConditionPage());
+                      },
+                      child: Text(
+                        'Terms of Use',
+                        style: TextStyle(
+                          color: primaryBlue,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ' and ',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Get.to(() => const PrivacyPolicyPage());
+                      },
+                      child: Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          color: primaryBlue,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(

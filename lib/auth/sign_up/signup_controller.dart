@@ -24,6 +24,7 @@ class SignUpController extends GetxController {
   var isPasswordVisible = false.obs;
   var isConfirmPasswordVisible = false.obs;
   var selectedCountryCode = '+880'.obs; // Default to Bangladesh
+  var agreedToTerms = false.obs;
 
   @override
   void onInit() {
@@ -182,6 +183,19 @@ class SignUpController extends GetxController {
       Get.snackbar(
         'Error',
         'Name cannot contain numbers',
+        backgroundColor: Colors.red[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        borderRadius: 10,
+        margin: const EdgeInsets.all(10),
+      );
+      return false;
+    }
+
+    if (!agreedToTerms.value) {
+      Get.snackbar(
+        'Error',
+        'Please agree to the Terms of Use and Privacy Policy',
         backgroundColor: Colors.red[600],
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,

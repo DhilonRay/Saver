@@ -835,12 +835,12 @@ class HomePage extends StatelessWidget {
                 // Call center floating button - bottom-left
                 Positioned(
                   left: 16,
-                  bottom: 24,
+                  bottom: 60,
                   child: GestureDetector(
                     onTap: () => controller.callCenter(),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
                         color: Colors.red.shade600,
                         shape: BoxShape.circle,
