@@ -101,6 +101,11 @@ class TermsConditionPage extends StatelessWidget {
                   ),
 
                   _buildSection(
+                    title: 'Account Recovery',
+                    content: 'Providing an email address during registration is highly recommended for account security and recovery purposes. If you do not provide an email address, you may not be able to recover your account in case of forgotten password or other account-related issues. Phone number is mandatory for account creation and communication.'
+                  ),
+
+                  _buildSection(
                     title: 'Partner Responsibilities',
                     content: 'Ambulance service providers must maintain valid licenses, provide accurate service information, and respond promptly to emergency requests. Partners are responsible for the safety and proper operation of their vehicles and equipment.'
                   ),
@@ -118,6 +123,11 @@ class TermsConditionPage extends StatelessWidget {
                   _buildSection(
                     title: 'Privacy Protection',
                     content: 'Your privacy is important to us. Please review our Privacy Policy, which also governs your use of NeoSaver, to understand our practices.'
+                  ),
+
+                  _buildSection(
+                    title: 'Data Access and Authority',
+                    content: 'We can view any user\'s name, email, phone number, address, and location. This information will be visible to NeoSaver authority from the beginning of service usage.'
                   ),
 
                   _buildSection(

@@ -138,22 +138,42 @@ class PartnerProfilePage extends StatelessWidget {
                                       spreadRadius: 2,
                                     ),
                                   ],
-                                  image:
-                                      controller.profileImageUrl.value != null
-                                          ? DecorationImage(
-                                              image: NetworkImage(controller
-                                                  .profileImageUrl.value!),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : null,
                                 ),
-                                child: controller.profileImageUrl.value == null
-                                    ? Icon(
-                                        Icons.local_shipping,
-                                        color: colorScheme.primary,
-                                        size: 60,
-                                      )
-                                    : null,
+                                child: ClipOval(
+                                  child: controller.profileImageUrl.value != null
+                                      ? Image.network(
+                                          controller.profileImageUrl.value!,
+                                          width: 124,
+                                          height: 124,
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, loadingProgress) {
+                                            if (loadingProgress == null) return child;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                value: loadingProgress.expectedTotalBytes != null
+                                                    ? loadingProgress.cumulativeBytesLoaded /
+                                                        loadingProgress.expectedTotalBytes!
+                                                    : null,
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                    colorScheme.primary),
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Icon(
+                                              Icons.local_shipping,
+                                              color: colorScheme.primary,
+                                              size: 60,
+                                            );
+                                          },
+                                        )
+                                      : Icon(
+                                          Icons.local_shipping,
+                                          color: colorScheme.primary,
+                                          size: 60,
+                                        ),
+                                ),
                               ),
                               if (controller.isUploadingImage.value)
                                 Container(
@@ -197,6 +217,241 @@ class PartnerProfilePage extends StatelessWidget {
                           ),
                         );
                       }),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Ambulance Photo Card
+                Card(
+                  elevation: 8,
+                  shadowColor: Colors.orange.shade300,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,
+                          Colors.orange.shade50,
+                        ],
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.local_shipping,
+                                  color: Colors.orange.shade700,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Ambulance Photo',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Help users identify your ambulance',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Obx(() {
+                            final controller = Get.find<PartnerProfileController>();
+                            return GestureDetector(
+                              onTap: controller.showAmbulanceImageOptions,
+                              child: Container(
+                                width: double.infinity,
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.orange.shade200,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: controller.isUploadingAmbulanceImage.value
+                                      ? Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              CircularProgressIndicator(
+                                                value: controller.ambulanceUploadProgress.value > 0
+                                                    ? controller.ambulanceUploadProgress.value
+                                                    : null,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                    Colors.orange.shade600),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                '${(controller.ambulanceUploadProgress.value * 100).toInt()}%',
+                                                style: TextStyle(
+                                                  color: Colors.orange.shade700,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : controller.ambulanceImageUrl.value != null
+                                          ? Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                Image.network(
+                                                  controller.ambulanceImageUrl.value!,
+                                                  fit: BoxFit.cover,
+                                                  loadingBuilder: (context, child, loadingProgress) {
+                                                    if (loadingProgress == null) return child;
+                                                    return Center(
+                                                      child: CircularProgressIndicator(
+                                                        value: loadingProgress.expectedTotalBytes != null
+                                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                                loadingProgress.expectedTotalBytes!
+                                                            : null,
+                                                        strokeWidth: 2,
+                                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                                            Colors.orange.shade600),
+                                                      ),
+                                                    );
+                                                  },
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    return Column(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.cloud_off,
+                                                          size: 48,
+                                                          color: Colors.orange.shade300,
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        Text(
+                                                          'Unable to load image',
+                                                          style: TextStyle(
+                                                            color: Colors.orange.shade400,
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          'Check your internet connection',
+                                                          style: TextStyle(
+                                                            color: Colors.grey.shade500,
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                                ),
+                                                Align(
+                                                  alignment: Alignment.bottomRight,
+                                                  child: Container(
+                                                    margin: const EdgeInsets.all(8),
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withValues(alpha: 0.6),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.edit,
+                                                          size: 16,
+                                                          color: Colors.white,
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Change',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add_photo_alternate_outlined,
+                                                  size: 48,
+                                                  color: Colors.orange.shade400,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Tap to upload ambulance photo',
+                                                  style: TextStyle(
+                                                    color: Colors.orange.shade600,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Max 2MB',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade500,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                ),
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Users will see this photo when viewing available ambulances',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

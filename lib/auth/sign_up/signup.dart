@@ -342,10 +342,10 @@ class SignUpPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Email Field
+          // Email Field (Optional)
           _buildEnhancedTextField(
             controller: controller.emailController,
-            hintText: 'Email Address',
+            hintText: 'Email Address (Optional)',
             primaryColor: primaryBlue,
             backgroundColor: lightBlue,
             keyboardType: TextInputType.emailAddress,
@@ -356,6 +356,40 @@ class SignUpPage extends StatelessWidget {
                 color: primaryBlue,
                 size: 20,
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Note about email for recovery
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: lightBlue.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: primaryBlue.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: primaryBlue,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Note: Providing an email address is recommended for account recovery. Without it, you may not be able to recover your account if you forget your password.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                      fontWeight: FontWeight.w400,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

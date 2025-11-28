@@ -3,11 +3,27 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Allow authenticated users to read/write their own profile images
     match /profile_images/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Allow authenticated users to read all profile images (for displaying in UI)
     match /profile_images/{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Allow authenticated users to read/write their own ambulance images
+    match /ambulance_images/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Allow authenticated users to read all ambulance images (for displaying in UI)
+    match /ambulance_images/{allPaths=**} {
       allow read: if request.auth != null;
     }
 

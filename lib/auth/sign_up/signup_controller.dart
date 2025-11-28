@@ -66,10 +66,15 @@ class SignUpController extends GetxController {
     isLoading.value = true;
 
     try {
+      // Use email if provided, otherwise use phone number as email
+      String emailForAuth = emailController.text.trim().isEmpty
+          ? '${phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}@neosaver.app'
+          : emailController.text.trim();
+
       // Create user with Firebase Auth
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
+        email: emailForAuth,
         password: passwordController.text.trim(),
       );
 
@@ -137,12 +142,11 @@ class SignUpController extends GetxController {
     if (nameController.text.trim().isEmpty ||
         phoneController.text.trim().isEmpty ||
         addressController.text.trim().isEmpty ||
-        emailController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty ||
         confirmPasswordController.text.trim().isEmpty) {
       Get.snackbar(
         'Error',
-        'Please fill in all the fields',
+        'Please fill in all required fields',
         backgroundColor: Colors.red[600],
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
@@ -166,7 +170,7 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    if (!isValidEmail(emailController.text.trim())) {
+    if (emailController.text.trim().isNotEmpty && !isValidEmail(emailController.text.trim())) {
       Get.snackbar(
         'Error',
         'Please enter a valid email address',

@@ -24,6 +24,14 @@ class PartnerProfileController extends GetxController {
   var isUploadingImage = false.obs;
   var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
+  // Ambulance image
+  var ambulanceImageUrl = Rx<String?>(null);
+  var isUploadingAmbulanceImage = false.obs;
+  var ambulanceUploadProgress = 0.0.obs;
+
+  // Maximum file size in bytes (2MB)
+  static const int maxFileSizeBytes = 2 * 1024 * 1024; // 2MB
+
   // Location address
   var locationAddress = Rx<String?>(null);
 
@@ -92,6 +100,7 @@ class PartnerProfileController extends GetxController {
         if (doc.exists && doc.data() != null) {
           partnerInfo.value = doc.data()!;
           profileImageUrl.value = doc.data()!['profileImageUrl'];
+          ambulanceImageUrl.value = doc.data()!['ambulanceImageUrl'];
 
           // Convert coordinates to address if available
           final latitude = doc.data()!['latitude'];
@@ -104,6 +113,7 @@ class PartnerProfileController extends GetxController {
         } else {
           partnerInfo.value = {};
           profileImageUrl.value = null;
+          ambulanceImageUrl.value = null;
           locationAddress.value = null;
         }
         _checkLoadingComplete();
@@ -111,6 +121,7 @@ class PartnerProfileController extends GetxController {
       onError: (e) {
         partnerInfo.value = {};
         profileImageUrl.value = null;
+        ambulanceImageUrl.value = null;
         locationAddress.value = null;
         _checkLoadingComplete();
       },
@@ -616,6 +627,402 @@ class PartnerProfileController extends GetxController {
     }
   }
 
+  // ==================== AMBULANCE IMAGE METHODS ====================
+
+  // Check if file size is within 2MB limit
+  Future<bool> _checkFileSizeLimit(File file) async {
+    final fileSize = await file.length();
+    if (fileSize > maxFileSizeBytes) {
+      final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+      Get.snackbar(
+        'File Too Large',
+        'Image size ($fileSizeMB MB) exceeds 2MB limit. Please choose a smaller image or take a new photo.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade900,
+        duration: const Duration(seconds: 5),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> pickAndUploadAmbulanceImage() async {
+    try {
+      print('🚑 Starting ambulance image selection from gallery');
+
+      // Request photo library permissions
+      PermissionStatus status;
+      if (GetPlatform.isIOS) {
+        status = await Permission.photos.request();
+      } else {
+        status = await Permission.storage.request();
+        if (status.isDenied || status.isPermanentlyDenied) {
+          status = await Permission.photos.request();
+        }
+      }
+
+      if (status.isDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Photo library access is required to select images.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      if (status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Photo library access is permanently denied. Please enable it in app settings.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+          mainButton: TextButton(
+            onPressed: () => openAppSettings(),
+            child: const Text('Open Settings'),
+          ),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800, // Larger for ambulance photos
+        maxHeight: 600,
+        imageQuality: 70,
+      );
+
+      if (image != null) {
+        print('📁 Ambulance image selected: ${image.path}');
+        File imageFile = File(image.path);
+
+        // Check file size before compression
+        if (!await _checkFileSizeLimit(imageFile)) {
+          return;
+        }
+
+        // Compress image
+        final compressedImage = await _compressAmbulanceImage(imageFile);
+
+        // Check file size after compression
+        if (!await _checkFileSizeLimit(compressedImage)) {
+          return;
+        }
+
+        await uploadAmbulanceImage(compressedImage);
+      } else {
+        print('❌ No ambulance image selected');
+      }
+    } catch (e) {
+      print('❌ Error picking ambulance image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to pick image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> pickAndUploadAmbulanceImageFromCamera() async {
+    try {
+      print('📷 Starting ambulance image capture from camera');
+
+      final status = await Permission.camera.request();
+      if (status.isDenied || status.isPermanentlyDenied) {
+        Get.snackbar(
+          'Permission Required',
+          'Camera access is required to take photos.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+        return;
+      }
+
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800,
+        maxHeight: 600,
+        imageQuality: 70,
+      );
+
+      if (image != null) {
+        print('📸 Ambulance image captured: ${image.path}');
+        File imageFile = File(image.path);
+
+        // Check file size before compression
+        if (!await _checkFileSizeLimit(imageFile)) {
+          return;
+        }
+
+        // Compress image
+        final compressedImage = await _compressAmbulanceImage(imageFile);
+
+        // Check file size after compression
+        if (!await _checkFileSizeLimit(compressedImage)) {
+          return;
+        }
+
+        await uploadAmbulanceImage(compressedImage);
+      } else {
+        print('❌ No ambulance image captured');
+      }
+    } catch (e) {
+      print('❌ Error capturing ambulance image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to take photo. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<File> _compressAmbulanceImage(File imageFile) async {
+    try {
+      print('🗜️ Compressing ambulance image');
+
+      final compressedBytes = await FlutterImageCompress.compressWithFile(
+        imageFile.absolute.path,
+        minWidth: 600,
+        minHeight: 400,
+        quality: 60,
+        rotate: 0,
+      );
+
+      if (compressedBytes != null) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(
+            '${tempDir.path}/ambulance_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(compressedBytes);
+
+        final originalSize = await imageFile.length();
+        final compressedSize = await tempFile.length();
+        print(
+            '✅ Ambulance image compressed: ${((originalSize - compressedSize) / originalSize * 100).toStringAsFixed(1)}% reduction');
+
+        return tempFile;
+      }
+
+      return imageFile;
+    } catch (e) {
+      print('❌ Error compressing ambulance image: $e');
+      return imageFile;
+    }
+  }
+
+  Future<void> uploadAmbulanceImage(File imageFile) async {
+    try {
+      isUploadingAmbulanceImage.value = true;
+      ambulanceUploadProgress.value = 0.0;
+
+      final isConnected = await _isConnected();
+      if (!isConnected) {
+        Get.snackbar(
+          'No Internet',
+          'Please check your internet connection and try again.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw 'User not authenticated';
+      }
+
+      final fileName =
+          'ambulance_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('ambulance_images/${user.uid}/$fileName');
+
+      print('📤 Starting ambulance image upload: $fileName');
+
+      final uploadTask = storageRef.putFile(imageFile);
+
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        ambulanceUploadProgress.value = progress;
+        print('📊 Ambulance upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+      });
+
+      final snapshot = await uploadTask.whenComplete(
+          () => print('✅ Ambulance image upload completed'));
+
+      if (snapshot.state == TaskState.success) {
+        ambulanceUploadProgress.value = 1.0;
+
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        print('🔗 Ambulance image URL obtained');
+
+        // Use set with merge to handle both new and existing documents
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(user.uid)
+            .set({
+          'ambulanceImageUrl': downloadUrl,
+        }, SetOptions(merge: true));
+
+        ambulanceImageUrl.value = downloadUrl;
+
+        print('✅ Ambulance image updated successfully');
+        SuccessDialog.show(
+          title: 'Ambulance Photo Updated',
+          message: 'Your ambulance photo has been uploaded successfully! Users can now see your ambulance before booking.',
+        );
+      } else {
+        throw 'Upload failed with state: ${snapshot.state}';
+      }
+    } catch (e) {
+      print('❌ Error uploading ambulance image: $e');
+
+      String errorMessage = 'Failed to upload ambulance image. Please try again.';
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (e.toString().contains('permission') ||
+          e.toString().contains('PERMISSION_DENIED')) {
+        errorMessage = 'Permission denied. Please check Firebase Storage rules.';
+      } else if (e.toString().contains('object-not-found')) {
+        errorMessage = 'Storage path not found. Please try again.';
+      }
+
+      Get.snackbar(
+        'Upload Failed',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 5),
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.red.shade900,
+      );
+    } finally {
+      isUploadingAmbulanceImage.value = false;
+      ambulanceUploadProgress.value = 0.0;
+    }
+  }
+
+  void showAmbulanceImageOptions() {
+    print('🚑 Opening ambulance image options bottom sheet');
+    Get.bottomSheet(
+      Container(
+        height: ambulanceImageUrl.value != null ? 280 : 240,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const Text(
+                  'Upload Ambulance Photo',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Max file size: 2MB',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.camera_alt,
+                        title: 'Take Photo',
+                        color: Colors.blue,
+                        onTap: () {
+                          Get.back();
+                          pickAndUploadAmbulanceImageFromCamera();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildOptionCard(
+                        icon: Icons.photo_library,
+                        title: 'Gallery',
+                        color: Colors.green,
+                        onTap: () {
+                          Get.back();
+                          pickAndUploadAmbulanceImage();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (ambulanceImageUrl.value != null)
+                  _buildOptionCard(
+                    icon: Icons.delete,
+                    title: 'Remove Photo',
+                    color: Colors.red,
+                    onTap: () {
+                      Get.back();
+                      removeAmbulanceImage();
+                    },
+                    fullWidth: true,
+                  ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      isScrollControlled: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+    );
+  }
+
+  Future<void> removeAmbulanceImage() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .update({
+        'ambulanceImageUrl': FieldValue.delete(),
+      });
+
+      ambulanceImageUrl.value = null;
+
+      print('🗑️ Ambulance image removed successfully');
+      SuccessDialog.show(
+        title: 'Ambulance Photo Removed',
+        message: 'Your ambulance photo has been removed.',
+      );
+    } catch (e) {
+      print('❌ Error removing ambulance image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove ambulance image. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  // ==================== END AMBULANCE IMAGE METHODS ====================
+
   // Helper method to check network connectivity
   Future<bool> _isConnected() async {
     try {
@@ -694,9 +1101,19 @@ class PartnerProfileController extends GetxController {
     try {
       print('📍 Converting coordinates to address: $latitude, $longitude');
 
-      // Get placemarks from coordinates
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(latitude, longitude);
+      // If there's no internet connectivity, bail out early and use coordinates
+      final connected = await _isConnected();
+      if (!connected) {
+        print('⚠️ No internet available — skipping reverse geocoding');
+        locationAddress.value =
+            '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+        return;
+      }
+
+      // Get placemarks from coordinates with a timeout so the UI won't hang
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+              latitude, longitude)
+          .timeout(const Duration(seconds: 8));
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks.first;
@@ -731,6 +1148,10 @@ class PartnerProfileController extends GetxController {
             '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
         print('⚠️ No address found for coordinates');
       }
+    } on TimeoutException catch (_) {
+      print('⏱️ Reverse geocoding timed out — using raw coordinates');
+      locationAddress.value =
+          '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
     } catch (e) {
       print('❌ Error converting coordinates to address: $e');
       locationAddress.value =
@@ -792,5 +1213,22 @@ class PartnerProfileController extends GetxController {
 
   String formatCurrency(double amount) {
     return '৳${amount.toStringAsFixed(0)}';
+  }
+
+  /// Builds a network image with error handling and fallback
+  /// Returns a DecorationImage for BoxDecoration or null if URL is null
+  static DecorationImage? buildNetworkDecorationImage(
+    String? imageUrl, {
+    BoxFit fit = BoxFit.cover,
+  }) {
+    if (imageUrl == null || imageUrl.isEmpty) return null;
+
+    return DecorationImage(
+      image: NetworkImage(imageUrl),
+      fit: fit,
+      onError: (exception, stackTrace) {
+        print('❌ Failed to load image: $exception');
+      },
+    );
   }
 }
