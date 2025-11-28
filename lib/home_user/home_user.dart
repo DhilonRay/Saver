@@ -8,6 +8,7 @@ import '../widgets/fares_widgets.dart';
 import '../services/fares_service.dart';
 import '../user_notification/user_notification.dart';
 import '../user_notification/user_notification_controller.dart';
+import '../chat_page/ai_chat_page.dart';
 
 class HomePage extends StatelessWidget {
   final bool isNewSignup;
@@ -248,6 +249,16 @@ class HomePage extends StatelessWidget {
                             icon: Icons.track_changes_outlined,
                             title: 'Tracking',
                             onTap: controller.navigateToTrackingPage,
+                          ),
+
+                          // AI Chat Assistant
+                          _buildDrawerItem(
+                            icon: Icons.smart_toy,
+                            title: 'AI Assistant',
+                            onTap: () {
+                              Get.back();
+                              Get.to(() => const AIChatPage());
+                            },
                           ),
 
                           // Quick access: available/online ambulances (live list)
@@ -857,6 +868,41 @@ class HomePage extends StatelessWidget {
                           Icons.call,
                           color: Colors.white,
                           size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // AI Chat floating button - bottom-left (above call button)
+                Positioned(
+                  left: 16,
+                  bottom: 140,
+                  child: GestureDetector(
+                    onTap: () => Get.to(() => const AIChatPage()),
+                    child: Container(
+                      width: 63,
+                      height: 63,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [primaryBlue, secondaryBlue],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryBlue.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.smart_toy,
+                          color: Colors.white,
+                          size: 26,
                         ),
                       ),
                     ),
