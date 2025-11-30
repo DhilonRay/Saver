@@ -21,7 +21,7 @@
 
     <!-- The application tag should be here, directly under the <manifest> tag -->
     <application
-        android:label="Saver"
+        android:label="NeoSaver"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
 

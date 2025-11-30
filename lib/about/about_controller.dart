@@ -6,7 +6,7 @@ class AboutController extends GetxController {
   // App information
   final String appName = 'NeoSaver';
   final String appVersion = '1.0.0';
-  final String contactEmail = 'neosaver@gmail.com';
+  final String contactEmail = 'contact.neosaver@gmail.com';
   final String developerName = 'Shawon Biswas';
 
   // Reactive variables for potential future features

@@ -81,58 +81,58 @@ class TermsConditionPage extends StatelessWidget {
 
                   // Terms & Conditions Content
                   _buildSection(
-                    title: 'Acceptance of Terms',
-                    content: 'By accessing and using NeoSaver, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.'
+                    title: '1. Acceptance of Terms',
+                    content: 'By using NeoSaver, you agree to comply with these Terms. If you do not agree to these terms, please do not use this service.'
                   ),
 
                   _buildSection(
-                    title: 'Use License',
-                    content: 'Permission is granted to temporarily use NeoSaver for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:\n\n• Modify or copy the materials\n• Use the materials for any commercial purpose\n• Attempt to decompile or reverse engineer any software\n• Remove any copyright or other proprietary notations'
+                    title: '2. Services Provided',
+                    content: 'NeoSaver connects users with verified ambulances, offering real-time tracking and communication. We provide emergency ambulance booking, live location tracking, and direct communication between users and ambulance providers.'
                   ),
 
                   _buildSection(
-                    title: 'Service Description',
-                    content: 'NeoSaver is an emergency ambulance booking and management platform that connects users with ambulance service providers. We provide real-time ambulance tracking, emergency response coordination, and partner management services.'
+                    title: '3. User Responsibilities',
+                    content: 'Users must provide accurate information and avoid fraudulent or harmful activity. You agree to:\n\n• Provide truthful personal and location information\n• Use the service only for legitimate emergency purposes\n• Not misuse the platform for any illegal activities\n• Not interfere with the proper operation of the service'
                   ),
 
                   _buildSection(
-                    title: 'User Responsibilities',
-                    content: 'Users must provide accurate information when requesting emergency services. You agree to use the service only for legitimate emergency purposes and not to misuse the platform for any illegal activities.'
+                    title: '4. Data Collection & Usage',
+                    content: 'We collect the following information for service delivery and safety:\n\n• Name and contact information\n• Geo-location data\n• Ambulance number and vehicle details\n• Driver license number\n• Vehicle registration number\n\nThis data is used to provide emergency services, ensure safety, and improve our platform.'
                   ),
 
                   _buildSection(
-                    title: 'Account Recovery',
-                    content: 'Providing an email address during registration is highly recommended for account security and recovery purposes. If you do not provide an email address, you may not be able to recover your account in case of forgotten password or other account-related issues. Phone number is mandatory for account creation and communication.'
+                    title: '5. Data Security',
+                    content: 'We use encrypted storage and secure authentication to protect your data. However, please be aware that internet transmission carries inherent risks, and we cannot guarantee absolute security of data transmitted over the internet.'
                   ),
 
                   _buildSection(
-                    title: 'Partner Responsibilities',
-                    content: 'Ambulance service providers must maintain valid licenses, provide accurate service information, and respond promptly to emergency requests. Partners are responsible for the safety and proper operation of their vehicles and equipment.'
+                    title: '6. Government Collaboration',
+                    content: 'Data may be shared with Bangladeshi government authorities when required by law, for public safety purposes, or in response to valid legal requests. We cooperate with law enforcement agencies to ensure public safety.'
                   ),
 
                   _buildSection(
-                    title: 'Payment Terms',
-                    content: 'Payment for ambulance services is handled directly between users and service providers. NeoSaver may charge service fees for platform usage. All payments are processed securely through approved payment methods.'
+                    title: '7. Booking & Payment Terms',
+                    content: 'Payment for ambulance services can be made through the following methods:\n\n• Cash payment\n• bKash (Pay on bKash)\n\nPayment is handled directly between users and service providers. All transactions should be completed as agreed upon during booking.'
                   ),
 
                   _buildSection(
-                    title: 'Liability Limitations',
-                    content: 'NeoSaver acts as a platform connecting users with service providers. We are not liable for the quality of services provided by ambulance operators. Users should verify provider credentials before accepting services.'
+                    title: '8. Limitation of Liability',
+                    content: 'NeoSaver is a platform connecting users with ambulance service providers. We are not responsible for:\n\n• Delays in ambulance arrival\n• Medical outcomes or treatment quality\n• Third-party issues or disputes\n• Actions of ambulance service providers\n\nUsers should verify provider credentials before accepting services.'
                   ),
 
                   _buildSection(
-                    title: 'Privacy Protection',
-                    content: 'Your privacy is important to us. Please review our Privacy Policy, which also governs your use of NeoSaver, to understand our practices.'
+                    title: '9. Suspension or Termination',
+                    content: 'Accounts may be suspended or terminated for:\n\n• Violation of these terms\n• Fraudulent or harmful activity\n• Providing false information\n• Misuse of the platform\n• Any illegal activities\n\nWe reserve the right to terminate accounts without prior notice in cases of severe violations.'
                   ),
 
                   _buildSection(
-                    title: 'Data Access and Authority',
-                    content: 'We can view any user\'s name, email, phone number, address, and location. This information will be visible to NeoSaver authority from the beginning of service usage.'
+                    title: '10. Changes to Terms',
+                    content: 'These Terms may be updated periodically. We will notify users of significant changes. Continued use of NeoSaver after changes means acceptance of the updated terms. We encourage you to review these terms regularly.'
                   ),
 
                   _buildSection(
-                    title: 'Contact Information',
-                    content: 'If you have any questions about these Terms & Conditions, please contact us at:\n\nEmail:neosaver@gmail.com\nPhone: +01793399913'
+                    title: '11. Contact Information',
+                    content: 'If you have any questions about these Terms & Conditions, please contact us at:\n\nEmail: neosaver@gmail.com\nPhone: +880 1793-399913\nAddress: Khulna, Bangladesh'
                   ),
 
                   const SizedBox(height: 30),

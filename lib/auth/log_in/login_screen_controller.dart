@@ -24,7 +24,6 @@ class LoginController extends GetxController {
   var isPasswordVisible = false.obs;
   var isPhonePasswordVisible = false.obs;
   var selectedCountryCode = '+880'.obs; // Default to Bangladesh
-  var agreedToTerms = false.obs;
 
   @override
   void onInit() {
@@ -66,19 +65,6 @@ class LoginController extends GetxController {
   }
 
   Future<void> signIn() async {
-    if (!agreedToTerms.value) {
-      Get.snackbar(
-        'Error',
-        'Please agree to the Terms of Use and Privacy Policy',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
-      return;
-    }
-
     if (selectedTabIndex.value == 0) {
       // Email Login
       await signInWithEmail();

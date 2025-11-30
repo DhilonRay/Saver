@@ -39,14 +39,14 @@ class AIChatPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI সহকারী',
+                      'স্বাস্থ্য বন্ধু',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      'NeoSaver Assistant',
+                      'আপনার ব্যক্তিগত AI সহকারী',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
