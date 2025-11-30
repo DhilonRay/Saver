@@ -48,3 +48,8 @@ firebase.exe
 # Service account keys
 assets/service_account.json
 
+# Secret API keys - NEVER commit these!
+lib/config/api_keys_secret.dart
+**/api_keys_secret.dart
+*.secret.dart
+

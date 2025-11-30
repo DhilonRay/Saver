@@ -67,6 +67,9 @@ class HomePartnerController extends GetxController {
       <String>{}.obs; // Track declined requests to prevent showing again
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
 
+  // Timer for periodic location updates (10 seconds)
+  Timer? _locationUpdateTimer;
+
   // Helper function to format address display
   String _formatAddress(String? address) {
     if (address == null || address.isEmpty) {
@@ -775,6 +778,9 @@ class HomePartnerController extends GetxController {
       _debugCheckOrders();
     });
 
+    // Start periodic location updates every 10 seconds
+    _startLocationUpdateTimer();
+
     // Show success dialog for new driver signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -790,9 +796,70 @@ class HomePartnerController extends GetxController {
   @override
   void onClose() {
     _requestsSubscription?.cancel();
+    _locationUpdateTimer?.cancel(); // Cancel location update timer
     shownRequestIds.clear(); // Clear shown requests when controller closes
     // Don't clear declinedRequestIds - they should persist across sessions
     super.onClose();
+  }
+
+  /// Start periodic location updates every 10 seconds
+  void _startLocationUpdateTimer() {
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateCurrentLocation();
+    });
+    debugPrint('📍 Started location update timer (10 second interval)');
+  }
+
+  /// Update current location silently (without loading indicators)
+  Future<void> _updateCurrentLocation() async {
+    try {
+      // Only update if we have permission already
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final newPosition = LatLng(position.latitude, position.longitude);
+      
+      // Only update if position has changed significantly (more than 5 meters)
+      if (currentPosition.value != null) {
+        final distance = Geolocator.distanceBetween(
+          currentPosition.value!.latitude,
+          currentPosition.value!.longitude,
+          newPosition.latitude,
+          newPosition.longitude,
+        );
+        if (distance < 5) return; // Skip if moved less than 5 meters
+      }
+
+      currentPosition.value = newPosition;
+
+      // Update marker
+      markers.removeWhere((m) => m.markerId.value == 'currentLocation');
+      markers.add(
+        Marker(
+          markerId: MarkerId('currentLocation'),
+          position: currentPosition.value!,
+          infoWindow: InfoWindow(title: 'Your Ambulance Location'),
+          icon: currentLocationIcon,
+        ),
+      );
+
+      // Update location in Firestore if online
+      if (isOnline.value) {
+        await _updatePartnerLocation();
+      }
+
+      debugPrint('📍 Location updated: ${position.latitude}, ${position.longitude}');
+    } catch (e) {
+      debugPrint('❌ Error updating location: $e');
+    }
   }
 
   /// Reset shown requests (useful when driver logs out and logs back in)

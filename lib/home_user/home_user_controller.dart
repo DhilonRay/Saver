@@ -112,6 +112,9 @@ class HomeController extends GetxController {
   var acknowledgedTrackingOrders = <String>{}.obs;
   static const String _acknowledgedOrdersKey = 'acknowledged_tracking_orders';
 
+  // Timer for periodic location updates (10 seconds)
+  Timer? _locationUpdateTimer;
+
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
 
@@ -302,6 +305,8 @@ class HomeController extends GetxController {
     _loadUserName();
     _loadProfileImage();
     _loadAcknowledgedOrders();
+    // Start periodic location updates every 10 seconds
+    _startLocationUpdateTimer();
 
     // Show success dialog for new signups
     if (isNewSignup) {
@@ -319,7 +324,63 @@ class HomeController extends GetxController {
   void onClose() {
     destinationController.dispose();
     _debounceTimer?.cancel();
+    _locationUpdateTimer?.cancel(); // Cancel location update timer
     super.onClose();
+  }
+
+  /// Start periodic location updates every 10 seconds
+  void _startLocationUpdateTimer() {
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateCurrentLocationSilently();
+    });
+    debugPrint('📍 Started location update timer (10 second interval)');
+  }
+
+  /// Update current location silently (without loading indicators)
+  Future<void> _updateCurrentLocationSilently() async {
+    try {
+      // Only update if we have permission already
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final newPosition = LatLng(position.latitude, position.longitude);
+      
+      // Only update if position has changed significantly (more than 5 meters)
+      if (currentPosition.value != null) {
+        final distance = Geolocator.distanceBetween(
+          currentPosition.value!.latitude,
+          currentPosition.value!.longitude,
+          newPosition.latitude,
+          newPosition.longitude,
+        );
+        if (distance < 5) return; // Skip if moved less than 5 meters
+      }
+
+      currentPosition.value = newPosition;
+
+      // Update marker
+      markers.removeWhere((m) => m.markerId.value == 'currentLocation');
+      markers.add(
+        Marker(
+          markerId: MarkerId('currentLocation'),
+          position: currentPosition.value!,
+          infoWindow: InfoWindow(title: 'Your Location'),
+          icon: currentLocationIcon,
+        ),
+      );
+
+      debugPrint('📍 User location updated: ${position.latitude}, ${position.longitude}');
+    } catch (e) {
+      debugPrint('❌ Error updating user location: $e');
+    }
   }
 
   Future<void> _loadUserName() async {

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../config/api_keys_secret.dart';
 
 class AIChatMessage {
   final String text;
@@ -24,9 +25,9 @@ class AIChatController extends GetxController {
   final isLoading = false.obs;
   final isTyping = false.obs;
 
-  // Gemini API key - Get your free API key from https://aistudio.google.com/app/apikey
-  // Replace this with your actual API key
-  static const String _geminiApiKey = 'AIzaSyCQoW0u9jbSiN_nf1TdlQyWhczW9WdTwtk';
+  // Gemini API key - loaded from secret file (git-ignored)
+  // Create lib/config/api_keys_secret.dart with your actual key
+  static const String _geminiApiKey = ApiKeysSecret.geminiApiKey;
   static const String _geminiApiUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   
