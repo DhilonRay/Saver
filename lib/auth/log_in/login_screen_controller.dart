@@ -76,6 +76,18 @@ class LoginController extends GetxController {
 
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
+      // Check if user is admin first
+      DocumentSnapshot adminDoc = await FirebaseFirestore.instance
+          .collection('admins')
+          .doc(uid)
+          .get();
+
+      if (adminDoc.exists) {
+        debugPrint('🔑 Admin user detected - navigating to admin dashboard');
+        Get.offAllNamed('/admin-dashboard');
+        return;
+      }
+
       // Fetch user data from Firestore - check users first, then drivers
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       String collectionName = 'users';

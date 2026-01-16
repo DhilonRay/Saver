@@ -10,14 +10,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'dart:async';
-import '../components/success_dialog.dart';
+
+import 'package:saver/compo/success_dialog.dart';
 
 class UserIdController extends GetxController {
   final Rx<Map<String, dynamic>?> userData = Rx<Map<String, dynamic>?>(null);
   final Rx<Map<String, dynamic>?> partnerData = Rx<Map<String, dynamic>?>(null);
   final RxBool isEditing = false.obs;
   final RxBool isLoading = true.obs;
-  final RxString userCollection = 'users'.obs; // To store which collection the user data is in
+  final RxString userCollection =
+      'users'.obs; // To store which collection the user data is in
 
   // Profile image
   var profileImageUrl = Rx<String?>(null);
@@ -47,14 +49,19 @@ class UserIdController extends GetxController {
     if (uid != null) {
       try {
         // Check users collection first, then drivers
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance.collection('users').doc(uid).get();
         String collectionName = 'users';
         if (!userDoc.exists) {
-          userDoc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+          userDoc = await FirebaseFirestore.instance
+              .collection('drivers')
+              .doc(uid)
+              .get();
           collectionName = 'drivers';
         }
         userCollection.value = collectionName;
-        final userDocRef = FirebaseFirestore.instance.collection(collectionName).doc(uid);
+        final userDocRef =
+            FirebaseFirestore.instance.collection(collectionName).doc(uid);
 
         if (userDoc.exists) {
           userData.value = userDoc.data() as Map<String, dynamic>?;
@@ -76,17 +83,25 @@ class UserIdController extends GetxController {
           nameController.text = 'N/A';
           phoneController.text = 'N/A';
           addressController.text = 'N/A';
-          emailController.text = FirebaseAuth.instance.currentUser!.email ?? 'N/A';
+          emailController.text =
+              FirebaseAuth.instance.currentUser!.email ?? 'N/A';
           await userDocRef.set(userData.value!);
         }
 
-        final partnerDoc = await FirebaseFirestore.instance.collection('partners').doc(uid).get();
+        final partnerDoc = await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(uid)
+            .get();
         if (partnerDoc.exists) {
           partnerData.value = partnerDoc.data();
-          vehicleNumberController.text = partnerData.value?['vehicleNumber'] ?? '';
-          licenseNumberController.text = partnerData.value?['licenseNumber'] ?? '';
-          ambulanceTypeController.text = partnerData.value?['ambulanceType'] ?? '';
-          coverageAreaController.text = partnerData.value?['coverageArea'] ?? '';
+          vehicleNumberController.text =
+              partnerData.value?['vehicleNumber'] ?? '';
+          licenseNumberController.text =
+              partnerData.value?['licenseNumber'] ?? '';
+          ambulanceTypeController.text =
+              partnerData.value?['ambulanceType'] ?? '';
+          coverageAreaController.text =
+              partnerData.value?['coverageArea'] ?? '';
           contactController.text = partnerData.value?['contact'] ?? '';
           companyNameController.text = partnerData.value?['companyName'] ?? '';
         }
@@ -119,7 +134,10 @@ class UserIdController extends GetxController {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       try {
-        await FirebaseFirestore.instance.collection(userCollection.value).doc(uid).update({
+        await FirebaseFirestore.instance
+            .collection(userCollection.value)
+            .doc(uid)
+            .update({
           'name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'address': addressController.text.trim(),
@@ -127,7 +145,10 @@ class UserIdController extends GetxController {
         });
 
         if (partnerData.value != null) {
-          await FirebaseFirestore.instance.collection('partners').doc(uid).update({
+          await FirebaseFirestore.instance
+              .collection('partners')
+              .doc(uid)
+              .update({
             'vehicleNumber': vehicleNumberController.text.trim(),
             'licenseNumber': licenseNumberController.text.trim(),
             'ambulanceType': ambulanceTypeController.text.trim(),
@@ -178,7 +199,10 @@ class UserIdController extends GetxController {
   Future<void> _updateLocation(String uid) async {
     try {
       Position position = await _getCurrentLocation();
-      await FirebaseFirestore.instance.collection(userCollection.value).doc(uid).update({
+      await FirebaseFirestore.instance
+          .collection(userCollection.value)
+          .doc(uid)
+          .update({
         'latitude': position.latitude,
         'longitude': position.longitude,
       });
@@ -197,7 +221,8 @@ class UserIdController extends GetxController {
       throw Exception('Location permissions are permanently denied');
     }
 
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
     return position;
   }
 
@@ -254,7 +279,7 @@ class UserIdController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxWidth: 200, // Further reduced for ultra-fast upload
         maxHeight: 200, // Further reduced for ultra-fast upload
         imageQuality: 50, // Further reduced for ultra-fast upload
       );
@@ -296,7 +321,7 @@ class UserIdController extends GetxController {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 200,  // Further reduced for ultra-fast upload
+        maxWidth: 200, // Further reduced for ultra-fast upload
         maxHeight: 200, // Further reduced for ultra-fast upload
         imageQuality: 50, // Further reduced for ultra-fast upload
       );
@@ -351,8 +376,11 @@ class UserIdController extends GetxController {
       }
 
       // Create a unique filename
-      final fileName = 'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance.ref().child('profile_images/${user.uid}/$fileName');
+      final fileName =
+          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images/${user.uid}/$fileName');
 
       debugPrint('📤 Starting profile image upload: $fileName');
 
@@ -374,11 +402,13 @@ class UserIdController extends GetxController {
         // Only update progress if it's significant change (>1%) to reduce UI updates
         if ((progress - uploadProgress.value).abs() > 0.01) {
           uploadProgress.value = progress;
-          debugPrint('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+          debugPrint(
+              '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
         }
       });
 
-      final snapshot = await uploadTask.whenComplete(() => debugPrint('✅ Upload task completed'));
+      final snapshot = await uploadTask
+          .whenComplete(() => debugPrint('✅ Upload task completed'));
 
       // Check if upload was successful
       if (snapshot.state == TaskState.success) {
@@ -386,10 +416,14 @@ class UserIdController extends GetxController {
 
         // Get the download URL
         final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+        debugPrint(
+            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
         // Update Firestore with the new image URL
-        await FirebaseFirestore.instance.collection(userCollection.value).doc(user.uid).update({
+        await FirebaseFirestore.instance
+            .collection(userCollection.value)
+            .doc(user.uid)
+            .update({
           'profileImageUrl': downloadUrl,
         });
 
@@ -404,14 +438,15 @@ class UserIdController extends GetxController {
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
       }
-
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
 
       // Provide more specific error messages
       String errorMessage = 'Failed to upload profile image. Please try again.';
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
+        errorMessage =
+            'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
         Get.snackbar(
           'Upload Failed',
@@ -424,8 +459,10 @@ class UserIdController extends GetxController {
           },
         );
         return; // Don't show the default error snackbar
-      } else if (e.toString().contains('permission') || e.toString().contains('denied')) {
-        errorMessage = 'Permission denied. Please grant storage permissions and try again.';
+      } else if (e.toString().contains('permission') ||
+          e.toString().contains('denied')) {
+        errorMessage =
+            'Permission denied. Please grant storage permissions and try again.';
       } else if (e.toString().contains('cancelled')) {
         errorMessage = 'Upload was cancelled.';
         return; // Don't show error snackbar for cancelled uploads
@@ -447,7 +484,9 @@ class UserIdController extends GetxController {
     debugPrint('🔄 Opening profile image options bottom sheet');
     Get.bottomSheet(
       Container(
-        height: profileImageUrl.value != null ? 280 : 240, // Dynamic height based on content
+        height: profileImageUrl.value != null
+            ? 280
+            : 240, // Dynamic height based on content
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
@@ -583,7 +622,10 @@ class UserIdController extends GetxController {
       if (user == null) return;
 
       // Remove from Firestore
-      await FirebaseFirestore.instance.collection(userCollection.value).doc(user.uid).update({
+      await FirebaseFirestore.instance
+          .collection(userCollection.value)
+          .doc(user.uid)
+          .update({
         'profileImageUrl': FieldValue.delete(),
       });
 
@@ -594,7 +636,6 @@ class UserIdController extends GetxController {
         title: 'Profile Updated',
         message: 'Your profile image has been removed successfully!',
       );
-
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
       Get.snackbar(
@@ -624,22 +665,25 @@ class UserIdController extends GetxController {
       // Always compress with aggressive settings for speed
       final compressedBytes = await FlutterImageCompress.compressWithFile(
         imageFile.absolute.path,
-        minWidth: 180,  // Optimized size for speed vs quality
+        minWidth: 180, // Optimized size for speed vs quality
         minHeight: 180,
-        quality: 45,    // Aggressive compression for speed
-        rotate: 0,      // Skip rotation for speed
+        quality: 45, // Aggressive compression for speed
+        rotate: 0, // Skip rotation for speed
       );
 
       if (compressedBytes != null) {
         // Create a temporary file with compressed data
         final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final tempFile = File(
+            '${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
         await tempFile.writeAsBytes(compressedBytes);
 
         final originalSize = await imageFile.length();
         final compressedSize = await tempFile.length();
-        final compressionRatio = ((originalSize - compressedSize) / originalSize * 100);
-        debugPrint('✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
+        final compressionRatio =
+            ((originalSize - compressedSize) / originalSize * 100);
+        debugPrint(
+            '✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
 
         return tempFile;
       }
@@ -652,18 +696,23 @@ class UserIdController extends GetxController {
   }
 
   // Retry upload with exponential backoff
-  Future<void> _retryUpload(File imageFile, {int retryCount = 0, int maxRetries = 3}) async {
+  Future<void> _retryUpload(File imageFile,
+      {int retryCount = 0, int maxRetries = 3}) async {
     const baseDelay = Duration(seconds: 1);
 
     try {
       await uploadProfileImage(imageFile);
     } catch (e) {
-      if (retryCount < maxRetries && (e.toString().contains('network') || e.toString().contains('unavailable'))) {
+      if (retryCount < maxRetries &&
+          (e.toString().contains('network') ||
+              e.toString().contains('unavailable'))) {
         final delay = baseDelay * (1 << retryCount); // Exponential backoff
-        debugPrint('🔄 Retrying upload in $delay.inSeconds seconds (attempt ${retryCount + 1}/$maxRetries)');
+        debugPrint(
+            '🔄 Retrying upload in $delay.inSeconds seconds (attempt ${retryCount + 1}/$maxRetries)');
 
         await Future.delayed(delay);
-        return _retryUpload(imageFile, retryCount: retryCount + 1, maxRetries: maxRetries);
+        return _retryUpload(imageFile,
+            retryCount: retryCount + 1, maxRetries: maxRetries);
       } else {
         rethrow; // Re-throw if max retries reached or non-network error
       }

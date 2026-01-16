@@ -9,14 +9,15 @@ import 'package:saver/privacy_policy/privacy_policy.dart';
 import 'package:saver/terms_condition/terms_condition.dart';
 import 'package:saver/feedback/feedback.dart';
 import 'package:saver/partner_file/partner_profile/partner_profile.dart';
-
-
+import 'package:saver/admin/admin_login/admin_login_screen.dart';
+import 'package:saver/admin/admin_dashboard/admin_dashboard.dart';
+import 'package:saver/admin/admin_setup_screen.dart';
+import 'package:saver/admin/easy_admin_creator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
- 
   await FirebaseMessaging.instance.requestPermission(
     alert: true,
     announcement: false,
@@ -43,7 +44,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('📩 BACKGROUND MESSAGE RECEIVED: ${message.messageId}');
   print('📩 Message data: ${message.data}');
-  print('📩 Message notification: ${message.notification?.title} - ${message.notification?.body}');
+  print(
+      '📩 Message notification: ${message.notification?.title} - ${message.notification?.body}');
 
   // Initialize local notifications if needed
   await NotificationService.initializeLocalNotificationsForBackground();
@@ -56,7 +58,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     try {
       // We can't get current user in background, so we'll handle this when app opens
       // The notification will be added when FirebaseMessaging.onMessageOpenedApp is triggered
-      print('📱 Background notification will be added to partner list when app opens');
+      print(
+          '📱 Background notification will be added to partner list when app opens');
     } catch (e) {
       print('❌ Error handling background notification: $e');
     }
@@ -75,14 +78,19 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home:  SplashPage(),
+      home: SplashPage(),
       getPages: [
         GetPage(name: '/accept-maps', page: () => AcceptMapsPage()),
-     
+        GetPage(name: '/admin-login', page: () => const AdminLoginScreen()),
+        GetPage(name: '/admin-dashboard', page: () => const AdminDashboard()),
+        GetPage(name: '/admin-setup', page: () => const AdminSetupScreen()),
+        GetPage(name: '/create-admin', page: () => const EasyAdminCreator()),
         GetPage(name: '/feedback', page: () => const FeedbackPage()),
-        GetPage(name: '/partner-profile', page: () => const PartnerProfilePage()),
+        GetPage(
+            name: '/partner-profile', page: () => const PartnerProfilePage()),
         GetPage(name: '/privacy-policy', page: () => const PrivacyPolicyPage()),
-        GetPage(name: '/terms-conditions', page: () => const TermsConditionPage()),
+        GetPage(
+            name: '/terms-conditions', page: () => const TermsConditionPage()),
       ],
     );
   }

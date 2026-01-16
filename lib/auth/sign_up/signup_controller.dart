@@ -4,9 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
+import 'package:saver/compo/success_dialog.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/partner/partner.dart';
-import '../../components/success_dialog.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -79,7 +79,8 @@ class SignUpController extends GetxController {
       );
 
       // Save user data to Firestore
-      String collectionName = selectedRole.value == 'driver' ? 'drivers' : 'users';
+      String collectionName =
+          selectedRole.value == 'driver' ? 'drivers' : 'users';
       await FirebaseFirestore.instance
           .collection(collectionName)
           .doc(userCredential.user!.uid)
@@ -170,7 +171,8 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    if (emailController.text.trim().isNotEmpty && !isValidEmail(emailController.text.trim())) {
+    if (emailController.text.trim().isNotEmpty &&
+        !isValidEmail(emailController.text.trim())) {
       Get.snackbar(
         'Error',
         'Please enter a valid email address',

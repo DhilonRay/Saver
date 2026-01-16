@@ -11,13 +11,14 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:saver/compo/success_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
 import '../../chat_page/sos_chat_page.dart';
 import '../../auth/log_in/login_screen.dart';
 import '../accept_maps/accept_maps.dart';
-import '../../components/success_dialog.dart';
+
 import '../../services/notification_service.dart';
 import '../../services/fares_service.dart';
 import 'package:intl/intl.dart';

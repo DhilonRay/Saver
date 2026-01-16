@@ -16,6 +16,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/places.dart' as places;
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:geocoding/geocoding.dart' as geocoding;
+import 'package:saver/compo/success_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ import '../chat_page/sos_chat_page.dart';
 import '../partner_file/partner_orders/partners_orders_page.dart';
 import '../user_order/user_order_page.dart';
 import '../services/notification_service.dart';
-import '../components/success_dialog.dart';
+
 import '../user_tracking/user_tracking_page.dart';
 import '../services/fares_service.dart';
 import '../widgets/fares_widgets.dart';
