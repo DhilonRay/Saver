@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/components/constants/images.dart';
+import 'package:saver/components/widgets/buttons.dart';
 import 'package:saver/components/widgets/space.dart';
 import 'get_started_controller.dart';
 
@@ -34,27 +35,65 @@ class GetStartedPage extends StatelessWidget {
                         horizontal: 20, vertical: 10),
                     child: Align(
                       alignment: Alignment.topRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
+                      child: PopupMenuButton<String>(
+                        offset: const Offset(0, 40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'English',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
+                        onSelected: (String value) {
+                          controller.changeLanguage(value);
+                        },
+                        itemBuilder: (BuildContext context) =>
+                            <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'English',
+                            child: Row(
+                              children: [
+                                const Text('English'),
+                                if (controller.currentLanguage == 'English')
+                                  const Spacer(),
+                                if (controller.currentLanguage == 'English')
+                                  const Icon(Icons.check,
+                                      color: Colors.blue, size: 18),
+                              ],
                             ),
-                            const HorizontalGap(4),
-                            const Icon(Icons.language,
-                                color: Colors.white, size: 16),
-                          ],
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'Bangla',
+                            child: Row(
+                              children: [
+                                const Text('Bangla'),
+                                if (controller.currentLanguage == 'Bangla')
+                                  const Spacer(),
+                                if (controller.currentLanguage == 'Bangla')
+                                  const Icon(Icons.check,
+                                      color: Colors.blue, size: 18),
+                              ],
+                            ),
+                          ),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                controller.currentLanguage,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const HorizontalGap(4),
+                              const Icon(Icons.language,
+                                  color: Colors.white, size: 16),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -99,34 +138,18 @@ class GetStartedPage extends StatelessWidget {
                   // Get Started Button
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: controller.navigateToLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                              0xFFAEDFF7), // Button color matching top gradient
-                          foregroundColor: Colors.black87,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'Get Started',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const HorizontalGap(8),
-                            const Icon(Icons.arrow_forward_sharp, size: 20),
-                          ],
-                        ),
+                    child: IconedFilledButtonWidget(
+                      onTap: controller.navigateToLogin,
+                      buttonText: 'Get Started',
+                      icon: const Icon(Icons.arrow_forward_sharp, size: 20),
+                      backgrondColor: const Color(0xFFAEDFF7),
+                      forgroundColor: Colors.black87,
+                      borderRadiusValue: 8,
+                      minHeight: 44,
+                      isStretched: true,
+                      buttonTextStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -145,13 +168,16 @@ class GetStartedPage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              'Privacy policies',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.white,
+                            GestureDetector(
+                              onTap: controller.navigateToPrivacyPolicy,
+                              child: const Text(
+                                'Privacy policies',
+                                style: TextStyle(
+                                  color: Color(0xFFAEDFF7),
+                                  fontSize: 12,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Color(0xFFAEDFF7),
+                                ),
                               ),
                             ),
                             const Text(
@@ -159,13 +185,16 @@ class GetStartedPage extends StatelessWidget {
                               style: TextStyle(
                                   color: Colors.white70, fontSize: 12),
                             ),
-                            const Text(
-                              'Terms',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.white,
+                            GestureDetector(
+                              onTap: controller.navigateToTerms,
+                              child: const Text(
+                                'Terms',
+                                style: TextStyle(
+                                  color: Color(0xFFAEDFF7),
+                                  fontSize: 12,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Color(0xFFAEDFF7),
+                                ),
                               ),
                             ),
                           ],

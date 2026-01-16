@@ -11,8 +11,11 @@ import '../../partner_file/partner/partner.dart';
 class SignUpController extends GetxController {
   // Text Controllers
   final TextEditingController nameController = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
+  final TextEditingController postCodeController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
@@ -86,8 +89,11 @@ class SignUpController extends GetxController {
           .doc(userCredential.user!.uid)
           .set({
         'name': nameController.text.trim(),
+        'firstName': firstNameController.text.trim(),
+        'lastName': lastNameController.text.trim(),
         'phone': phoneController.text.trim(),
         'address': addressController.text.trim(),
+        'postCode': postCodeController.text.trim(),
         'email': emailController.text.trim(),
         'uid': userCredential.user!.uid,
         'role': selectedRole.value,
@@ -141,8 +147,11 @@ class SignUpController extends GetxController {
     }
 
     if (nameController.text.trim().isEmpty ||
+        firstNameController.text.trim().isEmpty ||
+        lastNameController.text.trim().isEmpty ||
         phoneController.text.trim().isEmpty ||
         addressController.text.trim().isEmpty ||
+        postCodeController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty ||
         confirmPasswordController.text.trim().isEmpty) {
       Get.snackbar(

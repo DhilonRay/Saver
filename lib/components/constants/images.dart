@@ -160,6 +160,8 @@ class AppImages {
   static const String slodStock = '$_imageAssetsLocation/slodStock.png';
   static const String stockPng1 = '$_imageAssetsLocation/stockPng1.png';
   static const String ambulance = '$_imageAssetsLocation/ambulance.png';
+  static const String userRole = '$_imageAssetsLocation/userRole.png';
+  static const String ambulanceRole = '$_imageAssetsLocation/AmbulaceRole.png';
   static const String suppliersPng =
       '$_imageAssetsLocation/suppliers_report.png';
   static const String suppliersDuePng =
