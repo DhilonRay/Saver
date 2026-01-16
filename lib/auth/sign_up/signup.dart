@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:country_code_picker/country_code_picker.dart';
 import 'signup_controller.dart';
-import '../../loader/loader.dart';
 import '../../terms_condition/terms_condition.dart';
 import '../../privacy_policy/privacy_policy.dart';
 import '../../components/constants/images.dart';
 import '../../components/widgets/form_input.dart';
-import '../../components/widgets/space.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
