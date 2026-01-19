@@ -34,6 +34,10 @@ class HomePartnerController extends GetxController {
   // Dynamic ambulance rate (can be changed by partner)
   var serviceRate = 2500.obs; // Default 2500 TK for service
 
+  // Specific rates syncing with Profile
+  var indoorRate = 0.obs;
+  var outdoorRate = 0.obs;
+
   // Default rate (fallback value)
   static const int defaultServiceRate = 2500;
 
@@ -49,7 +53,7 @@ class HomePartnerController extends GetxController {
   var isLoadingLocation = true.obs;
   var isInitialLoading = true.obs;
   var mapError = ''.obs;
-  
+
   // Online/Offline status
   var isOnline = true.obs;
   var partnerName = 'NeoSaver Partner'.obs;
@@ -67,6 +71,9 @@ class HomePartnerController extends GetxController {
   var declinedRequestIds =
       <String>{}.obs; // Track declined requests to prevent showing again
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
+  StreamSubscription<DocumentSnapshot>? _nameSubscription;
+  StreamSubscription<DocumentSnapshot>? _imageSubscription;
+  StreamSubscription<DocumentSnapshot>? _rateSubscription;
 
   // Timer for periodic location updates (10 seconds)
   Timer? _locationUpdateTimer;
@@ -107,75 +114,97 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  Future<void> _loadPartnerRates() async {
+  void _loadPartnerRates() {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance
+      _rateSubscription?.cancel();
+      _rateSubscription = FirebaseFirestore.instance
           .collection('partners')
           .doc(user.uid)
-          .get();
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          // Load specific rates to match Profile Page
+          indoorRate.value = data['indoorCityRate'] ?? defaultServiceRate;
+          outdoorRate.value = data['outdoorCityRate'] ?? defaultServiceRate;
 
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        serviceRate.value = data['serviceRate'] ?? defaultServiceRate;
-        debugPrint('✅ Loaded partner rate: Service=${serviceRate.value}');
-      } else {
-        // Use default rate if no custom rate set
+          // Also set serviceRate for legacy support
+          serviceRate.value = data['serviceRate'] ?? defaultServiceRate;
+
+          debugPrint(
+              '✅ Loaded partner rates: Indoor=${indoorRate.value}, Outdoor=${outdoorRate.value}');
+        } else {
+          indoorRate.value = defaultServiceRate;
+          outdoorRate.value = defaultServiceRate;
+          serviceRate.value = defaultServiceRate;
+          debugPrint('ℹ️ Using default rates for new partner');
+        }
+      }, onError: (e) {
+        debugPrint('❌ Error loading partner rates: $e');
+        indoorRate.value = defaultServiceRate;
+        outdoorRate.value = defaultServiceRate;
         serviceRate.value = defaultServiceRate;
-        debugPrint('ℹ️ Using default rate for new partner');
-      }
+      });
     } catch (e) {
-      debugPrint('❌ Error loading partner rates: $e');
-      // Use default rates on error
-      serviceRate.value = defaultServiceRate;
+      debugPrint('❌ Error setting up partner rates listener: $e');
     }
   }
 
-  Future<void> _loadPartnerName() async {
+  void _loadPartnerName() {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
+      _nameSubscription?.cancel();
+      _nameSubscription = FirebaseFirestore.instance
+          .collection('drivers')
           .doc(user.uid)
-          .get();
-
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          partnerName.value =
+              data['name'] ?? user.displayName ?? 'NeoSaver Partner';
+          debugPrint('✅ Loaded partner name: ${partnerName.value}');
+        } else {
+          partnerName.value = user.displayName ?? 'NeoSaver Partner';
+          debugPrint('ℹ️ Using display name or default for partner name');
+        }
+      }, onError: (e) {
+        debugPrint('❌ Error loading partner name: $e');
         partnerName.value =
-            data['name'] ?? user.displayName ?? 'NeoSaver Partner';
-        debugPrint('✅ Loaded partner name: ${partnerName.value}');
-      } else {
-        partnerName.value = user.displayName ?? 'NeoSaver Partner';
-        debugPrint('ℹ️ Using display name or default for partner name');
-      }
+            _auth.currentUser?.displayName ?? 'NeoSaver Partner';
+      });
     } catch (e) {
-      debugPrint('❌ Error loading partner name: $e');
-      partnerName.value = _auth.currentUser?.displayName ?? 'NeoSaver Partner';
+      debugPrint('❌ Error setting up partner name listener: $e');
     }
   }
 
-  Future<void> _loadProfileImage() async {
+  void _loadProfileImage() {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance
+      _imageSubscription?.cancel();
+      _imageSubscription = FirebaseFirestore.instance
           .collection('partners')
           .doc(user.uid)
-          .get();
-
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        profileImageUrl.value = data['profileImageUrl'];
-        debugPrint(
-            '✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
-      }
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          profileImageUrl.value = data['profileImageUrl'];
+          debugPrint(
+              '✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
+        }
+      }, onError: (e) {
+        debugPrint('❌ Error loading profile image: $e');
+      });
     } catch (e) {
-      debugPrint('❌ Error loading profile image: $e');
+      debugPrint('❌ Error setting up profile image listener: $e');
     }
   }
 
@@ -648,7 +677,7 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  Future<void> updatePartnerRates(int newServiceRate) async {
+  Future<bool> updatePartnerRates(int newIndoorRate, int newOutdoorRate) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
@@ -658,103 +687,213 @@ class HomePartnerController extends GetxController {
           backgroundColor: Colors.red.shade100,
           colorText: Colors.red.shade800,
         );
-        return;
+        return false;
       }
 
-      // Validate rate
-      if (newServiceRate < 1000) {
+      // Validate rates
+      if (newIndoorRate < 500 || newOutdoorRate < 500) {
         Get.snackbar(
           'Invalid Rate',
-          'Service rate must be at least ৳1,000',
+          'Service rates must be at least ৳500',
           backgroundColor: Colors.orange.shade100,
           colorText: Colors.orange.shade800,
         );
-        return;
+        return false;
       }
 
-      // Update Firestore
+      // Update Firestore with BOTH fields to sync with Profile Page
       await FirebaseFirestore.instance
           .collection('partners')
           .doc(user.uid)
           .update({
-        'serviceRate': newServiceRate,
+        'indoorCityRate': newIndoorRate,
+        'outdoorCityRate': newOutdoorRate,
+        'serviceRate':
+            newIndoorRate, // Keeping base service rate synced with indoor
         'ratesLastUpdated': Timestamp.now(),
       });
 
-      // Update local reactive variable
-      serviceRate.value = newServiceRate;
+      // Update local reactive variables
+      indoorRate.value = newIndoorRate;
+      outdoorRate.value = newOutdoorRate;
+      serviceRate.value = newIndoorRate;
 
-      Get.snackbar(
-        'Success',
-        'Rate updated successfully!',
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-      );
+      debugPrint(
+          '✅ Partner rates updated: Indoor=$newIndoorRate, Outdoor=$newOutdoorRate');
 
-      debugPrint('✅ Partner rate updated: Service=${newServiceRate}');
+      return true;
     } catch (e) {
       debugPrint('❌ Error updating partner rates: $e');
       Get.snackbar(
         'Error',
-        'Failed to update rate: $e',
+        'Failed to update rates: $e',
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade800,
       );
+      return false;
     }
   }
 
   void showRateChangeDialog() {
-    int tempServiceRate = serviceRate.value;
+    // Current values
+    int tempIndoorRate =
+        indoorRate.value > 0 ? indoorRate.value : serviceRate.value;
+    int tempOutdoorRate =
+        outdoorRate.value > 0 ? outdoorRate.value : serviceRate.value;
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Update Service Rate'),
-        content: StatefulBuilder(
-          builder: (context, setState) => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Set your ambulance service rate. This rate will be shown to users when they book your services.',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Service Rate (৳)',
-                    hintText: 'Minimum 1000',
-                    border: OutlineInputBorder(),
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Text(
+                  'Update Service Rates',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                  keyboardType: TextInputType.number,
-                  controller:
-                      TextEditingController(text: tempServiceRate.toString()),
-                  onChanged: (value) {
-                    tempServiceRate = int.tryParse(value) ?? tempServiceRate;
-                  },
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Set your ambulance service rates. These will be shown on your profile.',
+                style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Indoor Rate Field
+              TextField(
+                decoration: InputDecoration(
+                  labelText: 'Indoor City Rate (৳)',
+                  labelStyle: TextStyle(color: Colors.grey.shade600),
+                  hintText: 'e.g. 2500',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF42A5F5), width: 2),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                keyboardType: TextInputType.number,
+                controller:
+                    TextEditingController(text: tempIndoorRate.toString()),
+                onChanged: (value) {
+                  tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Outdoor Rate Field
+              TextField(
+                decoration: InputDecoration(
+                  labelText: 'Outdoor City Rate (৳)',
+                  labelStyle: TextStyle(color: Colors.grey.shade600),
+                  hintText: 'e.g. 5000',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF42A5F5), width: 2),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                keyboardType: TextInputType.number,
+                controller:
+                    TextEditingController(text: tempOutdoorRate.toString()),
+                onChanged: (value) {
+                  tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
+                },
+              ),
+
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Get.back(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child:
+                          const Text('Cancel', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        // Close keyboard first
+                        FocusScope.of(Get.context!).unfocus();
+
+                        // Perform update with BOTH rates
+                        bool success = await updatePartnerRates(
+                            tempIndoorRate, tempOutdoorRate);
+
+                        // Close dialog
+                        Get.back();
+
+                        // Show success if updated
+                        if (success) {
+                          // Short delay to allow dialog to fully close
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            SuccessDialog.show(
+                              title: 'Rates Updated',
+                              message:
+                                  'Your service rates have been updated successfully!',
+                            );
+                          });
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5C9DFF), // Custom Blue
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Update Rates',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              updatePartnerRates(tempServiceRate);
-              Get.back();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Update Rate'),
-          ),
-        ],
       ),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
     );
   }
 
@@ -797,6 +936,9 @@ class HomePartnerController extends GetxController {
   @override
   void onClose() {
     _requestsSubscription?.cancel();
+    _nameSubscription?.cancel();
+    _imageSubscription?.cancel();
+    _rateSubscription?.cancel();
     _locationUpdateTimer?.cancel(); // Cancel location update timer
     shownRequestIds.clear(); // Clear shown requests when controller closes
     // Don't clear declinedRequestIds - they should persist across sessions
@@ -827,7 +969,7 @@ class HomePartnerController extends GetxController {
       );
 
       final newPosition = LatLng(position.latitude, position.longitude);
-      
+
       // Only update if position has changed significantly (more than 5 meters)
       if (currentPosition.value != null) {
         final distance = Geolocator.distanceBetween(
@@ -857,7 +999,8 @@ class HomePartnerController extends GetxController {
         await _updatePartnerLocation();
       }
 
-      debugPrint('📍 Location updated: ${position.latitude}, ${position.longitude}');
+      debugPrint(
+          '📍 Location updated: ${position.latitude}, ${position.longitude}');
     } catch (e) {
       debugPrint('❌ Error updating location: $e');
     }
@@ -1072,7 +1215,7 @@ class HomePartnerController extends GetxController {
 
   void _listenForRequests() {
     debugPrint('🚀 _listenForRequests() method called - Starting setup...');
-    
+
     try {
       final user = _auth.currentUser;
       if (user == null) {
@@ -1081,7 +1224,8 @@ class HomePartnerController extends GetxController {
       }
 
       debugPrint('🔍 Setting up request listener for partner: ${user.uid}');
-      debugPrint('🔍 Querying orders collection with: type=ambulance, status=pending, partnerId=${user.uid}');
+      debugPrint(
+          '🔍 Querying orders collection with: type=ambulance, status=pending, partnerId=${user.uid}');
 
       _requestsSubscription = FirebaseFirestore.instance
           .collection('orders')
@@ -1090,12 +1234,14 @@ class HomePartnerController extends GetxController {
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
-        debugPrint('📡 Request listener triggered - found ${snapshot.docs.length} documents');
-        
+        debugPrint(
+            '📡 Request listener triggered - found ${snapshot.docs.length} documents');
+
         // Log each document for debugging
         for (var doc in snapshot.docs) {
           final data = doc.data();
-          debugPrint('📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
+          debugPrint(
+              '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
         }
 
         // Filter out declined requests
@@ -1110,25 +1256,30 @@ class HomePartnerController extends GetxController {
             .toList();
 
         pendingRequests.value = allRequests;
-        debugPrint('📋 Filtered pending requests: ${allRequests.length} (after excluding ${declinedRequestIds.length} declined)');
+        debugPrint(
+            '📋 Filtered pending requests: ${allRequests.length} (after excluding ${declinedRequestIds.length} declined)');
 
         // Show bottom sheet if there are pending requests that haven't been shown yet and aren't declined
         final newRequests = pendingRequests
-            .where((request) => 
+            .where((request) =>
                 !shownRequestIds.contains(request['id']) &&
                 !declinedRequestIds.contains(request['id']))
             .toList();
 
         debugPrint('🆕 New requests to show: ${newRequests.length}');
-        debugPrint('🚫 Already shown: ${shownRequestIds.length}, Declined: ${declinedRequestIds.length}');
-        debugPrint('📱 Bottom sheet currently showing: ${showRequestBottomSheet.value}');
+        debugPrint(
+            '🚫 Already shown: ${shownRequestIds.length}, Declined: ${declinedRequestIds.length}');
+        debugPrint(
+            '📱 Bottom sheet currently showing: ${showRequestBottomSheet.value}');
 
         if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
           final firstNewRequest = newRequests.first;
           shownRequestIds.add(firstNewRequest['id']); // Mark as shown
           showRequestBottomSheet.value = true;
-          debugPrint('🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
-          debugPrint('👤 Patient: ${firstNewRequest['patientName']}, Phone: ${firstNewRequest['phone']}');
+          debugPrint(
+              '🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
+          debugPrint(
+              '👤 Patient: ${firstNewRequest['patientName']}, Phone: ${firstNewRequest['phone']}');
           _showRequestBottomSheet(firstNewRequest);
         } else if (newRequests.isEmpty) {
           debugPrint('ℹ️ No new requests to show');
@@ -1138,12 +1289,13 @@ class HomePartnerController extends GetxController {
       }, onError: (error) {
         debugPrint('❌ Error in request listener: $error');
         debugPrint('❌ Error type: ${error.runtimeType}');
-        
+
         // Check for network connectivity issues
-        if (error.toString().contains('UNAVAILABLE') || 
+        if (error.toString().contains('UNAVAILABLE') ||
             error.toString().contains('firestore.googleapis.com') ||
             error.toString().contains('Unable to resolve host')) {
-          debugPrint('🌐 Network connectivity issue detected. Firestore offline mode will handle sync when connection returns.');
+          debugPrint(
+              '🌐 Network connectivity issue detected. Firestore offline mode will handle sync when connection returns.');
         }
       });
     } catch (e) {
@@ -2140,7 +2292,7 @@ class HomePartnerController extends GetxController {
               // Action Buttons
               Row(
                 children: [
-                    Expanded(
+                  Expanded(
                     child: Container(
                       height: 50,
                       child: ElevatedButton.icon(
@@ -2193,8 +2345,6 @@ class HomePartnerController extends GetxController {
                       ),
                     ),
                   ),
-                 
-                
                 ],
               ),
 
@@ -2378,7 +2528,7 @@ class HomePartnerController extends GetxController {
           .collection('orders')
           .doc(requestId)
           .get();
-      
+
       final updatedRequest = {'id': requestId, ...updatedDoc.data()!};
       debugPrint('✅ Updated request status: ${updatedRequest['status']}');
 
@@ -2406,8 +2556,10 @@ class HomePartnerController extends GetxController {
           'HomePartner: Passing serviceRate to AcceptMaps: ${serviceRate.value}');
 
       // Navigate to accept maps page with request data
-      Get.to(() => AcceptMapsPage(),
-          arguments: {'request': updatedRequest, 'serviceRate': serviceRate.value});
+      Get.to(() => AcceptMapsPage(), arguments: {
+        'request': updatedRequest,
+        'serviceRate': serviceRate.value
+      });
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -2541,10 +2693,9 @@ class HomePartnerController extends GetxController {
       debugPrint('🔍 DEBUG: Checking orders for partner: ${user.uid}');
 
       // Check all orders in the collection
-      final allOrders = await FirebaseFirestore.instance
-          .collection('orders')
-          .get();
-      
+      final allOrders =
+          await FirebaseFirestore.instance.collection('orders').get();
+
       debugPrint('📊 Total orders in database: ${allOrders.docs.length}');
 
       // Check orders with this partner ID
@@ -2561,22 +2712,27 @@ class HomePartnerController extends GetxController {
         return data['type'] == 'ambulance' && data['status'] == 'pending';
       }).toList();
 
-      debugPrint('🚑 Pending ambulance orders for this partner: ${pendingAmbulance.length}');
+      debugPrint(
+          '🚑 Pending ambulance orders for this partner: ${pendingAmbulance.length}');
 
       // Log details of pending orders
       for (var doc in pendingAmbulance) {
         final data = doc.data();
-        debugPrint('📋 Pending Order ${doc.id}: patient=${data['patientName']}, phone=${data['phone']}, urgency=${data['urgency']}');
+        debugPrint(
+            '📋 Pending Order ${doc.id}: patient=${data['patientName']}, phone=${data['phone']}, urgency=${data['urgency']}');
       }
 
       // Check if there are any orders for other partner IDs
       final otherPartnerOrders = allOrders.docs.where((doc) {
         final data = doc.data();
         final partnerId = data['partnerId'];
-        return partnerId != null && partnerId != user.uid && data['status'] == 'pending';
+        return partnerId != null &&
+            partnerId != user.uid &&
+            data['status'] == 'pending';
       }).toList();
 
-      debugPrint('👥 Pending orders for other partners: ${otherPartnerOrders.length}');
+      debugPrint(
+          '👥 Pending orders for other partners: ${otherPartnerOrders.length}');
 
       if (pendingAmbulance.isNotEmpty) {
         debugPrint('✅ Found pending orders! Bottom sheet should show.');
@@ -2593,15 +2749,10 @@ class HomePartnerController extends GetxController {
       } else {
         debugPrint('❌ No pending orders found for this partner');
       }
-
     } catch (e) {
       debugPrint('❌ Debug check failed: $e');
     }
   }
-
-
-
-
 
   /// Show bottom sheet for a specific request (used when notification is clicked)
   void showBottomSheetForRequest(String orderId) {
@@ -2686,7 +2837,8 @@ class HomePartnerController extends GetxController {
           AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade600),
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange.shade600),
                 SizedBox(width: 8),
                 Text('অফলাইনে যেতে চান?'),
               ],
@@ -2735,7 +2887,6 @@ class HomePartnerController extends GetxController {
                   ),
                   TextButton(
                     onPressed: () => Get.back(result: true),
-                   
                     style: TextButton.styleFrom(
                       backgroundColor: Colors.orange.shade600,
                       foregroundColor: Colors.white,
@@ -2757,7 +2908,7 @@ class HomePartnerController extends GetxController {
 
       // Toggle the local status first for immediate UI update
       isOnline.value = !isOnline.value;
-      
+
       // Update in Firestore
       await FirebaseFirestore.instance
           .collection('partners')
@@ -2767,14 +2918,12 @@ class HomePartnerController extends GetxController {
         'lastStatusUpdate': Timestamp.now(),
       });
 
-      
-
-      debugPrint('✅ Partner status updated to: ${isOnline.value ? "Online" : "Offline"}');
+      debugPrint(
+          '✅ Partner status updated to: ${isOnline.value ? "Online" : "Offline"}');
     } catch (e) {
       // Revert the local status if Firestore update failed
       isOnline.value = !isOnline.value;
-      
-    
+
       debugPrint('❌ Error updating online status: $e');
     }
   }

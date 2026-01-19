@@ -5,6 +5,7 @@ import '../../terms_condition/terms_condition.dart';
 import '../../privacy_policy/privacy_policy.dart';
 import '../../components/constants/images.dart';
 import '../../components/widgets/form_input.dart';
+import '../../components/widgets/buttons.dart';
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
@@ -40,12 +41,10 @@ class SignUpPage extends StatelessWidget {
               ),
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 children: [
-                  const SizedBox(height: 20),
                   _buildHeader(primaryBlue, accentBlue, textSecondary),
-                  const SizedBox(height: 32),
                   _buildRoleSelection(
                     controller,
                     primaryBlue,
@@ -56,7 +55,7 @@ class SignUpPage extends StatelessWidget {
                     textPrimary,
                     textSecondary,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 22),
                   _buildSignUpCard(
                     controller,
                     primaryBlue,
@@ -67,7 +66,7 @@ class SignUpPage extends StatelessWidget {
                     textPrimary,
                     textSecondary,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   _buildFooter(textSecondary, accentBlue, controller),
                 ],
               ),
@@ -89,12 +88,24 @@ class SignUpPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        /*  const SizedBox(height: 16),
         Text(
           'Join our healthcare community',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
+          ),
+        ), */
+        Transform.translate(
+          offset: const Offset(0, -30),
+          child: const Text(
+            'Join our healthcare community',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
         ),
       ],
@@ -374,29 +385,21 @@ class SignUpPage extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Create Account Button
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton(
-            onPressed:
-                controller.isLoading.value ? null : controller.registerUser,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5CAFE9), // Light blue color
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 4,
+        Obx(
+          () => FilledButtonWidget(
+            onTap:
+                controller.agreedToTerms.value ? controller.registerUser : null,
+            isLoading: controller.isLoading.value,
+            buttonText: 'Create Account',
+            minHeight: 44,
+            borderRadiusValue: 8,
+            isStretched: true,
+            backgroundColor: const Color(0xFF5CAFE9),
+            buttonTextStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-            child: Obx(() => controller.isLoading.value
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  )),
           ),
         ),
       ],

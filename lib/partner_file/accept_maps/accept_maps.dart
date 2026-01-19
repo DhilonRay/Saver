@@ -164,16 +164,19 @@ class AcceptMapsPage extends StatelessWidget {
 
               // Sliding panel with ride details
               Obx(() {
-                debugPrint('AcceptMaps UI: showSlidePanel.value = ${controller.showSlidePanel.value}');
+                debugPrint(
+                    'AcceptMaps UI: showSlidePanel.value = ${controller.showSlidePanel.value}');
                 if (controller.showSlidePanel.value) {
                   debugPrint('AcceptMaps UI: Showing slide panel');
                   return SlidingUpPanel(
                     minHeight: 120,
                     maxHeight: MediaQuery.of(context).size.height * 0.7,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
                     panelBuilder: (scrollController) =>
                         _buildSlidePanel(scrollController, controller),
-                    body: Container(), // Empty body since map is already full screen
+                    body:
+                        Container(), // Empty body since map is already full screen
                   );
                 } else {
                   debugPrint('AcceptMaps UI: Slide panel hidden');
@@ -611,32 +614,36 @@ class AcceptMapsPage extends StatelessWidget {
                       child: Obx(() {
                         final status = controller.requestData.value?['status'];
                         final isTracking = controller.isLiveTracking.value;
-                        
-                        debugPrint('Button logic - Status: $status, IsTracking: $isTracking');
-                        
+
+                        debugPrint(
+                            'Button logic - Status: $status, IsTracking: $isTracking');
+
                         String buttonText;
                         VoidCallback onPressed;
 
                         if (status == 'in_transit') {
                           buttonText = 'Picked Up';
                           onPressed = () => _showPickupOTPDialog(controller);
-                          debugPrint('Button: Picked Up (status is in_transit)');
+                          debugPrint(
+                              'Button: Picked Up (status is in_transit)');
                         } else if (status == 'pickup') {
                           buttonText = 'Go to Destination';
                           onPressed = () => controller.goToDestination();
-                          debugPrint('Button: Go to Destination (status is pickup)');
+                          debugPrint(
+                              'Button: Go to Destination (status is pickup)');
                         } else if (status == 'to_destination') {
                           buttonText = 'Complete Ride';
                           onPressed = () => _showFareInputDialog(controller);
-                          debugPrint('Button: Complete Ride (status is to_destination)');
+                          debugPrint(
+                              'Button: Complete Ride (status is to_destination)');
                         } else if (isTracking) {
                           buttonText = 'Picked Up';
                           onPressed = () => _showPickupOTPDialog(controller);
                           debugPrint('Button: Picked Up (is tracking)');
                         } else {
-                          buttonText = 'Started to tracking';
+                          buttonText = 'Start Tracking';
                           onPressed = controller.startLiveTracking;
-                          debugPrint('Button: Started to tracking (default)');
+                          debugPrint('Button: Start Tracking (default)');
                         }
 
                         return ElevatedButton(
@@ -1074,7 +1081,8 @@ class AcceptMapsPage extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () async {
                         if (formKey.currentState?.validate() ?? false) {
-                          final success = await controller.confirmPickupOTP(otpController.text);
+                          final success = await controller
+                              .confirmPickupOTP(otpController.text);
                           if (success) {
                             Get.back(); // Close dialog
                             Get.snackbar(

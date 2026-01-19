@@ -77,10 +77,8 @@ class LoginController extends GetxController {
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
       // Check if user is admin first
-      DocumentSnapshot adminDoc = await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(uid)
-          .get();
+      DocumentSnapshot adminDoc =
+          await FirebaseFirestore.instance.collection('admins').doc(uid).get();
 
       if (adminDoc.exists) {
         debugPrint('🔑 Admin user detected - navigating to admin dashboard');
@@ -88,113 +86,72 @@ class LoginController extends GetxController {
         return;
       }
 
-      // Fetch user data from Firestore - check users first, then drivers
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      String collectionName = 'users';
-      if (!userDoc.exists) {
-        userDoc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
-        collectionName = 'drivers';
+      // Priority 1: Check Partners Collection
+      DocumentSnapshot partnerDoc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(uid)
+          .get();
+
+      if (partnerDoc.exists) {
+        debugPrint('Navigating to HomePartnerPage (found in partners)');
+        _navigateToPartner();
+        return;
       }
 
-      if (userDoc.exists) {
-        final userData = userDoc.data() as Map<String, dynamic>?;
-        final role = userData?['role'] as String?;
+      // Priority 2: Check Drivers Collection
+      DocumentSnapshot driverDoc =
+          await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
 
-        debugPrint('🔍 User document found in $collectionName');
-        debugPrint('👤 User data: $userData');
-        debugPrint('🎭 Detected role: $role');
-
-        // Check if it's a partner by checking partners collection if role is null
-        bool isPartner = false;
-        if (role == null) {
-          final partnerDoc = await FirebaseFirestore.instance.collection('partners').doc(uid).get();
-          if (partnerDoc.exists) {
-            isPartner = true;
-          }
-        }
-
-        // Navigate based on role
-        if ((role != null && role != 'user') || isPartner) {
-          // Also store FCM token in partners collection
-          if (fcmToken.value.isNotEmpty) {
-            await FirebaseFirestore.instance
-                .collection('partners')
-                .doc(uid)
-                .update({
-              'fcmToken': fcmToken.value,
-              'lastLogin': Timestamp.now(),
-            }).catchError((error) {
-              // If update fails, try to set the token
-              FirebaseFirestore.instance.collection('partners').doc(uid).set({
-                'fcmToken': fcmToken.value,
-                'lastLogin': Timestamp.now(),
-              }, SetOptions(merge: true));
-            });
-          }
-          debugPrint('Navigating to HomePartnerPage');
-          Get.snackbar(
-            'Login Success',
-            'Welcome Ambulance Partner!',
-            backgroundColor: Colors.green[600],
-            colorText: Colors.white,
-            snackPosition: SnackPosition.TOP,
-            borderRadius: 10,
-            margin: const EdgeInsets.all(10),
-          );
-          Future.delayed(const Duration(milliseconds: 500), () {
-            Get.offAll(() => HomePartnerPage());
-            // Initialize FCM after navigation
-            Future.delayed(const Duration(seconds: 1), () {
-              NotificationService.ensureFCMInitialized();
-            });
-          });
-        } else {
-          debugPrint('Navigating to HomePage (user)');
-          Get.snackbar(
-            'Login Success',
-            'Welcome User!',
-            backgroundColor: Colors.blue[600],
-            colorText: Colors.white,
-            snackPosition: SnackPosition.TOP,
-            borderRadius: 10,
-            margin: const EdgeInsets.all(10),
-          );
-          Future.delayed(const Duration(milliseconds: 500), () {
-            Get.offAll(() => HomePage());
-            // Initialize FCM after navigation
-            Future.delayed(const Duration(seconds: 1), () {
-              NotificationService.ensureFCMInitialized();
-            });
-          });
-        }
-      } else {
-        // If user document doesn't exist, default to user role
-        debugPrint('User document not found, defaulting to user role');
-        Get.snackbar(
-          'Login Success',
-          'Welcome! (Default user role)',
-          backgroundColor: Colors.orange[600],
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          borderRadius: 10,
-          margin: const EdgeInsets.all(10),
-        );
-        Get.offAll(() => HomePage());
+      if (driverDoc.exists) {
+        debugPrint('Navigating to HomePartnerPage (found in drivers)');
+        _navigateToPartner();
+        return;
       }
+
+      // Priority 3: Default to User Role
+      debugPrint(
+          'User/Driver doc not found in partner collections, defaulting to HomePage (User)');
+      _navigateToUser();
     } catch (e) {
       debugPrint('Error fetching user role: $e');
-      // On error, default to user role
-      Get.snackbar(
-        'Login Success',
-        'Welcome! (Error checking role)',
-        backgroundColor: Colors.orange[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
-      Get.offAll(() => HomePage());
+      _navigateToUser();
     }
+  }
+
+  void _navigateToPartner() {
+    Get.snackbar(
+      'Login Success',
+      'Welcome Ambulance Partner!',
+      backgroundColor: Colors.green[600],
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      borderRadius: 10,
+      margin: const EdgeInsets.all(10),
+    );
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Get.offAll(() => HomePartnerPage());
+      Future.delayed(const Duration(seconds: 1), () {
+        NotificationService.ensureFCMInitialized();
+      });
+    });
+  }
+
+  void _navigateToUser() {
+    Get.snackbar(
+      'Login Success',
+      'Welcome User!',
+      backgroundColor: Colors.blue[600],
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      borderRadius: 10,
+      margin: const EdgeInsets.all(10),
+    );
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Get.offAll(() => HomePage());
+      Future.delayed(const Duration(seconds: 1), () {
+        NotificationService.ensureFCMInitialized();
+      });
+    });
   }
 
   Future<void> signInWithEmail() async {

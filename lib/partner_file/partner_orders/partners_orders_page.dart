@@ -19,27 +19,32 @@ class PartnersOrdersPage extends StatelessWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Your Orders',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              backgroundColor: Colors.teal.shade800,
-              elevation: 2,
-              iconTheme: IconThemeData(color: colorScheme.onPrimary),
-              titleTextStyle:
-                  TextStyle(color: colorScheme.onPrimary, fontSize: 18),
+              centerTitle: true,
+              title: const Text('Your Trip',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, color: Colors.black87)),
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.black87),
+              titleTextStyle: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600),
               bottom: TabBar(
                 // Make tabs expand evenly to fill the available width
                 isScrollable: false,
-                indicatorColor: Colors.white,
+                indicatorColor: const Color(0xFFE53935),
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicatorWeight: 3.0,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white70,
+                labelColor: const Color(0xFFE53935),
+                unselectedLabelColor: Colors.black54,
                 // ensure equal spacing inside each tab
-                labelPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+                labelPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
                 tabs: const [
-                  Tab(text: 'Activity', icon: Icon(Icons.work)),
-                  Tab(text: 'Completed', icon: Icon(Icons.done_all)),
-                  Tab(text: 'Cancelled', icon: Icon(Icons.cancel)),
+                  Tab(text: 'Activity', icon: Icon(Icons.assignment_outlined)),
+                  Tab(text: 'Task Completed', icon: Icon(Icons.done_all)),
+                  Tab(text: 'Order cancel', icon: Icon(Icons.close)),
                 ],
               ),
             ),
@@ -90,7 +95,7 @@ class PartnersOrdersPage extends StatelessWidget {
                   color: colorScheme.onSurface.withValues(alpha: 0.3)),
               const SizedBox(height: 16),
               Text(
-                'No orders found',
+                'No Trips found',
                 style: TextStyle(
                     fontSize: 18,
                     color: colorScheme.onSurface.withValues(alpha: 0.6)),
@@ -257,7 +262,7 @@ class PartnersOrdersPage extends StatelessWidget {
             Icon(Icons.work_outline,
                 size: 64, color: colorScheme.onSurface.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            Text('No active orders.',
+            Text('No Activities',
                 style: TextStyle(
                     color: colorScheme.onSurface.withValues(alpha: 0.7),
                     fontSize: 16)),

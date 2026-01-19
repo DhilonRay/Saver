@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart' as lottie hide Marker;
 
@@ -27,18 +28,23 @@ class SuccessDialog extends StatefulWidget {
 
     _isShowing = true;
 
-    Get.dialog(
+    Future? dialogFuture = Get.dialog(
       SuccessDialog(title: title, message: message, onTap: onTap),
       barrierDismissible: true, // Allow dismissing by tapping outside
       barrierColor: Colors.black.withValues(alpha: 0.3),
     );
 
     // Auto close after specified duration
-    Future.delayed(autoCloseDuration, () {
+    Timer? timer = Timer(autoCloseDuration, () {
       if (Get.isDialogOpen ?? false) {
         Get.back();
       }
+    });
+
+    // Clean up when dialog closes
+    dialogFuture.then((_) {
       _isShowing = false;
+      timer?.cancel();
     });
   }
 

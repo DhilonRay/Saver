@@ -97,7 +97,9 @@ class SignUpController extends GetxController {
         'email': emailController.text.trim(),
         'uid': userCredential.user!.uid,
         'role': selectedRole.value,
+        'acceptedTerms': true,
         'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
       });
 
       debugPrint('User registered with role: ${selectedRole.value}');
@@ -112,21 +114,13 @@ class SignUpController extends GetxController {
           message: 'Your account has been created successfully!',
         );
         // Navigate directly to home page since user is already authenticated
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(const Duration(seconds: 2), () {
           Get.offAll(() => HomePage(isNewSignup: true));
         });
       }
     } catch (e) {
       debugPrint('Registration error: $e');
-      Get.snackbar(
-        'Registration Failed',
-        e.toString(),
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar('Registration Failed', e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -134,15 +128,8 @@ class SignUpController extends GetxController {
 
   bool _validateInputs() {
     if (selectedRole.value.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please select your role (User or Ambulance)',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar(
+          'Error', 'Please select your role (User or Ambulance)');
       return false;
     }
 
@@ -154,69 +141,30 @@ class SignUpController extends GetxController {
         postCodeController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty ||
         confirmPasswordController.text.trim().isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please fill in all required fields',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar('Error', 'Please fill in all required fields');
       return false;
     }
 
     if (passwordController.text.trim() !=
         confirmPasswordController.text.trim()) {
-      Get.snackbar(
-        'Error',
-        'Passwords do not match',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar('Error', 'Passwords do not match');
       return false;
     }
 
     if (emailController.text.trim().isNotEmpty &&
         !isValidEmail(emailController.text.trim())) {
-      Get.snackbar(
-        'Error',
-        'Please enter a valid email address',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar('Error', 'Please enter a valid email address');
       return false;
     }
 
     if (!isValidName(nameController.text.trim())) {
-      Get.snackbar(
-        'Error',
-        'Name cannot contain numbers',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar('Error', 'Name cannot contain numbers');
       return false;
     }
 
     if (!agreedToTerms.value) {
-      Get.snackbar(
-        'Error',
-        'Please agree to the Terms of Use and Privacy Policy',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      _showErrorSnackbar(
+          'Error', 'Please agree to the Terms of Use and Privacy Policy');
       return false;
     }
 
@@ -251,5 +199,31 @@ class SignUpController extends GetxController {
     Future.delayed(const Duration(milliseconds: 100), () {
       Get.offAll(() => LoginPage());
     });
+  }
+
+  void _showErrorSnackbar(String title, String message) {
+    if (Get.context != null) {
+      ScaffoldMessenger.of(Get.context!).showSnackBar(
+        SnackBar(
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(message),
+            ],
+          ),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(10),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      // Fallback for extreme cases
+      debugPrint('Context null, could not show snackbar: $title - $message');
+    }
   }
 }

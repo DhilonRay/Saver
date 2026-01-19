@@ -162,6 +162,7 @@ class AppImages {
   static const String ambulance = '$_imageAssetsLocation/ambulance.png';
   static const String userRole = '$_imageAssetsLocation/userRole.png';
   static const String ambulanceRole = '$_imageAssetsLocation/AmbulaceRole.png';
+  static const String mapAmbulance = '$_imageAssetsLocation/map_ambulance.png';
   static const String suppliersPng =
       '$_imageAssetsLocation/suppliers_report.png';
   static const String suppliersDuePng =

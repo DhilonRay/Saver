@@ -14,41 +14,37 @@ class SplashPageController {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         try {
-          // Read the user document to determine role - check users first, then drivers
-          DocumentSnapshot doc = await FirebaseFirestore.instance
-              .collection('users')
+          // Priority 1: Check Partners Collection
+          final partnerDoc = await FirebaseFirestore.instance
+              .collection('partners')
               .doc(user.uid)
               .get();
-          if (!doc.exists) {
-            doc = await FirebaseFirestore.instance
-                .collection('drivers')
-                .doc(user.uid)
-                .get();
-          }
-          final data = doc.data() as Map<String, dynamic>?;
-          final role = data != null && data.containsKey('role')
-              ? data['role'] as String
-              : null;
 
-          // Check if it's a partner by checking partners collection if role is null
-          bool isPartner = false;
-          if (role == null) {
-            final partnerDoc = await FirebaseFirestore.instance
-                .collection('partners')
-                .doc(user.uid)
-                .get();
-            if (partnerDoc.exists) {
-              isPartner = true;
-            }
-          }
-
-          if ((role != null && role != 'user') || isPartner) {
-            // Navigate to partner home for drivers
+          if (partnerDoc.exists) {
             Get.offAll(() => HomePartnerPage());
-          } else {
-            // Default to user home
-            Get.offAll(() => HomePage());
+            Future.delayed(const Duration(seconds: 1), () {
+              NotificationService.ensureFCMInitialized();
+            });
+            return;
           }
+
+          // Priority 2: Check Drivers Collection
+          final driverDoc = await FirebaseFirestore.instance
+              .collection('drivers')
+              .doc(user.uid)
+              .get();
+
+          if (driverDoc.exists) {
+            Get.offAll(() => HomePartnerPage());
+            Future.delayed(const Duration(seconds: 1), () {
+              NotificationService.ensureFCMInitialized();
+            });
+            return;
+          }
+
+          // Priority 3: Check Users Collection (Default)
+          // Even if not found, we default to HomePage for patients
+          Get.offAll(() => HomePage());
 
           // Ensure FCM token is initialized after navigation
           Future.delayed(const Duration(seconds: 1), () {

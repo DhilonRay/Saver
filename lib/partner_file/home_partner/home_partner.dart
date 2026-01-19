@@ -60,7 +60,6 @@ class HomePartnerPage extends StatelessWidget {
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
               actions: [
-               
                 IconButton(
                   icon: Icon(
                     Icons.notifications,
@@ -85,7 +84,7 @@ class HomePartnerPage extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     Container(
-                      padding: const EdgeInsets.only(top: 20, bottom: 30),
+                      padding: const EdgeInsets.only(top: 12, bottom: 8),
                       child: Column(
                         children: [
                           // Profile Image with Upload Functionality
@@ -188,7 +187,7 @@ class HomePartnerPage extends StatelessWidget {
                               );
                             }),
                           ),
-                          SizedBox(height: 16),
+                          SizedBox(height: 4),
                           Obx(() => Text(
                                 controller.partnerName.value,
                                 style: TextStyle(
@@ -205,8 +204,6 @@ class HomePartnerPage extends StatelessWidget {
                               fontWeight: FontWeight.w300,
                             ),
                           ),
-                        
-                         
                         ],
                       ),
                     ),
@@ -214,13 +211,13 @@ class HomePartnerPage extends StatelessWidget {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          SizedBox(height: 20),
+                          SizedBox(height: 0),
                           _buildDrawerItem(
                             icon: Icons.assignment_ind_outlined,
-                            title: 'My Orders',
+                            title: 'My Trips',
                             onTap: controller.navigateToPartnersOrders,
                           ),
-                      /*     Obx(() => _buildDrawerItem(
+                          /*     Obx(() => _buildDrawerItem(
                             icon: controller.isOnline.value 
                                 ? Icons.toggle_on_rounded 
                                 : Icons.toggle_off_rounded,
@@ -252,7 +249,7 @@ class HomePartnerPage extends StatelessWidget {
                               controller.showRateChangeDialog();
                             },
                           ),
-                          Divider(height: 40, thickness: 1),
+                          Divider(height: 8, thickness: 1),
                           _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
@@ -373,51 +370,51 @@ class HomePartnerPage extends StatelessWidget {
                         right: 0,
                         child: Center(
                           child: Obx(() => GestureDetector(
-                            onTap: controller.toggleOnlineStatus,
-                            child: AnimatedContainer(
-                              duration: Duration(milliseconds: 300),
-                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                              
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.4),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 3),
+                                onTap: controller.toggleOnlineStatus,
+                                child: AnimatedContainer(
+                                  duration: Duration(milliseconds: 300),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                 
-                                 
-                                  Text(
-                                    controller.isOnline.value ? 'Online' : 'Offline',
-                                    style: TextStyle(
-                                      color: controller.isOnline.value 
-                                          ? Colors.green.shade700 
-                                          : Colors.orange.shade700,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        controller.isOnline.value
+                                            ? 'Online'
+                                            : 'Offline',
+                                        style: TextStyle(
+                                          color: controller.isOnline.value
+                                              ? Colors.green.shade700
+                                              : Colors.orange.shade700,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        controller.isOnline.value
+                                            ? Icons.toggle_on_rounded
+                                            : Icons.toggle_off_rounded,
+                                        color: controller.isOnline.value
+                                            ? Colors.green.shade600
+                                            : Colors.grey.shade500,
+                                        size: 24,
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 4),
-                                  Icon(
-                                    controller.isOnline.value 
-                                        ? Icons.toggle_on_rounded 
-                                        : Icons.toggle_off_rounded,
-                                    color: controller.isOnline.value 
-                                        ? Colors.green.shade600 
-                                        : Colors.grey.shade500,
-                                    size: 24,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )),
+                                ),
+                              )),
                         ),
                       ),
 
@@ -426,62 +423,62 @@ class HomePartnerPage extends StatelessWidget {
                         left: 16,
                         bottom: 20,
                         child: Obx(() => AnimatedContainer(
-                          duration: Duration(milliseconds: 300),
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
+                              duration: Duration(milliseconds: 300),
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    controller.isOnline.value 
-                                        ? Icons.radio_button_checked 
-                                        : Icons.radio_button_unchecked,
-                                    color: controller.isOnline.value 
-                                        ? Colors.green.shade600 
-                                        : Colors.grey.shade500,
-                                    size: 16,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        controller.isOnline.value
+                                            ? Icons.radio_button_checked
+                                            : Icons.radio_button_unchecked,
+                                        color: controller.isOnline.value
+                                            ? Colors.green.shade600
+                                            : Colors.grey.shade500,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'স্থিতি',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 6),
+                                  SizedBox(height: 4),
                                   Text(
-                                    'স্থিতি',
+                                    controller.isOnline.value
+                                        ? 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে'
+                                        : 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে না',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 10,
+                                      color: controller.isOnline.value
+                                          ? Colors.green.shade700
+                                          : Colors.orange.shade700,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                controller.isOnline.value 
-                                    ? 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে'
-                                    : 'রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারছে না',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: controller.isOnline.value 
-                                      ? Colors.green.shade700 
-                                      : Colors.orange.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )),
+                            )),
                       ),
 
                       // Zoom controls positioned on the right side
@@ -566,7 +563,7 @@ class HomePartnerPage extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
             Container(

@@ -46,6 +46,7 @@ class FilledButtonWidget extends StatelessWidget {
         minimumSize: isStretched
             ? Size.fromHeight(minHeight)
             : minimumSize ?? Size(30, minHeight),
+        borderRadiusValue: borderRadiusValue,
         child: child ??
             Text(
               buttonText,

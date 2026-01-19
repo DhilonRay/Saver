@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:saver/compo/success_dialog.dart';
 
-
 class PartnerProfileController extends GetxController {
   var isLoading = true.obs;
   var error = ''.obs;
@@ -63,7 +62,7 @@ class PartnerProfileController extends GetxController {
 
     // Set up real-time listener for personal info
     _personalInfoSubscription = FirebaseFirestore.instance
-        .collection('users')
+        .collection('drivers')
         .doc(user.uid)
         .snapshots()
         .listen(
@@ -176,7 +175,7 @@ class PartnerProfileController extends GetxController {
       // Update personal info in users collection
       if (personalInfo.isNotEmpty) {
         await FirebaseFirestore.instance
-            .collection('users')
+            .collection('drivers')
             .doc(user.uid)
             .update(personalInfo);
         print('✅ Personal info updated in Firestore');
@@ -221,7 +220,7 @@ class PartnerProfileController extends GetxController {
         personalInfo['profileImageUrl'] = downloadUrl;
         // Update Firestore
         await FirebaseFirestore.instance
-            .collection('users')
+            .collection('drivers')
             .doc(user.uid)
             .update({'profileImageUrl': downloadUrl});
         SuccessDialog.show(
@@ -847,11 +846,12 @@ class PartnerProfileController extends GetxController {
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         ambulanceUploadProgress.value = progress;
-        print('📊 Ambulance upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+        print(
+            '📊 Ambulance upload progress: ${(progress * 100).toStringAsFixed(1)}%');
       });
 
-      final snapshot = await uploadTask.whenComplete(
-          () => print('✅ Ambulance image upload completed'));
+      final snapshot = await uploadTask
+          .whenComplete(() => print('✅ Ambulance image upload completed'));
 
       if (snapshot.state == TaskState.success) {
         ambulanceUploadProgress.value = 1.0;
@@ -872,7 +872,8 @@ class PartnerProfileController extends GetxController {
         print('✅ Ambulance image updated successfully');
         SuccessDialog.show(
           title: 'Ambulance Photo Updated',
-          message: 'Your ambulance photo has been uploaded successfully! Users can now see your ambulance before booking.',
+          message:
+              'Your ambulance photo has been uploaded successfully! Users can now see your ambulance before booking.',
         );
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
@@ -880,13 +881,15 @@ class PartnerProfileController extends GetxController {
     } catch (e) {
       print('❌ Error uploading ambulance image: $e');
 
-      String errorMessage = 'Failed to upload ambulance image. Please try again.';
+      String errorMessage =
+          'Failed to upload ambulance image. Please try again.';
       if (e.toString().contains('network') ||
           e.toString().contains('unavailable')) {
         errorMessage = 'Network error. Please check your connection.';
       } else if (e.toString().contains('permission') ||
           e.toString().contains('PERMISSION_DENIED')) {
-        errorMessage = 'Permission denied. Please check Firebase Storage rules.';
+        errorMessage =
+            'Permission denied. Please check Firebase Storage rules.';
       } else if (e.toString().contains('object-not-found')) {
         errorMessage = 'Storage path not found. Please try again.';
       }
@@ -1112,9 +1115,9 @@ class PartnerProfileController extends GetxController {
       }
 
       // Get placemarks from coordinates with a timeout so the UI won't hang
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-              latitude, longitude)
-          .timeout(const Duration(seconds: 8));
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(latitude, longitude)
+              .timeout(const Duration(seconds: 8));
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks.first;
