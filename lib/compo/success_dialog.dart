@@ -37,7 +37,9 @@ class SuccessDialog extends StatefulWidget {
     // Auto close after specified duration
     Timer? timer = Timer(autoCloseDuration, () {
       if (Get.isDialogOpen ?? false) {
-        Get.back();
+        if (Get.overlayContext != null) {
+          Navigator.of(Get.overlayContext!).pop();
+        }
       }
     });
 
@@ -104,7 +106,7 @@ class _SuccessDialogState extends State<SuccessDialog>
             child: GestureDetector(
               onTap: widget.onTap != null
                   ? () {
-                      Get.back(); // Close dialog first
+                      Navigator.of(context).pop(); // Close dialog first
                       widget.onTap!(); // Then execute the callback
                     }
                   : null,

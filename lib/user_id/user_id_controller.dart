@@ -108,23 +108,23 @@ class UserIdController extends GetxController {
 
         await _updateLocation(uid);
       } catch (e) {
-        Get.snackbar(
-          'Error',
-          'Failed to load user data: ${e.toString()}',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        Get.defaultDialog(
+          title: 'Error',
+          middleText: 'Failed to load user data: ${e.toString()}',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
         );
       }
     } else {
       // Handle case when user is not authenticated
       userData.value = null;
-      Get.snackbar(
-        'Authentication Required',
-        'Please log in to view your profile',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
+      Get.defaultDialog(
+        title: 'Authentication Required',
+        middleText: 'Please log in to view your profile',
+        textConfirm: 'OK',
+        confirmTextColor: Colors.white,
+        onConfirm: () => Get.back(),
       );
     }
     isLoading.value = false;
@@ -175,22 +175,19 @@ class UserIdController extends GetxController {
           'email': emailController.text.trim(),
         };
 
-        Get.snackbar(
-          'Success',
-          'Profile updated successfully!',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
+        SuccessDialog.show(
+          title: 'Success',
+          message: 'Profile updated successfully!',
         );
 
         isEditing.value = false;
       } catch (e) {
-        Get.snackbar(
-          'Error',
-          'Error updating profile: ${e.toString()}',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        Get.defaultDialog(
+          title: 'Error',
+          middleText: 'Error updating profile: ${e.toString()}',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
         );
       }
     }
@@ -251,26 +248,32 @@ class UserIdController extends GetxController {
       }
 
       if (status.isDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is required to select images. Please grant permission when prompted.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
+        Get.defaultDialog(
+          title: 'Permission Required',
+          middleText:
+              'Photo library access is required to select images. Please grant permission when prompted.',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
         );
         return;
       }
 
       if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is permanently denied. Please enable it in app settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          mainButton: TextButton(
+        Get.defaultDialog(
+          title: 'Permission Required',
+          middleText:
+              'Photo library access is permanently denied. Please enable it in app settings.',
+          confirm: TextButton(
             onPressed: () {
+              Get.back();
               openAppSettings();
             },
             child: const Text('Open Settings'),
+          ),
+          cancel: TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
           ),
         );
         return;
@@ -294,10 +297,12 @@ class UserIdController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error picking image from gallery: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to pick image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
+      Get.defaultDialog(
+        title: 'Error',
+        middleText: 'Failed to pick image. Please try again.',
+        textConfirm: 'OK',
+        confirmTextColor: Colors.white,
+        onConfirm: () => Get.back(),
       );
     }
   }
@@ -309,11 +314,13 @@ class UserIdController extends GetxController {
       // Request camera permission first
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Camera access is required to take photos. Please grant permission in settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
+        Get.defaultDialog(
+          title: 'Permission Required',
+          middleText:
+              'Camera access is required to take photos. Please grant permission in settings.',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
         );
         return;
       }
@@ -336,10 +343,12 @@ class UserIdController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error taking photo: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to take photo. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
+      Get.defaultDialog(
+        title: 'Error',
+        middleText: 'Failed to take photo. Please try again.',
+        textConfirm: 'OK',
+        confirmTextColor: Colors.white,
+        onConfirm: () => Get.back(),
       );
     }
   }
@@ -350,22 +359,16 @@ class UserIdController extends GetxController {
       uploadProgress.value = 0.0; // Reset progress
 
       // Show immediate feedback
-      Get.snackbar(
-        'Uploading...',
-        'Please wait while we upload your profile image',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-        showProgressIndicator: true,
-      );
 
       // Check network connectivity first
       final isConnected = await _isConnected();
       if (!isConnected) {
-        Get.snackbar(
-          'No Internet',
-          'Please check your internet connection and try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
+        Get.defaultDialog(
+          title: 'No Internet',
+          middleText: 'Please check your internet connection and try again.',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
         );
         return;
       }
@@ -448,17 +451,24 @@ class UserIdController extends GetxController {
         errorMessage =
             'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
-        Get.snackbar(
-          'Upload Failed',
-          'Network error occurred. Tap to retry.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          onTap: (snack) {
-            debugPrint('🔄 User tapped retry for network error');
-            _retryUpload(imageFile);
-          },
+        // Offer retry option for network errors
+        Get.defaultDialog(
+          title: 'Upload Failed',
+          middleText: 'Network error occurred. Tap to retry.',
+          confirm: TextButton(
+            onPressed: () {
+              Get.back();
+              debugPrint('🔄 User tapped retry for network error');
+              _retryUpload(imageFile);
+            },
+            child: const Text('Retry'),
+          ),
+          cancel: TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
         );
-        return; // Don't show the default error snackbar
+        return;
       } else if (e.toString().contains('permission') ||
           e.toString().contains('denied')) {
         errorMessage =
@@ -468,11 +478,12 @@ class UserIdController extends GetxController {
         return; // Don't show error snackbar for cancelled uploads
       }
 
-      Get.snackbar(
-        'Error',
-        errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
+      Get.defaultDialog(
+        title: 'Error',
+        middleText: errorMessage,
+        textConfirm: 'OK',
+        confirmTextColor: Colors.white,
+        onConfirm: () => Get.back(),
       );
     } finally {
       isUploadingImage.value = false;
@@ -638,10 +649,12 @@ class UserIdController extends GetxController {
       );
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to remove profile image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
+      Get.defaultDialog(
+        title: 'Error',
+        middleText: 'Failed to remove profile image. Please try again.',
+        textConfirm: 'OK',
+        confirmTextColor: Colors.white,
+        onConfirm: () => Get.back(),
       );
     }
   }
