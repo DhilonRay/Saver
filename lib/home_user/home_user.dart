@@ -50,7 +50,8 @@ class HomePage extends StatelessWidget {
               ),
               actions: [
                 Obx(() {
-                  final notificationController = Get.find<UserNotificationController>();
+                  final notificationController =
+                      Get.find<UserNotificationController>();
                   return Stack(
                     children: [
                       IconButton(
@@ -69,13 +70,13 @@ class HomePage extends StatelessWidget {
                           top: 8,
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                       
                             constraints: const BoxConstraints(
                               minWidth: 16,
                               minHeight: 16,
                             ),
                             child: Text(
-                              notificationController.unreadCount.value.toString(),
+                              notificationController.unreadCount.value
+                                  .toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -90,142 +91,51 @@ class HomePage extends StatelessWidget {
               ],
             ),
             drawer: Drawer(
-              child: Container(
-                decoration: BoxDecoration(),
+              child: SafeArea(
                 child: Column(
                   children: <Widget>[
+                    // Header with Logo and Name
                     Container(
-                      padding: const EdgeInsets.only(top: 20, bottom: 30),
+                      padding: const EdgeInsets.only(top: 30, bottom: 20),
                       child: Column(
                         children: [
-                          // Profile Image with Upload Functionality
-                          GestureDetector(
-                            onTap: controller.showProfileImageOptions,
-                            child: Obx(() {
-                              final imageUrl = controller.profileImageUrl.value;
-                              final isUploading =
-                                  controller.isUploadingImage.value;
-                              final progress = controller.uploadProgress.value;
-
-                              return Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.white,
-                                      border: Border.all(
-                                        color:
-                                            primaryBlue.withValues(alpha: 0.3),
-                                        width: 2,
-                                      ),
-                                      image: imageUrl != null
-                                          ? DecorationImage(
-                                              image: NetworkImage(imageUrl),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : null,
-                                    ),
-                                    child: imageUrl == null
-                                        ? Icon(
-                                            Icons.person,
-                                            color: primaryBlue,
-                                            size: 40,
-                                          )
-                                        : null,
-                                  ),
-                                  if (isUploading)
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color:
-                                            Colors.black.withValues(alpha: 0.7),
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            width: 30,
-                                            height: 30,
-                                            child: CircularProgressIndicator(
-                                              value: progress > 0
-                                                  ? progress
-                                                  : null, // Show progress if available
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                              backgroundColor: Colors.white
-                                                  .withValues(alpha: 0.3),
-                                            ),
-                                          ),
-                                          if (progress > 0)
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                '${(progress * 100).toInt()}%',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            )
-                                          else
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                'Uploading...',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.camera_alt,
-                                        color: primaryBlue,
-                                        size: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          // NeoSaver Logo
+                          Image.asset(
+                            'assets/images/neo.png',
+                            width: 80,
+                            height: 80,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: primaryBlue.withValues(alpha: 0.1),
+                                ),
+                                child: Icon(
+                                  Icons.local_hospital,
+                                  color: primaryBlue,
+                                  size: 40,
+                                ),
                               );
-                            }),
+                            },
                           ),
                           SizedBox(height: 16),
                           Obx(() => Text(
                                 controller.userName.value,
                                 style: TextStyle(
-                                  fontSize: 24,
-                                  color: Colors.blueGrey,
+                                  fontSize: 20,
+                                  color: Colors.blueGrey.shade800,
                                   fontWeight: FontWeight.bold,
                                 ),
                               )),
+                          SizedBox(height: 4),
                           Text(
-                            'Every Second Matters',
+                            'Emergency Response',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.blueGrey.withValues(alpha: 0.8),
-                              fontWeight: FontWeight.w300,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ],
@@ -236,16 +146,19 @@ class HomePage extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         children: [
                           _buildDrawerItem(
+                            imagePath: 'assets/images/profile.png',
                             icon: Icons.person_outline,
                             title: 'Profile',
                             onTap: controller.navigateToUserId,
                           ),
                           _buildDrawerItem(
+                            imagePath: 'assets/images/trip.png',
                             icon: Icons.assignment_outlined,
-                            title: 'Your Orders',
+                            title: 'Your Trip',
                             onTap: controller.navigateToUserOrders,
                           ),
                           _buildDrawerItem(
+                            imagePath: 'assets/images/tracking.png',
                             icon: Icons.track_changes_outlined,
                             title: 'Tracking',
                             onTap: controller.navigateToTrackingPage,
@@ -263,6 +176,7 @@ class HomePage extends StatelessWidget {
 
                           // Quick access: available/online ambulances (live list)
                           _buildDrawerItem(
+                            imagePath: 'assets/images/availabeAmbulances.png',
                             icon: Icons.local_hospital,
                             title: 'Available Ambulances',
                             onTap: controller.navigateToAmbulanceServices,
@@ -272,58 +186,29 @@ class HomePage extends StatelessWidget {
                             final online = controller.onlineAmbulances;
                             if (online.isEmpty) return SizedBox.shrink();
 
-                            final count = online.length;
-                            // show up to 3 providers as quick links
-                            final displayItems = online.length > 3 ? 3 : online.length;
+                            // show up to 2 providers as quick links
+                            final displayItems =
+                                online.length > 2 ? 2 : online.length;
                             return Column(
                               children: [
                                 for (var i = 0; i < displayItems; i++)
                                   InkWell(
-                                    onTap: () => controller.viewAmbulanceDetails(online[i]),
+                                    onTap: () => controller
+                                        .viewAmbulanceDetails(online[i]),
                                     child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 20, vertical: 10),
                                       child: Row(
                                         children: [
-                                          Container(
-                                            padding: EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red.shade50,
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Icon(
-                                              Icons.local_taxi,
-                                              size: 18,
-                                              color: Colors.red.shade700,
+                                          SizedBox(width: 8),
+                                          Text(
+                                            '${i + 1}.${online[i]['name']?.toString() ?? 'Ambulance'}',
+                                            style: TextStyle(
+                                              color: Colors.blueGrey.shade700,
+                                              fontSize: 14,
                                             ),
                                           ),
-                                          SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  online[i]['name']?.toString() ?? 'Ambulance',
-                                                  style: TextStyle(
-                                                    color: Colors.blueGrey.shade800,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                SizedBox(height: 4),
-                                                Text(
-                                                  online[i]['ambulanceType']?.toString() ?? '',
-                                                  style: TextStyle(
-                                                    color: Colors.blueGrey.shade500,
-                                                    fontSize: 12,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                          Spacer(),
                                           Icon(
                                             Icons.chevron_right,
                                             color: Colors.grey.shade400,
@@ -333,52 +218,40 @@ class HomePage extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-
-                                if (count > 3)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-                                    child: GestureDetector(
-                                      onTap: controller.navigateToAmbulanceServices,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text('See all available ambulances', style: TextStyle(color: Colors.blueGrey.shade700, fontSize: 13)),
-                                          Icon(Icons.arrow_forward_ios, size: 12, color: Colors.blueGrey.shade400),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
                               ],
                             );
                           }),
 
-                          Divider(height: 40, thickness: 1),
+                          Divider(
+                              height: 30,
+                              thickness: 1,
+                              color: Colors.grey.shade200),
                           _buildDrawerItem(
                             icon: Icons.info_outline,
                             title: 'About Us',
                             onTap: controller.navigateToAboutUs,
                           ),
                           _buildDrawerItem(
-                            icon: Icons.help_outline,
+                            imagePath: 'assets/images/privacyPolicy.png',
+                            icon: Icons.security_outlined,
                             title: 'Privacy Policy',
                             onTap: () {
-                              // Navigate to Privacy Policy page
                               Get.toNamed('/privacy-policy');
                             },
                           ),
                           _buildDrawerItem(
-                            icon: Icons.description,
+                            imagePath: 'assets/images/termsConditions.png',
+                            icon: Icons.description_outlined,
                             title: 'Terms & Conditions',
                             onTap: () {
-                              // Navigate to Terms & Conditions page
                               Get.toNamed('/terms-conditions');
                             },
                           ),
                           _buildDrawerItem(
+                            imagePath: 'assets/images/feadbackDrawer.png',
                             icon: Icons.feedback_outlined,
                             title: 'Feedback',
                             onTap: () {
-                              // Close the drawer and navigate to Feedback page
                               try {
                                 Get.back();
                               } catch (_) {}
@@ -388,31 +261,29 @@ class HomePage extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Sign Out Button
                     Container(
-                      padding: EdgeInsets.all(20),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
+                        width: 150,
+                        child: ElevatedButton(
                           onPressed: controller.signOut,
-                          icon:
-                              Icon(Icons.logout, color: primaryBlue, size: 24),
-                          label: Text(
-                            'Sign Out',
-                            style: TextStyle(
-                              color: primaryBlue,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
-                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 32),
+                            backgroundColor: primaryBlue,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(25),
                             ),
                             elevation: 2,
-                            shadowColor: Colors.blue.shade100,
+                          ),
+                          child: Text(
+                            'Sign Out',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -420,7 +291,6 @@ class HomePage extends StatelessWidget {
                   ],
                 ),
               ),
-
             ),
             body: Stack(
               children: [
@@ -516,233 +386,239 @@ class HomePage extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                            Padding(
-                              padding: EdgeInsets.all(16),
-                              child: TextField(
-                                controller: controller.destinationController,
-                                style: TextStyle(
-                                  color: Colors.blueGrey.shade800,
-                                  fontSize: 16,
-                                ),
-                                onChanged: controller.onDestinationTextChanged,
-                                decoration: InputDecoration(
-                                  hintText: 'Enter destination',
-                                  hintStyle: TextStyle(
-                                    color: Colors.blueGrey.shade400,
+                              Padding(
+                                padding: EdgeInsets.all(16),
+                                child: TextField(
+                                  controller: controller.destinationController,
+                                  style: TextStyle(
+                                    color: Colors.blueGrey.shade800,
                                     fontSize: 16,
                                   ),
-                                  prefixIcon: Container(
-                                    margin: EdgeInsets.all(12),
-                                    child: Icon(
-                                      Icons.location_on_outlined,
-                                      color: primaryBlue,
-                                      size: 24,
+                                  onChanged:
+                                      controller.onDestinationTextChanged,
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter destination',
+                                    hintStyle: TextStyle(
+                                      color: Colors.blueGrey.shade400,
+                                      fontSize: 16,
                                     ),
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    borderSide: BorderSide(
-                                      color: primaryBlue,
-                                      width: 2,
+                                    prefixIcon: Container(
+                                      margin: EdgeInsets.all(12),
+                                      child: Icon(
+                                        Icons.location_on_outlined,
+                                        color: primaryBlue,
+                                        size: 24,
+                                      ),
                                     ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 14,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      borderSide: BorderSide(
+                                        color: primaryBlue,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 14,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                            // Autocomplete suggestions - show only when user has typed something
-                            Obx(() {
-                              final query =
-                                  controller.destinationQuery.value.trim();
-                              // Do not show suggestions when the input is empty
-                              final showSuggestions = query.isNotEmpty &&
-                                  (controller.placeSuggestions.isNotEmpty ||
-                                      controller.isLoadingSuggestions.value);
+                              // Autocomplete suggestions - show only when user has typed something
+                              Obx(() {
+                                final query =
+                                    controller.destinationQuery.value.trim();
+                                // Do not show suggestions when the input is empty
+                                final showSuggestions = query.isNotEmpty &&
+                                    (controller.placeSuggestions.isNotEmpty ||
+                                        controller.isLoadingSuggestions.value);
 
-                              if (!showSuggestions) {
-                                return SizedBox.shrink();
-                              }
+                                if (!showSuggestions) {
+                                  return SizedBox.shrink();
+                                }
 
-                              return Container(
-                                margin: EdgeInsets.only(
-                                    bottom: 16, left: 16, right: 16),
-                                constraints: BoxConstraints(
-                                  maxHeight:
-                                      200, // Limit height to prevent overflow
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
-                                    width: 1,
+                                return Container(
+                                  margin: EdgeInsets.only(
+                                      bottom: 16, left: 16, right: 16),
+                                  constraints: BoxConstraints(
+                                    maxHeight:
+                                        200, // Limit height to prevent overflow
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12.0),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                      width: 1,
                                     ),
-                                  ],
-                                ),
-                                child: controller.isLoadingSuggestions.value
-                                    ? Container(
-                                        padding: EdgeInsets.symmetric(
-                                            vertical: 16, horizontal: 20),
-                                        child: Row(
-                                          children: [
-                                            HorizontalRotatingDots(
-                                              size: 20,
-                                              colors: [
-                                                primaryBlue,
-                                                secondaryBlue,
-                                                accentBlue
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        padding: EdgeInsets.zero,
-                                        physics:
-                                            ClampingScrollPhysics(), // Prevent scroll conflicts
-                                        itemCount: controller
-                                                    .placeSuggestions.length >
-                                                3
-                                            ? 3 // Limit to 3 suggestions to prevent overflow
-                                            : controller
-                                                .placeSuggestions.length,
-                                        itemBuilder: (context, index) {
-                                          final place = controller
-                                              .placeSuggestions[index];
-                                          return InkWell(
-                                            onTap: () =>
-                                                controller.selectPlace(place),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            child: Container(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 18, horizontal: 16),
-                                              decoration: BoxDecoration(
-                                                border: index <
-                                                        (controller.placeSuggestions
-                                                                    .length >
-                                                                3
-                                                            ? 2
-                                                            : controller
-                                                                    .placeSuggestions
-                                                                    .length -
-                                                                1)
-                                                    ? Border(
-                                                        bottom: BorderSide(
-                                                            color: Colors
-                                                                .grey.shade100,
-                                                            width: 1))
-                                                    : null,
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    padding: EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: lightBlue,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                    ),
-                                                    child: Icon(
-                                                      Icons
-                                                          .location_on_outlined,
-                                                      size: 20,
-                                                      color: primaryBlue,
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 16),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Text(
-                                                          place['name']
-                                                                  ?.toString() ??
-                                                              'Unknown Place',
-                                                          style: TextStyle(
-                                                            color: Colors
-                                                                .blueGrey
-                                                                .shade800,
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        if (place['formattedAddress'] !=
-                                                                null &&
-                                                            (place['formattedAddress']
-                                                                        as String?)
-                                                                    ?.isNotEmpty ==
-                                                                true)
-                                                          Padding(
-                                                            padding:
-                                                                EdgeInsets.only(
-                                                                    top: 2),
-                                                            child: Text(
-                                                              place['formattedAddress']
-                                                                      ?.toString() ??
-                                                                  '',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .blueGrey
-                                                                    .shade500,
-                                                                fontSize: 12,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    color: Colors.grey.shade400,
-                                                    size: 20,
-                                                  ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: controller.isLoadingSuggestions.value
+                                      ? Container(
+                                          padding: EdgeInsets.symmetric(
+                                              vertical: 16, horizontal: 20),
+                                          child: Row(
+                                            children: [
+                                              HorizontalRotatingDots(
+                                                size: 20,
+                                                colors: [
+                                                  primaryBlue,
+                                                  secondaryBlue,
+                                                  accentBlue
                                                 ],
                                               ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                              );
-                            }),
-                          ],
+                                            ],
+                                          ),
+                                        )
+                                      : ListView.builder(
+                                          shrinkWrap: true,
+                                          padding: EdgeInsets.zero,
+                                          physics:
+                                              ClampingScrollPhysics(), // Prevent scroll conflicts
+                                          itemCount: controller
+                                                      .placeSuggestions.length >
+                                                  3
+                                              ? 3 // Limit to 3 suggestions to prevent overflow
+                                              : controller
+                                                  .placeSuggestions.length,
+                                          itemBuilder: (context, index) {
+                                            final place = controller
+                                                .placeSuggestions[index];
+                                            return InkWell(
+                                              onTap: () =>
+                                                  controller.selectPlace(place),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                    vertical: 18,
+                                                    horizontal: 16),
+                                                decoration: BoxDecoration(
+                                                  border: index <
+                                                          (controller.placeSuggestions
+                                                                      .length >
+                                                                  3
+                                                              ? 2
+                                                              : controller
+                                                                      .placeSuggestions
+                                                                      .length -
+                                                                  1)
+                                                      ? Border(
+                                                          bottom: BorderSide(
+                                                              color: Colors.grey
+                                                                  .shade100,
+                                                              width: 1))
+                                                      : null,
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                        color: lightBlue,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons
+                                                            .location_on_outlined,
+                                                        size: 20,
+                                                        color: primaryBlue,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 16),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            place['name']
+                                                                    ?.toString() ??
+                                                                'Unknown Place',
+                                                            style: TextStyle(
+                                                              color: Colors
+                                                                  .blueGrey
+                                                                  .shade800,
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                          if (place['formattedAddress'] !=
+                                                                  null &&
+                                                              (place['formattedAddress']
+                                                                          as String?)
+                                                                      ?.isNotEmpty ==
+                                                                  true)
+                                                            Padding(
+                                                              padding: EdgeInsets
+                                                                  .only(top: 2),
+                                                              child: Text(
+                                                                place['formattedAddress']
+                                                                        ?.toString() ??
+                                                                    '',
+                                                                style:
+                                                                    TextStyle(
+                                                                  color: Colors
+                                                                      .blueGrey
+                                                                      .shade500,
+                                                                  fontSize: 12,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    Icon(
+                                                      Icons.chevron_right,
+                                                      color:
+                                                          Colors.grey.shade400,
+                                                      size: 20,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                );
+                              }),
+                            ],
+                          ),
                         ),
-                      ),
                       ),
 
                       // Fare Estimate Display (show only when destination is set and we have partner rates loaded)
@@ -843,99 +719,125 @@ class HomePage extends StatelessWidget {
                 ),
 
                 // Zoom controls positioned on the right side
-                // Call center floating button - bottom-left
+                // Emergency floating button - bottom-left
                 Positioned(
                   left: 16,
-                  bottom: 60,
+                  bottom: 40,
                   child: GestureDetector(
                     onTap: () => controller.callCenter(),
                     child: Container(
-                      width: 64,
-                      height: 64,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: Colors.red.shade600,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
+                            color: Colors.black.withValues(alpha: 0.15),
                             blurRadius: 10,
-                            offset: Offset(0, 6),
+                            offset: Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.call,
-                          color: Colors.white,
-                          size: 28,
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/emergency.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.red.shade600,
+                              child: Center(
+                                child: Icon(
+                                  Icons.call,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
                   ),
                 ),
 
-                // AI Chat floating button - bottom-left (above call button)
+                // AI Chat floating button - bottom-right (above zoom controls)
                 Positioned(
-                  left: 16,
-                  bottom: 140,
+                  right: 16,
+                  bottom: 230,
                   child: GestureDetector(
                     onTap: () => Get.to(() => const AIChatPage()),
                     child: Container(
-                      width: 63,
-                      height: 63,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [primaryBlue, secondaryBlue],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(2),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryBlue.withValues(alpha: 0.4),
-                            blurRadius: 12,
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 10,
                             offset: Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.smart_toy,
-                          color: Colors.white,
-                          size: 26,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Image.asset(
+                          'assets/images/ai.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [primaryBlue, secondaryBlue],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.smart_toy,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
                   ),
                 ),
+
+                // Zoom controls - bottom-right
                 Positioned(
                   right: 16,
-                  bottom: 120, // Position above the emergency buttons
+                  bottom: 40,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Zoom In Button
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 40,
+                        height: 40,
                         margin: EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 8,
                               offset: Offset(0, 2),
                             ),
                           ],
                         ),
                         child: IconButton(
+                          padding: EdgeInsets.zero,
                           onPressed: controller.zoomIn,
                           icon: Icon(
                             Icons.add,
-                            color: primaryBlue,
-                            size: 24,
+                            color: Colors.grey.shade700,
+                            size: 22,
                           ),
                           tooltip: 'Zoom In',
                         ),
@@ -943,25 +845,26 @@ class HomePage extends StatelessWidget {
 
                       // Zoom Out Button
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 8,
                               offset: Offset(0, 2),
                             ),
                           ],
                         ),
                         child: IconButton(
+                          padding: EdgeInsets.zero,
                           onPressed: controller.zoomOut,
                           icon: Icon(
                             Icons.remove,
-                            color: primaryBlue,
-                            size: 24,
+                            color: Colors.grey.shade700,
+                            size: 22,
                           ),
                           tooltip: 'Zoom Out',
                         ),
@@ -978,28 +881,36 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildDrawerItem({
-    required IconData icon,
+    IconData? icon,
+    String? imagePath,
     required String title,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: lightBlue.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
+            if (imagePath != null)
+              Image.asset(
+                imagePath,
+                width: 24,
+                height: 24,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    icon ?? Icons.circle,
+                    color: primaryBlue,
+                    size: 20,
+                  );
+                },
+              )
+            else
+              Icon(
+                icon ?? Icons.circle,
                 color: primaryBlue,
                 size: 20,
               ),
-            ),
             SizedBox(width: 16),
             Expanded(
               child: Text(
@@ -1017,61 +928,6 @@ class HomePage extends StatelessWidget {
               size: 18,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmergencyButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-    bool isActive = false,
-  }) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    Icon(
-                      icon,
-                      color: color,
-                      size: 24,
-                    ),
-                    if (isActive)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade500,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
-                        ),
-                      ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
