@@ -12,31 +12,20 @@ class AboutController extends GetxController {
   // Reactive variables for potential future features
   var isLoading = false.obs;
 
-  // Contact functionality
+  // Contact functionality - directly launches email app
   Future<void> launchEmail() async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: contactEmail,
+      queryParameters: {
+        'subject': 'NeoSaver Support Inquiry',
+      },
     );
 
     try {
-      if (await canLaunchUrl(emailUri)) {
-        await launchUrl(emailUri);
-      } else {
-        Get.snackbar(
-          'Error',
-          'Could not open email client',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
-      }
+      await launchUrl(emailUri);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to open email: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      debugPrint('Failed to open email: $e');
     }
   }
 
@@ -45,23 +34,15 @@ class AboutController extends GetxController {
     Get.back();
   }
 
-  // Future method for app rating (could be implemented later)
+  // Future method for app rating
   void rateApp() {
-    Get.snackbar(
-      'Coming Soon',
-      'App rating feature will be available soon!',
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-    );
+    // TODO: Implement app store rating
+    debugPrint('Rate app tapped');
   }
 
-  // Future method for sharing app (could be implemented later)
+  // Future method for sharing app
   void shareApp() {
-    Get.snackbar(
-      'Coming Soon',
-      'Share app feature will be available soon!',
-      backgroundColor: Colors.blue.shade100,
-      colorText: Colors.blue.shade800,
-    );
+    // TODO: Implement share functionality
+    debugPrint('Share app tapped');
   }
 }

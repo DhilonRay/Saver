@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/widgets/space.dart';
 import 'terms_condiotion_controller.dart';
 
 class TermsConditionPage extends StatelessWidget {
   const TermsConditionPage({super.key});
 
-  // Enhanced medical-themed color palette
   static const Color primaryBlue = Color(0xFF1976D2);
-  static const Color secondaryBlue = Color(0xFF42A5F5);
-  static const Color accentBlue = Color(0xFF1E88E5);
-  static const Color darkBlue = Color(0xFF0D47A1);
-  static const Color lightBlue = Color(0xFFE3F2FD);
 
   @override
   Widget build(BuildContext context) {
@@ -18,205 +14,339 @@ class TermsConditionPage extends StatelessWidget {
       init: TermsConditionController(),
       builder: (controller) {
         return Scaffold(
+          backgroundColor: Colors.white,
           appBar: AppBar(
             title: const Text(
               'Terms & Conditions',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+                fontSize: 18,
               ),
             ),
             centerTitle: true,
-
             backgroundColor: Colors.white,
             elevation: 0,
-            foregroundColor: primaryBlue,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: primaryBlue),
+              icon: const Icon(Icons.arrow_back_ios,
+                  color: Colors.black87, size: 20),
               onPressed: () => Get.back(),
             ),
           ),
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [lightBlue, Colors.white],
-              ),
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
+          body: SingleChildScrollView(
+            child: SidePaddedWidget(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Header
-                  Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.description,
-                          size: 60,
-                          color: primaryBlue,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Terms & Conditions',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: primaryBlue,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Last updated: November 5, 2025',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                  const VerticalGap(16),
+                  // Header Icon
+                  Image.asset(
+                    'assets/images/privacy.png',
+                    width: 80,
+                    height: 80,
+                  ),
+                  const VerticalGap(16),
+                  // Title
+                  const Text(
+                    'Terms & Conditions',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: primaryBlue,
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const VerticalGap(4),
+                  // Last Update
+                  Text(
+                    'Last update: January 10, 2026',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const VerticalGap(24),
 
-                  // Terms & Conditions Content
+                  // Terms & Conditions Sections
                   _buildSection(
                     title: '1. Acceptance of Terms',
-                    content: 'By using NeoSaver, you agree to comply with these Terms. If you do not agree to these terms, please do not use this service.'
+                    content:
+                        'By using NeoSaver, you agree to comply with these Terms. If you do not agree to these terms, please do not use this service.',
                   ),
 
                   _buildSection(
                     title: '2. Services Provided',
-                    content: 'NeoSaver connects users with verified ambulances, offering real-time tracking and communication. We provide emergency ambulance booking, live location tracking, and direct communication between users and ambulance providers.'
+                    content:
+                        'NeoSaver connects users with verified ambulances, offering real-time tracking and communication. We provide emergency ambulance booking, live location tracking, and direct communication between users and ambulance providers.',
                   ),
 
                   _buildSection(
-                    title: '3. User Responsibilities',
-                    content: 'Users must provide accurate information and avoid fraudulent or harmful activity. You agree to:\n\n• Provide truthful personal and location information\n• Use the service only for legitimate emergency purposes\n• Not misuse the platform for any illegal activities\n• Not interfere with the proper operation of the service'
+                    title: '3.User Responsibilities',
+                    description:
+                        'Users must provide accurate information and avoid fraudulent or harmful activity.',
+                    secondDescription: 'You agree to:',
+                    bulletPoints: [
+                      'Provide truthful personal and location information',
+                      'Use the service only for legitimate emergency purposes',
+                      'Not misuse the platform for any illegal activities',
+                      'Not interfere with the proper operation of the service',
+                    ],
                   ),
 
                   _buildSection(
                     title: '4. Data Collection & Usage',
-                    content: 'We collect the following information for service delivery and safety:\n\n• Name and contact information\n• Geo-location data\n• Ambulance number and vehicle details\n• Driver license number\n• Vehicle registration number\n\nThis data is used to provide emergency services, ensure safety, and improve our platform.'
+                    description:
+                        'We collect the following information for service delivery and safety:',
+                    bulletPoints: [
+                      'Name and contact information',
+                      'Geo-location data',
+                      'Ambulance number and vehicle details',
+                      'Driver license number',
+                      'Vehicle registration number',
+                    ],
+                    footer:
+                        'This data is used to provide emergency services, ensure safety, and improve our platform.',
                   ),
 
                   _buildSection(
                     title: '5. Data Security',
-                    content: 'We use encrypted storage and secure authentication to protect your data. However, please be aware that internet transmission carries inherent risks, and we cannot guarantee absolute security of data transmitted over the internet.'
+                    content:
+                        'We use encrypted storage and secure authentication to protect your data. However, please be aware that internet transmission carries inherent risks, and we cannot guarantee absolute security of data transmitted over the internet.',
                   ),
 
                   _buildSection(
                     title: '6. Government Collaboration',
-                    content: 'Data may be shared with Bangladeshi government authorities when required by law, for public safety purposes, or in response to valid legal requests. We cooperate with law enforcement agencies to ensure public safety.'
+                    content:
+                        'Data may be shared with Bangladeshi government authorities when required by law, for public safety purposes, or in response to valid legal requests. We cooperate with law enforcement agencies.',
                   ),
 
                   _buildSection(
                     title: '7. Booking & Payment Terms',
-                    content: 'Payment for ambulance services can be made through the following methods:\n\n• Cash payment\n• bKash (Pay on bKash)\n\nPayment is handled directly between users and service providers. All transactions should be completed as agreed upon during booking.'
+                    description:
+                        'Payment for ambulance services can be made through the following methods:',
+                    bulletPoints: [
+                      'Cash payment',
+                      'bKash (Pay on bKash)',
+                    ],
+                    footer:
+                        'Payment is handled directly between users and service providers. All transactions should be completed as agreed upon during booking.',
                   ),
 
                   _buildSection(
                     title: '8. Limitation of Liability',
-                    content: 'NeoSaver is a platform connecting users with ambulance service providers. We are not responsible for:\n\n• Delays in ambulance arrival\n• Medical outcomes or treatment quality\n• Third-party issues or disputes\n• Actions of ambulance service providers\n\nUsers should verify provider credentials before accepting services.'
+                    description:
+                        'NeoSaver is a platform connecting users with ambulance service providers. We are not responsible for:',
+                    bulletPoints: [
+                      'Delays in ambulance arrival',
+                      'Medical outcomes or treatment quality',
+                      'Third-party issues or disputes',
+                      'Actions of ambulance service providers',
+                    ],
+                    footer:
+                        'Users should verify provider credentials before accepting services.',
                   ),
 
                   _buildSection(
                     title: '9. Suspension or Termination',
-                    content: 'Accounts may be suspended or terminated for:\n\n• Violation of these terms\n• Fraudulent or harmful activity\n• Providing false information\n• Misuse of the platform\n• Any illegal activities\n\nWe reserve the right to terminate accounts without prior notice in cases of severe violations.'
+                    description: 'Accounts may be suspended or terminated for:',
+                    bulletPoints: [
+                      'Violation of these terms',
+                      'Fraudulent or harmful activity',
+                      'Providing false information',
+                      'Misuse of the platform',
+                      'Any illegal activities',
+                    ],
+                    footer:
+                        'We reserve the right to terminate accounts without prior notice in cases of severe violations.',
                   ),
 
                   _buildSection(
                     title: '10. Changes to Terms',
-                    content: 'These Terms may be updated periodically. We will notify users of significant changes. Continued use of NeoSaver after changes means acceptance of the updated terms. We encourage you to review these terms regularly.'
+                    content:
+                        'These Terms may be updated periodically. We will notify users of significant changes. Continued use of NeoSaver after changes means acceptance of the updated terms. We encourage you to review these terms regularly.',
                   ),
 
-                  _buildSection(
-                    title: '11. Contact Information',
-                    content: 'If you have any questions about these Terms & Conditions, please contact us at:\n\nEmail: neosaver@gmail.com\nPhone: +880 1793-399913\nAddress: Khulna, Bangladesh'
-                  ),
+                  _buildContactSection(),
 
-                  const SizedBox(height: 30),
+                  const VerticalGap(20),
 
                   // Acceptance Section
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'By using NeoSaver, you agree to these Terms & Conditions.',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: primaryBlue,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 15),
-                        Text(
-                          'These terms are designed to ensure safe and reliable emergency services for all users.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildAcceptanceSection(),
+
+                  const VerticalGap(24),
                 ],
               ),
             ),
           ),
         );
-      }
+      },
     );
   }
 
-  Widget _buildSection({required String title, required String content}) {
+  Widget _buildSection({
+    required String title,
+    String? description,
+    String? secondDescription,
+    List<String>? bulletPoints,
+    String? content,
+    String? footer,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 18,
+            style: const TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: primaryBlue,
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            content,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.5,
+          const SizedBox(height: 8),
+          if (description != null)
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
             ),
+          if (secondDescription != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              secondDescription,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (content != null)
+            Text(
+              content,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                height: 1.5,
+              ),
+            ),
+          if (bulletPoints != null) ...[
+            const SizedBox(height: 8),
+            ...bulletPoints.map((point) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    point,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      height: 1.4,
+                    ),
+                  ),
+                )),
+          ],
+          if (footer != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              footer,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactSection() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '11.Contact Us',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'If you have any questions about this Privacy Policy, please contact us at:',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Email: neosaver@gmail.com',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          Text(
+            'Phone: Khulna, Bangladesh',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAcceptanceSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'By using NeoSaver, you agree to this Privacy Policy.',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: primaryBlue,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We are committed to protecting your privacy and ensuring the security of your personal information.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

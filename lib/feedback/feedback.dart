@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/widgets/buttons.dart';
+import 'package:saver/components/widgets/space.dart';
 import 'feedback_controller.dart';
-import '../loader/loader.dart';
 
 class FeedbackPage extends StatelessWidget {
   const FeedbackPage({super.key});
 
-  // Enhanced medical-themed color palette
   static const Color primaryBlue = Color(0xFF1976D2);
-  static const Color secondaryBlue = Color(0xFF42A5F5);
-  static const Color accentBlue = Color(0xFF1E88E5);
-  static const Color darkBlue = Color(0xFF0D47A1);
-  static const Color lightBlue = Color(0xFFE3F2FD);
 
   @override
   Widget build(BuildContext context) {
@@ -19,191 +15,211 @@ class FeedbackPage extends StatelessWidget {
       init: FeedbackController(),
       builder: (controller) {
         return Scaffold(
+          backgroundColor: Colors.white,
           appBar: AppBar(
             title: const Text(
               'Feedback',
               style: TextStyle(
-                color: primaryBlue,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+                fontSize: 18,
               ),
             ),
             centerTitle: true,
             backgroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: primaryBlue),
+              icon: const Icon(Icons.arrow_back_ios,
+                  color: Colors.black87, size: 20),
               onPressed: () => Get.back(),
             ),
           ),
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [lightBlue, Colors.white],
-              ),
-            ),
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              child: SidePaddedWidget(
                 child: Form(
                   key: controller.formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Header
-                      Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.feedback,
-                              size: 60,
-                              color: primaryBlue,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'We value your feedback!',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: primaryBlue,
+                      const VerticalGap(16),
+                      // Header Icon
+                      SizedBox(
+                        width: 100,
+                        height: 100,
+                        child: Image.asset(
+                          'assets/images/feedback.png',
+                          width: 100,
+                          height: 100,
+                          errorBuilder: (context, error, stackTrace) {
+                            return SizedBox(
+                              width: 100,
+                              height: 100,
+                              child: Icon(
+                                Icons.feedback_outlined,
+                                size: 80,
+                                color: Colors.grey.shade700,
                               ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              'Help us improve our service',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(height: 30),
+                      const VerticalGap(16),
+                      // Title
+                      const Text(
+                        'We Value Your Feedback!',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const VerticalGap(4),
+                      // Subtitle
+                      Text(
+                        'Help us improve our service',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const VerticalGap(24),
 
                       // Name Field
                       TextFormField(
                         controller: controller.nameController,
                         decoration: InputDecoration(
                           labelText: 'Name',
-                          hintText: 'Enter your name',
-                          prefixIcon: Icon(Icons.person, color: primaryBlue),
+                          prefixIcon: Icon(Icons.person_outline,
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryBlue),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: accentBlue, width: 2),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: primaryBlue, width: 1.5),
                           ),
                           filled: true,
                           fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                         validator: controller.validateName,
                       ),
-                      const SizedBox(height: 20),
+                      const VerticalGap(16),
 
                       // Email Field
                       TextFormField(
                         controller: controller.emailController,
                         decoration: InputDecoration(
                           labelText: 'Email',
-                          hintText: 'Enter your email',
-                          prefixIcon: Icon(Icons.email, color: primaryBlue),
+                          prefixIcon: Icon(Icons.email_outlined,
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryBlue),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: accentBlue, width: 2),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: primaryBlue, width: 1.5),
                           ),
                           filled: true,
                           fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         validator: controller.validateEmail,
                       ),
-                      const SizedBox(height: 20),
+                      const VerticalGap(20),
 
-                      // Rating
-                      Text(
-                        'Rate your experience',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: primaryBlue,
+                      // Rating Section
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Rate your Experience',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const VerticalGap(8),
                       Obx(() => Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(5, (index) {
-                          return IconButton(
-                            icon: Icon(
-                              index < controller.rating.value
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: Colors.amber,
-                              size: 40,
-                            ),
-                            onPressed: () => controller.setRating(index + 1),
-                          );
-                        }),
-                      )),
-                      const SizedBox(height: 20),
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(5, (index) {
+                              return IconButton(
+                                icon: Icon(
+                                  index < controller.rating.value
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: Colors.amber,
+                                  size: 36,
+                                ),
+                                onPressed: () =>
+                                    controller.setRating(index + 1),
+                              );
+                            }),
+                          )),
+                      const VerticalGap(16),
 
                       // Feedback Field
                       TextFormField(
                         controller: controller.feedbackController,
-                        maxLines: 5,
+                        maxLines: 4,
                         decoration: InputDecoration(
-                          labelText: 'Feedback',
-                          hintText: 'Tell us about your experience...',
+                          hintText: 'Feedback',
                           alignLabelWithHint: true,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryBlue),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: accentBlue, width: 2),
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: primaryBlue, width: 1.5),
                           ),
                           filled: true,
                           fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.all(16),
                         ),
                         validator: controller.validateFeedback,
                       ),
-                      const SizedBox(height: 30),
+                      const VerticalGap(24),
 
                       // Submit Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: Obx(() => ElevatedButton(
-                          onPressed: controller.isSubmitting.value
-                              ? null
-                              : controller.submitFeedback,
-                          style: ElevatedButton.styleFrom(
+                      Obx(() => FilledButtonWidget(
+                            onTap: controller.isSubmitting.value
+                                ? null
+                                : controller.submitFeedback,
+                            isStretched: true,
+                            minHeight: 50,
                             backgroundColor: primaryBlue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            borderRadiusValue: 8,
+                            isLoading: controller.isSubmitting.value,
+                            buttonText: 'Submit Feedback',
+                            buttonTextStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
-                            elevation: 3,
-                          ),
-                          child: controller.isSubmitting.value
-                              ? HorizontalRotatingDots(size: 30, colors: [Colors.white, Colors.white.withOpacity(0.8), Colors.white.withOpacity(0.6)])
-                              : const Text(
-                                  'Submit Feedback',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        )),
-                      ),
+                          )),
+                      const VerticalGap(24),
                     ],
                   ),
                 ),
