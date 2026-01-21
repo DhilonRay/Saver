@@ -11,6 +11,7 @@ class AppImages {
   static const String imagePlaceHolderIconPng =
       '$_rastersIconAssetsLocation/image_placeholder_icon.png';
   static const String userPng = '$_rastersIconAssetsLocation/user.png';
+  static const String tripPng = '$_imageAssetsLocation/trip.png';
   static const String categoryPng =
       '$_rastersIconAssetsLocation/category_icon.png';
   static const String addCartPng = '$_rastersIconAssetsLocation/add_cart.png';
@@ -187,4 +188,10 @@ class AppImages {
   static const String manageStock = '$_imageAssetsLocation/manageStock.png';
   static const String subcategoryPng = '$_imageAssetsLocation/subcategory.png';
   static const String dialogInfoPng = '$_imageAssetsLocation/dialogInfo.png';
+
+  // AI Chat Page Images
+  static const String manPng = '$_imageAssetsLocation/man.png';
+  static const String robotPng = '$_imageAssetsLocation/robot.png';
+  static const String tipsPng = '$_imageAssetsLocation/tips.png';
+  static const String trashPng = '$_imageAssetsLocation/trash.png';
 }

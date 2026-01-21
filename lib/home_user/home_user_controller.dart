@@ -240,8 +240,8 @@ class HomeController extends GetxController {
             }
           }
 
-            // Update the reactive list so UI elements (drawer) can show it
-            onlineAmbulances.assignAll(onlineList);
+          // Update the reactive list so UI elements (drawer) can show it
+          onlineAmbulances.assignAll(onlineList);
         }
 
         debugPrint('✅ Real-time ambulance providers updated successfully');
@@ -354,7 +354,7 @@ class HomeController extends GetxController {
       );
 
       final newPosition = LatLng(position.latitude, position.longitude);
-      
+
       // Only update if position has changed significantly (more than 5 meters)
       if (currentPosition.value != null) {
         final distance = Geolocator.distanceBetween(
@@ -379,7 +379,8 @@ class HomeController extends GetxController {
         ),
       );
 
-      debugPrint('📍 User location updated: ${position.latitude}, ${position.longitude}');
+      debugPrint(
+          '📍 User location updated: ${position.latitude}, ${position.longitude}');
     } catch (e) {
       debugPrint('❌ Error updating user location: $e');
     }
@@ -1425,8 +1426,10 @@ class HomeController extends GetxController {
                           data['ambulanceType'] ?? 'General Ambulance';
                       final latitude = data['latitude'] as double?;
                       final longitude = data['longitude'] as double?;
-                      final profileImageUrl = data['profileImageUrl'] as String?;
-                      final ambulanceImageUrl = data['ambulanceImageUrl'] as String?;
+                      final profileImageUrl =
+                          data['profileImageUrl'] as String?;
+                      final ambulanceImageUrl =
+                          data['ambulanceImageUrl'] as String?;
 
                       return FutureBuilder<Map<String, int>>(
                         future: _fetchPartnerRates(ambulance.id),
@@ -1470,8 +1473,9 @@ class HomeController extends GetxController {
                                             height: 120,
                                             width: double.infinity,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) =>
-                                                Container(
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    Container(
                                               height: 120,
                                               color: Colors.grey.shade200,
                                               child: const Center(
@@ -1482,13 +1486,17 @@ class HomeController extends GetxController {
                                                 ),
                                               ),
                                             ),
-                                            loadingBuilder: (context, child, loadingProgress) {
-                                              if (loadingProgress == null) return child;
+                                            loadingBuilder: (context, child,
+                                                loadingProgress) {
+                                              if (loadingProgress == null)
+                                                return child;
                                               return Container(
                                                 height: 120,
                                                 color: Colors.grey.shade100,
                                                 child: const Center(
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2),
                                                 ),
                                               );
                                             },
@@ -1498,13 +1506,15 @@ class HomeController extends GetxController {
                                             top: 8,
                                             left: 8,
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                 horizontal: 8,
                                                 vertical: 4,
                                               ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFF1976D2),
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
                                               child: Text(
                                                 ambulanceType,
@@ -1531,14 +1541,17 @@ class HomeController extends GetxController {
                                               height: 50,
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
-                                                color: const Color(0xFF1976D2).withValues(alpha: 0.1),
+                                                color: const Color(0xFF1976D2)
+                                                    .withValues(alpha: 0.1),
                                                 border: Border.all(
-                                                  color: const Color(0xFF1976D2),
+                                                  color:
+                                                      const Color(0xFF1976D2),
                                                   width: 2,
                                                 ),
                                                 image: profileImageUrl != null
                                                     ? DecorationImage(
-                                                        image: NetworkImage(profileImageUrl),
+                                                        image: NetworkImage(
+                                                            profileImageUrl),
                                                         fit: BoxFit.cover,
                                                       )
                                                     : null,
@@ -1554,16 +1567,19 @@ class HomeController extends GetxController {
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     name,
                                                     style: const TextStyle(
                                                       fontSize: 16,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                                   ),
-                                                  if (ambulanceImageUrl == null) ...[
+                                                  if (ambulanceImageUrl ==
+                                                      null) ...[
                                                     const SizedBox(height: 4),
                                                     Text(
                                                       '🚑 $ambulanceType',
@@ -1581,7 +1597,8 @@ class HomeController extends GetxController {
                                                       color: Colors.grey[600],
                                                     ),
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
@@ -1603,12 +1620,14 @@ class HomeController extends GetxController {
                                         const SizedBox(height: 12),
                                         // Show fare estimation if destination is set
                                         if (currentPosition.value != null &&
-                                            destinationPosition.value != null) ...[
+                                            destinationPosition.value !=
+                                                null) ...[
                                           FutureBuilder<Map<String, int>>(
-                                            future:
-                                                _fetchPartnerRates(ambulance.id),
+                                            future: _fetchPartnerRates(
+                                                ambulance.id),
                                             builder: (context, rateSnapshot) {
-                                              if (rateSnapshot.connectionState ==
+                                              if (rateSnapshot
+                                                      .connectionState ==
                                                   ConnectionState.waiting) {
                                                 return const SizedBox(
                                                   height: 60,
@@ -1626,8 +1645,10 @@ class HomeController extends GetxController {
                                                   FareCalculationService
                                                       .calculateDistance(
                                                 currentPosition.value!.latitude,
-                                                currentPosition.value!.longitude,
-                                                destinationPosition.value!.latitude,
+                                                currentPosition
+                                                    .value!.longitude,
+                                                destinationPosition
+                                                    .value!.latitude,
                                                 destinationPosition
                                                     .value!.longitude,
                                               );
@@ -2336,7 +2357,8 @@ class HomeController extends GetxController {
                               width: double.infinity,
                               height: 160,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
                                 height: 160,
                                 color: Colors.grey.shade200,
                                 child: const Center(
@@ -2347,13 +2369,15 @@ class HomeController extends GetxController {
                                   ),
                                 ),
                               ),
-                              loadingBuilder: (context, child, loadingProgress) {
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return Container(
                                   height: 160,
                                   color: Colors.grey.shade100,
                                   child: const Center(
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 );
                               },
@@ -2366,7 +2390,10 @@ class HomeController extends GetxController {
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
-                                    colors: [Colors.transparent, Colors.black.withOpacity(0.15)],
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.15)
+                                    ],
                                   ),
                                 ),
                               ),
@@ -2663,7 +2690,7 @@ class HomeController extends GetxController {
   Future<void> callCenter() async {
     const String phoneNumber = '+8801793399913';
     const String displayNumber = '+880 1793-399913';
-    
+
     Get.dialog(
       Dialog(
         shape: RoundedRectangleBorder(
@@ -2693,7 +2720,7 @@ class HomeController extends GetxController {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Title
               Text(
                 'Emergency Call',
@@ -2704,7 +2731,7 @@ class HomeController extends GetxController {
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               // Description
               Text(
                 'For emergency ambulance service, contact the NeoSaver emergency helpline.',
@@ -2716,10 +2743,11 @@ class HomeController extends GetxController {
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Phone Number Display
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(12),
@@ -2747,7 +2775,7 @@ class HomeController extends GetxController {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Action Buttons
               Row(
                 children: [
@@ -2765,7 +2793,8 @@ class HomeController extends GetxController {
                           snackPosition: SnackPosition.BOTTOM,
                           margin: const EdgeInsets.all(16),
                           borderRadius: 12,
-                          icon: Icon(Icons.check_circle, color: Colors.green.shade700),
+                          icon: Icon(Icons.check_circle,
+                              color: Colors.green.shade700),
                         );
                       },
                       icon: const Icon(Icons.copy, size: 18),
@@ -2781,7 +2810,7 @@ class HomeController extends GetxController {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Call Button
                   Expanded(
                     child: ElevatedButton.icon(
@@ -2804,9 +2833,9 @@ class HomeController extends GetxController {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Cancel Button
               TextButton(
                 onPressed: () => Get.back(),
@@ -3096,7 +3125,8 @@ class HomeController extends GetxController {
         // Add notification for user about request creation
         await _addUserNotification(
           title: '🚑 অ্যাম্বুলেন্স অনুরোধ পাঠানো হয়েছে',
-          message: 'আপনার অ্যাম্বুলেন্স অনুরোধ সফলভাবে পাঠানো হয়েছে। পার্টনার খুব শীঘ্রই আপনার সাথে যোগাযোগ করবে।',
+          message:
+              'আপনার অ্যাম্বুলেন্স অনুরোধ সফলভাবে পাঠানো হয়েছে। পার্টনার খুব শীঘ্রই আপনার সাথে যোগাযোগ করবে।',
           type: 'ambulance',
           data: {
             'type': 'ambulance_request',
@@ -3174,7 +3204,8 @@ class HomeController extends GetxController {
           // Add notification for user
           _addUserNotification(
             title: '✅ অ্যাম্বুলেন্স নিশ্চিত হয়েছে',
-            message: 'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে। অ্যাম্বুলেন্স পৌঁছালে পিকআপ OTP পাবেন।',
+            message:
+                'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে। অ্যাম্বুলেন্স পৌঁছালে পিকআপ OTP পাবেন।',
             type: 'ambulance',
             data: {
               'type': 'status_update',
@@ -3189,7 +3220,8 @@ class HomeController extends GetxController {
             NotificationService.sendUserNotification(
               userId: user.uid,
               title: '✅ অ্যাম্বুলেন্স নিশ্চিত হয়েছে',
-              message: 'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে।',
+              message:
+                  'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে।',
               data: {
                 'type': 'status_update',
                 'requestId': orderId,
@@ -3213,7 +3245,8 @@ class HomeController extends GetxController {
             // Add notification for user
             _addUserNotification(
               title: '🚑 অ্যাম্বুলেন্স পৌঁছেছে',
-              message: 'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP। ড্রাইভারকে এই OTP দেখান।',
+              message:
+                  'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP। ড্রাইভারকে এই OTP দেখান।',
               type: 'ambulance',
               data: {
                 'type': 'otp_received',
@@ -3229,7 +3262,8 @@ class HomeController extends GetxController {
               NotificationService.sendUserNotification(
                 userId: user.uid,
                 title: '🚑 অ্যাম্বুলেন্স পৌঁছেছে',
-                message: 'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP',
+                message:
+                    'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP',
                 data: {
                   'type': 'otp_received',
                   'requestId': orderId,
@@ -3252,7 +3286,8 @@ class HomeController extends GetxController {
           // Add notification for user
           _addUserNotification(
             title: '🏥 রোগী তুলে নেয়া হয়েছে',
-            message: 'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
+            message:
+                'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
             type: 'ambulance',
             data: {
               'type': 'status_update',
@@ -3267,7 +3302,8 @@ class HomeController extends GetxController {
             NotificationService.sendUserNotification(
               userId: user.uid,
               title: '🏥 রোগী তুলে নেয়া হয়েছে',
-              message: 'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
+              message:
+                  'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
               data: {
                 'type': 'status_update',
                 'requestId': orderId,
@@ -3291,7 +3327,8 @@ class HomeController extends GetxController {
             // Add notification for user
             _addUserNotification(
               title: '🎯 গন্তব্যের দিকে যাচ্ছে',
-              message: 'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। পৌঁছানোর OTP: $destinationOTP। পৌঁছালে ড্রাইভারকে এই OTP দেখান।',
+              message:
+                  'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। পৌঁছানোর OTP: $destinationOTP। পৌঁছালে ড্রাইভারকে এই OTP দেখান।',
               type: 'ambulance',
               data: {
                 'type': 'otp_received',
@@ -3307,7 +3344,8 @@ class HomeController extends GetxController {
               NotificationService.sendUserNotification(
                 userId: user.uid,
                 title: '🎯 গন্তব্যের দিকে যাচ্ছে',
-                message: 'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। OTP: $destinationOTP',
+                message:
+                    'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। OTP: $destinationOTP',
                 data: {
                   'type': 'otp_received',
                   'requestId': orderId,
@@ -3318,8 +3356,7 @@ class HomeController extends GetxController {
           } else {
             SuccessDialog.show(
               title: 'Heading to Destination',
-              message:
-                  'Your ambulance is now heading to the destination.',
+              message: 'Your ambulance is now heading to the destination.',
               onTap: () => navigateToTrackingPage(),
               autoCloseDuration: const Duration(seconds: 5),
             );
@@ -3354,10 +3391,11 @@ class HomeController extends GetxController {
           destinationQuery.value = '';
           placeSuggestions.clear();
           _selectedPlaceName = null;
-          
+
           // Clear all polylines and destination markers
           polylines.clear();
-          markers.removeWhere((marker) => marker.markerId.value == 'destination');
+          markers
+              .removeWhere((marker) => marker.markerId.value == 'destination');
           markers.removeWhere((marker) => marker.markerId.value == 'start');
 
           SuccessDialog.show(
@@ -3368,7 +3406,8 @@ class HomeController extends GetxController {
           // Add notification for user
           _addUserNotification(
             title: '🎉 সেবা সম্পন্ন হয়েছে',
-            message: 'আপনার অ্যাম্বুলেন্স সেবা সম্পন্ন হয়েছে। আমাদের সেবা ব্যবহার করার জন্য ধন্যবাদ।',
+            message:
+                'আপনার অ্যাম্বুলেন্স সেবা সম্পন্ন হয়েছে। আমাদের সেবা ব্যবহার করার জন্য ধন্যবাদ।',
             type: 'ambulance',
             data: {
               'type': 'service_completed',
@@ -3409,7 +3448,8 @@ class HomeController extends GetxController {
           // Add notification for user
           _addUserNotification(
             title: '❌ অর্ডার বাতিল',
-            message: 'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে। দয়া করে আবার চেষ্টা করুন।',
+            message:
+                'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে। দয়া করে আবার চেষ্টা করুন।',
             type: 'ambulance',
             data: {
               'type': 'order_declined',
@@ -3424,7 +3464,8 @@ class HomeController extends GetxController {
             NotificationService.sendUserNotification(
               userId: user.uid,
               title: '❌ অর্ডার বাতিল',
-              message: 'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।',
+              message:
+                  'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।',
               data: {
                 'type': 'order_declined',
                 'requestId': orderId,
@@ -3438,21 +3479,22 @@ class HomeController extends GetxController {
           currentTrackingOrderId.value = null;
           partnerLiveLocation.value = null;
           partnerLocationTrail.clear();
-          
+
           // Clear destination when order is declined
           destinationPosition.value = null;
           destinationController.clear();
           destinationQuery.value = '';
           placeSuggestions.clear();
           _selectedPlaceName = null;
-          
+
           // Clear all markers and polylines
           markers
               .removeWhere((marker) => marker.markerId.value == 'partner_live');
           polylines.removeWhere(
               (polyline) => polyline.polylineId.value == 'partner_trail');
           polylines.clear();
-          markers.removeWhere((marker) => marker.markerId.value == 'destination');
+          markers
+              .removeWhere((marker) => marker.markerId.value == 'destination');
           markers.removeWhere((marker) => marker.markerId.value == 'start');
         }
 
@@ -3549,11 +3591,11 @@ class HomeController extends GetxController {
       }
     } else {
       // No active tracking, navigate to orders page or show message
-      Get.snackbar(
-        'No Active Tracking',
-        'You don\'t have any active ambulance tracking at the moment.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
+      // No active tracking, show success dialog
+      SuccessDialog.show(
+        title: 'No Active Tracking',
+        message: 'You don\'t have any active ambulance tracking at the moment.',
+        autoCloseDuration: const Duration(seconds: 3),
       );
       // Or navigate to orders page
       navigateToUserOrders();
@@ -3572,20 +3614,32 @@ class HomeController extends GetxController {
         final orderData = {'id': orderId, ...doc.data()!};
         Get.to(() => const UserTrackingPage(), arguments: orderData);
       } else {
-        Get.snackbar(
-          'Error',
-          'Order data not found',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
+        Get.dialog(
+          AlertDialog(
+            title: const Text('Error', style: TextStyle(color: Colors.red)),
+            content: const Text('Order data not found'),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     } catch (e) {
       debugPrint('Error fetching order data: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to load tracking data',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
+      Get.dialog(
+        AlertDialog(
+          title: const Text('Error', style: TextStyle(color: Colors.red)),
+          content: const Text('Failed to load tracking data'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     }
   }
@@ -3975,7 +4029,7 @@ class HomeController extends GetxController {
     destinationQuery.value = '';
     placeSuggestions.clear();
     _selectedPlaceName = null;
-    
+
     // Re-add current location marker if available
     if (currentPosition.value != null) {
       markers.add(
@@ -4496,21 +4550,21 @@ class HomeController extends GetxController {
 
       if (image != null) {
         debugPrint('📁 Image selected from gallery: ${image.path}');
-        
+
         // Check file size before processing
         final imageFile = File(image.path);
         if (!await _checkFileSizeLimit(imageFile)) {
           return;
         }
-        
+
         // Always compress image for ultra-fast upload
         final compressedImage = await _ultraFastCompress(imageFile);
-        
+
         // Check again after compression
         if (!await _checkFileSizeLimit(compressedImage)) {
           return;
         }
-        
+
         await uploadProfileImage(compressedImage);
       } else {
         debugPrint('❌ No image selected from gallery');
@@ -4549,21 +4603,21 @@ class HomeController extends GetxController {
 
       if (image != null) {
         debugPrint('📸 Image captured from camera: ${image.path}');
-        
+
         // Check file size before processing
         final imageFile = File(image.path);
         if (!await _checkFileSizeLimit(imageFile)) {
           return;
         }
-        
+
         // Always compress image for ultra-fast upload
         final compressedImage = await _ultraFastCompress(imageFile);
-        
+
         // Check again after compression
         if (!await _checkFileSizeLimit(compressedImage)) {
           return;
         }
-        
+
         await uploadProfileImage(compressedImage);
       } else {
         debugPrint('❌ No image captured from camera');

@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 import 'user_order_controller.dart';
 import '../loader/loader.dart';
 import '../home_user/home_user_controller.dart';
+import '../components/constants/images.dart';
 
 class OrderSkeletonLoader extends StatelessWidget {
   const OrderSkeletonLoader({super.key});
@@ -211,7 +212,7 @@ class UserOrdersPage extends StatelessWidget {
       case 'emergency':
         return Icons.warning_outlined;
       default:
-        return Icons.receipt_long_outlined;
+        return Icons.trip_origin;
     }
   }
 
@@ -224,14 +225,16 @@ class UserOrdersPage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Your Orders',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            title: const Text('Your Trip',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 20,
+                )),
             centerTitle: true,
-            backgroundColor: colorScheme.primary,
-            elevation: 2,
-            iconTheme: IconThemeData(color: colorScheme.onPrimary),
-            titleTextStyle:
-                TextStyle(color: colorScheme.onPrimary, fontSize: 18),
+            backgroundColor: const Color(0xFFDCF2F7), // Light blue app bar
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.black87),
           ),
           backgroundColor: colorScheme.surface,
           body: Obx(() {
@@ -266,7 +269,7 @@ class UserOrdersPage extends StatelessWidget {
 
             if (controller.userId.isEmpty) {
               return Center(
-                  child: Text('Please log in to see your orders.',
+                  child: Text('Please log in to see your trips.',
                       style: TextStyle(
                           color:
                               colorScheme.onSurface.withValues(alpha: 0.7))));
@@ -290,14 +293,14 @@ class UserOrdersPage extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.receipt_long_outlined,
-                          size: 64,
-                          color: colorScheme.onSurface.withValues(alpha: 0.3),
+                        Image.asset(
+                          AppImages.tripPng,
+                          width: 120,
+                          height: 120,
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'You haven\'t placed any orders yet.',
+                          'You haven\'t placed any trip yet',
                           style: TextStyle(
                             color: colorScheme.onSurface.withValues(alpha: 0.7),
                             fontSize: 16,
@@ -327,7 +330,7 @@ class UserOrdersPage extends StatelessWidget {
                     // Add document ID to orderData
                     orderData['id'] = orderDoc.id;
                     final companyName =
-                        orderData['companyName'] as String? ?? 'Order Details';
+                        orderData['companyName'] as String? ?? 'Trip Details';
                     final orderStatus = orderData['status'] as String?;
                     final createdAt =
                         (orderData['timestamp'] as Timestamp?)?.toDate();
@@ -542,7 +545,7 @@ class OrderDetailScreen extends StatelessWidget {
       case 'emergency':
         return Icons.warning_outlined;
       default:
-        return Icons.receipt_long_outlined;
+        return Icons.trip_origin;
     }
   }
 
@@ -567,21 +570,23 @@ class OrderDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(companyName ?? 'Order Details',
-            style: TextStyle(
-                fontWeight: FontWeight.w600, color: colorScheme.onPrimary)),
-        backgroundColor: colorScheme.primary,
-        elevation: 2,
-        iconTheme: IconThemeData(color: colorScheme.onPrimary),
+        title: Text(companyName ?? 'Trip Details',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              fontSize: 20,
+            )),
+        backgroundColor: const Color(0xFFDCF2F7), // Light blue app bar
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           if (orderStatus?.toLowerCase() == 'pending')
             IconButton(
               onPressed: () {
                 Get.dialog(
                   AlertDialog(
-                    title: Text('Cancel Order'),
-                    content:
-                        Text('Are you sure you want to cancel this order?'),
+                    title: Text('Cancel Trip'),
+                    content: Text('Are you sure you want to cancel this trip?'),
                     actions: [
                       TextButton(
                         onPressed: () => Get.back(),
@@ -592,7 +597,7 @@ class OrderDetailScreen extends StatelessWidget {
                           // TODO: Implement order cancellation
                           Get.back();
                           Get.snackbar(
-                              'Info', 'Order cancellation not implemented yet');
+                              'Info', 'Trip cancellation not implemented yet');
                         },
                         child: Text('Yes', style: TextStyle(color: Colors.red)),
                       ),
@@ -600,7 +605,7 @@ class OrderDetailScreen extends StatelessWidget {
                   ),
                 );
               },
-              icon: Icon(Icons.cancel_outlined, color: colorScheme.onPrimary),
+              icon: const Icon(Icons.cancel_outlined, color: Colors.black87),
             ),
         ],
       ),

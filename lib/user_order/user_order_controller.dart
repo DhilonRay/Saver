@@ -56,19 +56,16 @@ class UserOrderController extends GetxController {
       // Sort in memory since we can't use orderBy in query
       final ordersList = snapshot.docs.map((doc) => doc.data()).toList();
       ordersList.sort((a, b) {
-        final aTime = (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime = (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final aTime =
+            (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final bTime =
+            (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
         return bTime.compareTo(aTime); // Descending order
       });
 
       orders.value = ordersList;
     } catch (e) {
-      error.value = 'Failed to fetch orders: ${e.toString()}';
-      Get.snackbar(
-        'Error',
-        error.value,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      error.value = 'Failed to fetch trips: ${e.toString()}';
     } finally {
       isLoading.value = false;
     }
