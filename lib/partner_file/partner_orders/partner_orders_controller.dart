@@ -10,9 +10,12 @@ class PartnerOrdersController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxString partnerId = ''.obs;
-  final RxList<QueryDocumentSnapshot> activeOrders = <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> completedOrders = <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> cancelledOrders = <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> activeOrders =
+      <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> completedOrders =
+      <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> cancelledOrders =
+      <QueryDocumentSnapshot>[].obs;
   final RxBool isLoading = true.obs;
 
   StreamSubscription<QuerySnapshot>? _ordersSubscription;
@@ -35,29 +38,36 @@ class PartnerOrdersController extends GetxController {
   void _setupOrdersStream() {
     _ordersSubscription = getOrdersStream().listen((snapshot) {
       final docs = snapshot.docs;
-      
+
       activeOrders.value = docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return data['status'] == 'active' || data['status'] == 'accepted' || data['status'] == 'in_transit' || data['status'] == 'pickup' || data['status'] == 'declined';
+        return data['status'] == 'active' ||
+            data['status'] == 'accepted' ||
+            data['status'] == 'in_transit' ||
+            data['status'] == 'pickup' ||
+            data['status'] == 'declined';
       }).toList();
-      
+
       completedOrders.value = docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return data['status'] == 'completed';
       }).toList();
-      
+
       cancelledOrders.value = docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return data['status'] == 'cancelled';
       }).toList();
-      
+
       isLoading.value = false;
     });
   }
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore.collection('orders').doc(orderId).update({'status': newStatus});
+      await _firestore
+          .collection('orders')
+          .doc(orderId)
+          .update({'status': newStatus});
 
       // Send notification to user about status change
       await _sendStatusChangeNotification(orderId, newStatus);
@@ -83,7 +93,8 @@ class PartnerOrdersController extends GetxController {
   }
 
   // Send notification to user when order status changes
-  Future<void> _sendStatusChangeNotification(String orderId, String status) async {
+  Future<void> _sendStatusChangeNotification(
+      String orderId, String status) async {
     try {
       // Get order data to find userId
       final orderDoc = await _firestore.collection('orders').doc(orderId).get();
@@ -167,7 +178,8 @@ class PartnerOrdersController extends GetxController {
         .snapshots();
   }
 
-  void showOrderDetails(BuildContext context, String? userId, String? userName, String? companyName, String? orderStatus) async {
+  void showOrderDetails(BuildContext context, String? userId, String? userName,
+      String? companyName, String? orderStatus) async {
     if (userId == null) {
       Get.snackbar(
         'Error',
@@ -182,7 +194,8 @@ class PartnerOrdersController extends GetxController {
     final userData = await getUserData(userId);
 
     String userNameInDialog = userName ?? 'User Info Not Available';
-    String userPhoneInDialog = userData?['phone'] as String? ?? 'Number not available';
+    String userPhoneInDialog =
+        userData?['phone'] as String? ?? 'Number not available';
     String userLocationInDialog = 'Location not available';
 
     if (userData != null) {
@@ -190,7 +203,8 @@ class PartnerOrdersController extends GetxController {
       final longitude = userData['longitude'];
 
       if (latitude != null && longitude != null) {
-        userLocationInDialog = 'Lat: ${latitude.toStringAsFixed(2)}, Lng: ${longitude.toStringAsFixed(2)}';
+        userLocationInDialog =
+            'Lat: ${latitude.toStringAsFixed(2)}, Lng: ${longitude.toStringAsFixed(2)}';
       }
     }
 

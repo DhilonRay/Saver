@@ -80,6 +80,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- Disable Impeller to fix ink_sparkle.frag error -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
     </application> <!-- End of the application tag -->
 
     <!-- Queries section for specific actions -->

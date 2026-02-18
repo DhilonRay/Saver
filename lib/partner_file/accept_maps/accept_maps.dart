@@ -1084,19 +1084,50 @@ class AcceptMapsPage extends StatelessWidget {
                           final success = await controller
                               .confirmPickupOTP(otpController.text);
                           if (success) {
-                            Get.back(); // Close dialog
-                            Get.snackbar(
-                              'Success',
-                              'Pickup confirmed successfully!',
-                              backgroundColor: Colors.green,
-                              colorText: Colors.white,
+                            Get.back(); // Close OTP bottom sheet
+                            Get.dialog(
+                              AlertDialog(
+                                backgroundColor: Colors.green.shade50,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                title: Text('✅ সফল',
+                                    style: TextStyle(
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.bold)),
+                                content: Text('পিকআপ সফলভাবে নিশ্চিত হয়েছে!',
+                                    style: TextStyle(
+                                        color: Colors.green.shade700)),
+                              ),
                             );
+                            Future.delayed(Duration(seconds: 2), () {
+                              if (Get.isDialogOpen ?? false) {
+                                try {
+                                  Get.back();
+                                } catch (_) {}
+                              }
+                            });
                           } else {
-                            Get.snackbar(
-                              'Error',
-                              'Invalid OTP. Please try again.',
-                              backgroundColor: Colors.red,
-                              colorText: Colors.white,
+                            Get.dialog(
+                              AlertDialog(
+                                backgroundColor: Colors.red.shade50,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                title: Text('❌ ত্রুটি',
+                                    style: TextStyle(
+                                        color: Colors.red.shade800,
+                                        fontWeight: FontWeight.bold)),
+                                content: Text('ভুল OTP। আবার চেষ্টা করুন।',
+                                    style:
+                                        TextStyle(color: Colors.red.shade700)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Get.back(),
+                                    child: Text('ঠিক আছে',
+                                        style: TextStyle(
+                                            color: Colors.red.shade700)),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                         }

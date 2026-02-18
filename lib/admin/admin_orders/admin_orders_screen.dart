@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/billing_breakdown_widget.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({Key? key}) : super(key: key);
@@ -254,7 +255,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 const Divider(height: 24),
                 _buildDetailRow('Customer', orderData['userName'] ?? 'N/A'),
                 _buildDetailRow('Phone', orderData['userPhone'] ?? 'N/A'),
-                _buildDetailRow('Amount', '৳${orderData['totalAmount'] ?? 0}'),
+                _buildDetailRow('Phone', orderData['userPhone'] ?? 'N/A'),
                 _buildDetailRow('Pickup', orderData['pickupAddress'] ?? 'N/A'),
                 _buildDetailRow(
                     'Delivery', orderData['deliveryAddress'] ?? 'N/A'),
@@ -267,6 +268,45 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           (orderData['createdAt'] as Timestamp).toDate())
                       : 'N/A',
                 ),
+                const SizedBox(height: 16),
+
+                // Payment Details
+                const Text(
+                  'Payment Info:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                if (orderData['payment'] != null) ...[
+                  _buildDetailRow('Method',
+                      (orderData['payment']['method'] ?? 'N/A').toUpperCase()),
+                  if (orderData['payment']['method'] == 'bkash') ...[
+                    _buildDetailRow(
+                        'TRXID', orderData['payment']['trxId'] ?? 'N/A'),
+                    _buildDetailRow('Sender',
+                        orderData['payment']['senderNumber'] ?? 'N/A'),
+                  ],
+                  _buildDetailRow(
+                      'Status',
+                      (orderData['payment']['status'] ?? 'pending')
+                          .toUpperCase()),
+                ],
+
+                const SizedBox(height: 12),
+                // Billing Breakdown
+                Builder(builder: (context) {
+                  double fare = 0.0;
+                  if (orderData['payment'] != null &&
+                      orderData['payment']['fare'] != null) {
+                    fare = (orderData['payment']['fare'] as num).toDouble();
+                  } else {
+                    fare =
+                        (orderData['totalAmount'] as num?)?.toDouble() ?? 0.0;
+                    // If totalAmount includes service charge, we might need to reverse calc
+                    // But assuming totalAmount usually means fare in old records
+                  }
+                  return BillingBreakdownWidget(fare: fare);
+                }),
+                const SizedBox(height: 16),
                 const SizedBox(height: 16),
                 const Text(
                   'Update Status:',

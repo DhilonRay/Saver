@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:saver/components/constants/colors.dart';
+import 'package:saver/components/text_styles.dart';
+import 'package:saver/components/widgets/buttons.dart';
+import 'package:saver/components/widgets/space.dart';
 import 'user_notification_controller.dart';
 
 class UserNotificationPage extends StatelessWidget {
@@ -8,56 +12,34 @@ class UserNotificationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return GetBuilder<UserNotificationController>(
       init: UserNotificationController(),
       builder: (controller) {
         return Scaffold(
+          backgroundColor: AppColors.background,
           appBar: AppBar(
-            title: Obx(() => Text(
-              'Notifications ${controller.unreadCount.value > 0 ? '(${controller.unreadCount.value})' : ''}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-             
-            )
+            elevation: 0,
+            backgroundColor: AppColors.primaryLight,
+            leading: BackButtonWidget(onTap: () => Get.back()),
+            title: Text(
+              'Notification',
+              style: AppTextStyles.extraBodyLarge.copyWith(
+                color: AppColors.primaryText,
+              ),
             ),
             centerTitle: true,
-            backgroundColor: Colors.blue.shade800,
-            elevation: 2,
-            iconTheme: IconThemeData(color: colorScheme.onPrimary),
-            titleTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 18),
-            actions: [
-              Obx(() => controller.notifications.isNotEmpty
-                ? PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'mark_all_read':
-                          controller.markAllAsRead();
-                          break;
-                        case 'clear_all':
-                          _showClearAllDialog(context, controller);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'mark_all_read',
-                        child: Text('Mark All as Read'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'clear_all',
-                        child: Text('Clear All'),
-                      ),
-                    ],
-                  )
-                : const SizedBox()),
-            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Container(
+                height: 1,
+                color: AppColors.border,
+              ),
+            ),
           ),
-          backgroundColor: colorScheme.surface,
           body: Obx(() {
             if (controller.isLoading.value) {
-              return Center(
-                child: CircularProgressIndicator(color: Colors.blue.shade800),
+              return const Center(
+                child: CircularProgressIndicator(),
               );
             }
 
@@ -69,21 +51,23 @@ class UserNotificationPage extends StatelessWidget {
                     Icon(
                       Icons.error_outline,
                       size: 64,
-                      color: colorScheme.error.withValues(alpha: 0.5),
+                      color: AppColors.error.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      controller.error.value,
-                      style: TextStyle(
-                        color: colorScheme.error,
-                        fontSize: 16,
+                    const VerticalGap(16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        controller.error.value,
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.error,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => Get.back(),
-                      child: const Text('Go Back'),
+                    const VerticalGap(16),
+                    FilledButtonWidget(
+                      buttonText: 'Go Back',
+                      onTap: () => Get.back(),
                     ),
                   ],
                 ),
@@ -92,34 +76,34 @@ class UserNotificationPage extends StatelessWidget {
 
             if (controller.notifications.isEmpty) {
               return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_none,
-                      size: 64,
-                      color: colorScheme.onSurface.withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'এখনো কোন নোটিফিকেশন নেই',
-                      style: TextStyle(
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.notifications_outlined,
+                        size: 64,
+                        color: AppColors.primaryText,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'অ্যাম্বুলেন্স অনুরোধ এবং আপডেটের জন্য এখানে নোটিফিকেশন পাবেন',
-                      style: TextStyle(
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontSize: 14,
+                      const VerticalGap(24),
+                      Text(
+                        'এখানে কোন নোটিফিকেশন নেই',
+                        style: AppTextStyles.bodyLargeSemibold.copyWith(
+                          color: AppColors.primaryText,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                  ],
+                      const VerticalGap(8),
+                      Text(
+                        'আপডেট অনুরোধ এবং আপডেটের জন্য\nএখানে নোটিফিকেশন পাবেন',
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.secondaryText,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -129,7 +113,9 @@ class UserNotificationPage extends StatelessWidget {
               itemCount: controller.notifications.length,
               itemBuilder: (context, index) {
                 final notification = controller.notifications[index];
-                return _buildNotificationCard(notification, controller, colorScheme, context);
+                final colorScheme = Theme.of(context).colorScheme;
+                return _buildNotificationCard(
+                    notification, controller, colorScheme, context);
               },
             );
           }),
@@ -155,8 +141,15 @@ class UserNotificationPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           gradient: LinearGradient(
             colors: notification.isRead
-              ? [colorScheme.surface, colorScheme.surface.withValues(alpha: 0.8)]
-              : [_getNotificationColor(notification.type).withValues(alpha: 0.1), colorScheme.surface],
+                ? [
+                    colorScheme.surface,
+                    colorScheme.surface.withValues(alpha: 0.8)
+                  ]
+                : [
+                    _getNotificationColor(notification.type)
+                        .withValues(alpha: 0.1),
+                    colorScheme.surface
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -189,7 +182,8 @@ class UserNotificationPage extends StatelessWidget {
                           Text(
                             _formatTimestamp(notification.timestamp),
                             style: TextStyle(
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -232,7 +226,8 @@ class UserNotificationPage extends StatelessWidget {
                         ),
                       ),
                     IconButton(
-                      onPressed: () => _showDeleteDialog(context, notification, controller),
+                      onPressed: () =>
+                          _showDeleteDialog(context, notification, controller),
                       icon: Icon(
                         Icons.delete_outline,
                         size: 20,
@@ -316,12 +311,14 @@ class UserNotificationPage extends StatelessWidget {
     }
   }
 
-  void _showDeleteDialog(BuildContext context, UserNotification notification, UserNotificationController controller) {
+  void _showDeleteDialog(BuildContext context, UserNotification notification,
+      UserNotificationController controller) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Notification'),
-        content: const Text('Are you sure you want to delete this notification?'),
+        content:
+            const Text('Are you sure you want to delete this notification?'),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -339,12 +336,14 @@ class UserNotificationPage extends StatelessWidget {
     );
   }
 
-  void _showClearAllDialog(BuildContext context, UserNotificationController controller) {
+  void _showClearAllDialog(
+      BuildContext context, UserNotificationController controller) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear All Notifications'),
-        content: const Text('Are you sure you want to delete all notifications? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete all notifications? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -362,7 +361,8 @@ class UserNotificationPage extends StatelessWidget {
     );
   }
 
-  void _handleNotificationTap(UserNotification notification, UserNotificationController controller) {
+  void _handleNotificationTap(
+      UserNotification notification, UserNotificationController controller) {
     // Mark as read if not already
     if (!notification.isRead) {
       controller.markAsRead(notification.id);
@@ -439,17 +439,20 @@ class UserNotificationPage extends StatelessWidget {
                   _buildSectionHeader('পার্টনার তথ্য'),
                   _buildInfoRow('পার্টনার নাম', data['partnerName'] ?? 'N/A'),
                   _buildInfoRow('ফোন নম্বর', data['partnerPhone'] ?? 'N/A'),
-                  _buildInfoRow('অ্যাম্বুলেন্স টাইপ', data['ambulanceType'] ?? 'N/A'),
+                  _buildInfoRow(
+                      'অ্যাম্বুলেন্স টাইপ', data['ambulanceType'] ?? 'N/A'),
                   _buildInfoRow('ভাড়া', data['fare'] ?? 'N/A'),
 
                   const SizedBox(height: 16),
 
                   // Location Information
                   _buildSectionHeader('অবস্থান তথ্য'),
-                  _buildInfoRow('পিকআপ পয়েন্ট', data['pickupLocation'] ?? 'N/A'),
+                  _buildInfoRow(
+                      'পিকআপ পয়েন্ট', data['pickupLocation'] ?? 'N/A'),
                   _buildInfoRow('গন্তব্য', data['destination'] ?? 'N/A'),
                   _buildInfoRow('দূরত্ব', data['distance'] ?? 'N/A'),
-                  _buildInfoRow('আনুমানিক সময়', data['estimatedTime'] ?? 'N/A'),
+                  _buildInfoRow(
+                      'আনুমানিক সময়', data['estimatedTime'] ?? 'N/A'),
 
                   const SizedBox(height: 16),
 

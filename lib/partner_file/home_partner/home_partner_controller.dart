@@ -11,7 +11,6 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:saver/compo/success_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../about/about.dart';
 import '../partner_orders/partners_orders_page.dart';
@@ -22,6 +21,7 @@ import '../accept_maps/accept_maps.dart';
 import '../../services/notification_service.dart';
 import '../../services/fares_service.dart';
 import 'package:intl/intl.dart';
+import '../../components/alert.dart';
 
 class HomePartnerController extends GetxController {
   final bool isNewSignup;
@@ -74,6 +74,10 @@ class HomePartnerController extends GetxController {
   StreamSubscription<DocumentSnapshot>? _nameSubscription;
   StreamSubscription<DocumentSnapshot>? _imageSubscription;
   StreamSubscription<DocumentSnapshot>? _rateSubscription;
+  StreamSubscription<DocumentSnapshot>? _fareResponseSubscription;
+
+  // Fare input controller for driver fare entry
+  final TextEditingController _fareInputController = TextEditingController();
 
   // Timer for periodic location updates (10 seconds)
   Timer? _locationUpdateTimer;
@@ -94,6 +98,21 @@ class HomePartnerController extends GetxController {
 
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
+
+  Future<void> _initializeFCM() async {
+    try {
+      debugPrint('🔧 Initializing FCM for partner...');
+      final token = await NotificationService.initializeFCMToken();
+      if (token != null) {
+        debugPrint(
+            '✅ Partner FCM token initialized: ${token.substring(0, 10)}...');
+      } else {
+        debugPrint('❌ Failed to initialize Partner FCM token');
+      }
+    } catch (e) {
+      debugPrint('❌ Error initializing Partner FCM status: $e');
+    }
+  }
 
   Future<void> _loadCustomIcons() async {
     try {
@@ -229,28 +248,13 @@ class HomePartnerController extends GetxController {
       }
 
       if (status.isDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is required to select images. Please grant permission when prompted.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-        );
+        Alert.info('Photo library access is required to select images.');
         return;
       }
 
       if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is permanently denied. Please enable it in app settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          mainButton: TextButton(
-            onPressed: () {
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        );
+        Alert.info(
+            'Photo library access is permanently denied. Please enable it in app settings.');
         return;
       }
 
@@ -272,11 +276,7 @@ class HomePartnerController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error picking image from gallery: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to pick image from gallery. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Alert.info('Failed to pick image from gallery. Please try again.');
     }
   }
 
@@ -287,12 +287,7 @@ class HomePartnerController extends GetxController {
       // Request camera permission first
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Camera access is required to take photos. Please grant permission in settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-        );
+        Alert.info('Camera access is required to take photos.');
         return;
       }
 
@@ -314,11 +309,7 @@ class HomePartnerController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error taking photo: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to take photo. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Alert.info('Failed to take photo. Please try again.');
     }
   }
 
@@ -330,12 +321,7 @@ class HomePartnerController extends GetxController {
       // Check network connectivity first
       final isConnected = await _isConnected();
       if (!isConnected) {
-        Get.snackbar(
-          'No Internet',
-          'Please check your internet connection and try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
-        );
+        Alert.info('Please check your internet connection and try again.');
         return;
       }
 
@@ -388,10 +374,9 @@ class HomePartnerController extends GetxController {
         profileImageUrl.value = downloadUrl;
 
         debugPrint('✅ Profile image updated successfully');
-        SuccessDialog.show(
-          title: 'Profile Updated',
-          message: 'Your profile image has been updated successfully!',
-        );
+        if (Get.context != null) {
+          Alert.success('Your profile image has been updated successfully!');
+        }
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
       }
@@ -405,16 +390,9 @@ class HomePartnerController extends GetxController {
         errorMessage =
             'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
-        Get.snackbar(
-          'Upload Failed',
-          'Network error occurred. Tap to retry.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          onTap: (snack) {
-            debugPrint('🔄 User tapped retry for network error');
-            _retryUpload(imageFile);
-          },
-        );
+        if (Get.context != null) {
+          Alert.info('Network error occurred. Please try again.');
+        }
         return; // Don't show the default error snackbar
       } else if (e.toString().contains('permission') ||
           e.toString().contains('denied')) {
@@ -425,12 +403,7 @@ class HomePartnerController extends GetxController {
         return; // Don't show error snackbar for cancelled uploads
       }
 
-      Get.snackbar(
-        'Error',
-        errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-      );
+      Alert.info(errorMessage);
     } finally {
       isUploadingImage.value = false;
       uploadProgress.value = 0.0; // Reset progress
@@ -439,94 +412,96 @@ class HomePartnerController extends GetxController {
 
   void showProfileImageOptions() {
     debugPrint('🔄 Opening profile image options bottom sheet');
-    Get.bottomSheet(
-      Container(
-        height: profileImageUrl.value != null
-            ? 280
-            : 240, // Dynamic height based on content
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+    if (Get.context != null) {
+      Get.bottomSheet(
+        Container(
+          height: profileImageUrl.value != null
+              ? 280
+              : 240, // Dynamic height based on content
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const Text(
-                  'Change Profile Picture',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const Text(
+                    'Change Profile Picture',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // 2 Column Grid Layout
-                Row(
-                  children: [
-                    // Camera Option
-                    Expanded(
-                      child: _buildOptionCard(
-                        icon: Icons.camera_alt,
-                        title: 'Take Photo',
-                        color: Colors.blue,
-                        onTap: () {
-                          debugPrint('📷 Camera option selected');
-                          Get.back();
-                          pickAndUploadProfileImageFromCamera();
-                        },
+                  const SizedBox(height: 20),
+                  // 2 Column Grid Layout
+                  Row(
+                    children: [
+                      // Camera Option
+                      Expanded(
+                        child: _buildOptionCard(
+                          icon: Icons.camera_alt,
+                          title: 'Take Photo',
+                          color: Colors.blue,
+                          onTap: () {
+                            debugPrint('📷 Camera option selected');
+                            Get.back();
+                            pickAndUploadProfileImageFromCamera();
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Gallery Option
-                    Expanded(
-                      child: _buildOptionCard(
-                        icon: Icons.photo_library,
-                        title: 'Gallery',
-                        color: Colors.green,
-                        onTap: () {
-                          debugPrint('🖼️ Gallery option selected');
-                          Get.back();
-                          pickAndUploadProfileImage();
-                        },
+                      const SizedBox(width: 12),
+                      // Gallery Option
+                      Expanded(
+                        child: _buildOptionCard(
+                          icon: Icons.photo_library,
+                          title: 'Gallery',
+                          color: Colors.green,
+                          onTap: () {
+                            debugPrint('🖼️ Gallery option selected');
+                            Get.back();
+                            pickAndUploadProfileImage();
+                          },
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Remove Option (full width if exists)
+                  if (profileImageUrl.value != null)
+                    _buildOptionCard(
+                      icon: Icons.delete,
+                      title: 'Remove Picture',
+                      color: Colors.red,
+                      onTap: () {
+                        debugPrint('🗑️ Remove option selected');
+                        Get.back();
+                        removeProfileImage();
+                      },
+                      fullWidth: true,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Remove Option (full width if exists)
-                if (profileImageUrl.value != null)
-                  _buildOptionCard(
-                    icon: Icons.delete,
-                    title: 'Remove Picture',
-                    color: Colors.red,
-                    onTap: () {
-                      debugPrint('🗑️ Remove option selected');
+                  const SizedBox(height: 14),
+                  TextButton(
+                    onPressed: () {
+                      debugPrint('❌ Cancel pressed');
                       Get.back();
-                      removeProfileImage();
                     },
-                    fullWidth: true,
+                    child: const Text('Cancel'),
                   ),
-                const SizedBox(height: 14),
-                TextButton(
-                  onPressed: () {
-                    debugPrint('❌ Cancel pressed');
-                    Get.back();
-                  },
-                  child: const Text('Cancel'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      isScrollControlled: false, // Set to false since we have fixed height
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-    ).then((value) => debugPrint('📱 Bottom sheet closed'));
+        isScrollControlled: false, // Set to false since we have fixed height
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+      ).then((value) => debugPrint('📱 Bottom sheet closed'));
+    }
   }
 
   Widget _buildOptionCard({
@@ -590,17 +565,18 @@ class HomePartnerController extends GetxController {
       profileImageUrl.value = null;
 
       debugPrint('🗑️ Profile image removed successfully');
-      SuccessDialog.show(
-        title: 'Profile Updated',
-        message: 'Your profile image has been removed successfully!',
-      );
+      if (Get.context != null) {
+        Alert.success('Your profile image has been removed successfully!');
+      }
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to remove profile image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      if (Get.context != null) {
+        Get.snackbar(
+          'Error',
+          'Failed to remove profile image. Please try again.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
   }
 
@@ -653,51 +629,17 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  // Retry upload with exponential backoff
-  Future<void> _retryUpload(File imageFile,
-      {int retryCount = 0, int maxRetries = 3}) async {
-    const baseDelay = Duration(seconds: 1);
-
-    try {
-      await uploadProfileImage(imageFile);
-    } catch (e) {
-      if (retryCount < maxRetries &&
-          (e.toString().contains('network') ||
-              e.toString().contains('unavailable'))) {
-        final delay = baseDelay * (1 << retryCount); // Exponential backoff
-        debugPrint(
-            '🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
-
-        await Future.delayed(delay);
-        return _retryUpload(imageFile,
-            retryCount: retryCount + 1, maxRetries: maxRetries);
-      } else {
-        rethrow; // Re-throw if max retries reached or non-network error
-      }
-    }
-  }
-
   Future<bool> updatePartnerRates(int newIndoorRate, int newOutdoorRate) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        Get.snackbar(
-          'Error',
-          'You must be logged in to update rates',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        Alert.info('You must be logged in to update rates');
         return false;
       }
 
       // Validate rates
       if (newIndoorRate < 500 || newOutdoorRate < 500) {
-        Get.snackbar(
-          'Invalid Rate',
-          'Service rates must be at least ৳500',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        Alert.info('Service rates must be at least ৳500');
         return false;
       }
 
@@ -724,12 +666,7 @@ class HomePartnerController extends GetxController {
       return true;
     } catch (e) {
       debugPrint('❌ Error updating partner rates: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to update rates: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.info('Failed to update rates: $e');
       return false;
     }
   }
@@ -741,160 +678,164 @@ class HomePartnerController extends GetxController {
     int tempOutdoorRate =
         outdoorRate.value > 0 ? outdoorRate.value : serviceRate.value;
 
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'Update Service Rates',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Set your ambulance service rates. These will be shown on your profile.',
-                style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // Indoor Rate Field
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Indoor City Rate (৳)',
-                  labelStyle: TextStyle(color: Colors.grey.shade600),
-                  hintText: 'e.g. 2500',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF42A5F5), width: 2),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-                keyboardType: TextInputType.number,
-                controller:
-                    TextEditingController(text: tempIndoorRate.toString()),
-                onChanged: (value) {
-                  tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Outdoor Rate Field
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Outdoor City Rate (৳)',
-                  labelStyle: TextStyle(color: Colors.grey.shade600),
-                  hintText: 'e.g. 5000',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF42A5F5), width: 2),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-                keyboardType: TextInputType.number,
-                controller:
-                    TextEditingController(text: tempOutdoorRate.toString()),
-                onChanged: (value) {
-                  tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
-                },
-              ),
-
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Get.back(),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child:
-                          const Text('Cancel', style: TextStyle(fontSize: 16)),
+    if (Get.context != null) {
+      Get.dialog(
+        Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Center(
+                  child: Text(
+                    'Update Service Rates',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        // Close keyboard first
-                        FocusScope.of(Get.context!).unfocus();
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Set your ambulance service rates. These will be shown on your profile.',
+                  style:
+                      TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
 
-                        // Perform update with BOTH rates
-                        bool success = await updatePartnerRates(
-                            tempIndoorRate, tempOutdoorRate);
+                // Indoor Rate Field
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Indoor City Rate (৳)',
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                    hintText: 'e.g. 2500',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF42A5F5), width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller:
+                      TextEditingController(text: tempIndoorRate.toString()),
+                  onChanged: (value) {
+                    tempIndoorRate = int.tryParse(value) ?? tempIndoorRate;
+                  },
+                ),
+                const SizedBox(height: 16),
 
-                        // Close dialog
-                        Get.back();
+                // Outdoor Rate Field
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Outdoor City Rate (৳)',
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                    hintText: 'e.g. 5000',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF42A5F5), width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller:
+                      TextEditingController(text: tempOutdoorRate.toString()),
+                  onChanged: (value) {
+                    tempOutdoorRate = int.tryParse(value) ?? tempOutdoorRate;
+                  },
+                ),
 
-                        // Show success if updated
-                        if (success) {
-                          // Short delay to allow dialog to fully close
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            SuccessDialog.show(
-                              title: 'Rates Updated',
-                              message:
-                                  'Your service rates have been updated successfully!',
-                            );
-                          });
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5C9DFF), // Custom Blue
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Get.back(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        'Update Rates',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontSize: 16)),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          // Close keyboard first
+                          FocusScope.of(Get.context!).unfocus();
+
+                          // Perform update with BOTH rates
+                          bool success = await updatePartnerRates(
+                              tempIndoorRate, tempOutdoorRate);
+
+                          // Close dialog
+                          Get.back();
+
+                          // Show success if updated
+                          if (success) {
+                            // Short delay to allow dialog to fully close
+                            Future.delayed(const Duration(milliseconds: 300),
+                                () {
+                              if (Get.context != null) {
+                                Alert.success(
+                                    'Your service rates have been updated successfully!');
+                              }
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF5C9DFF), // Custom Blue
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text(
+                          'Update Rates',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-    );
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+      );
+    }
   }
 
   Future<Map<String, int>> _fetchPartnerRates() async {
@@ -904,14 +845,31 @@ class HomePartnerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadCustomIcons();
-    _getCurrentLocation();
-    _loadDeclinedRequestIds(); // Load previously declined requests
+    // Call async initialization
+    _initializeController();
+  }
+
+  Future<void> _initializeController() async {
+    debugPrint('🚀 Starting HomePartnerController initialization...');
+
+    // Load custom icons first
+    await _loadCustomIcons();
+
+    // Load previously declined requests BEFORE listening to requests (Fixes race condition)
+    await _loadDeclinedRequestIds();
+
+    // Start listening for requests
     _listenForRequests();
+
+    // Other initializations
+    _getCurrentLocation();
     _loadPartnerRates(); // Load partner's custom rates
     _loadPartnerName(); // Load partner's name
     _loadProfileImage(); // Load partner's profile image
     _loadInitialOnlineStatus(); // Load online/offline status
+
+    // Initialize FCM token specifically for this partner
+    _initializeFCM();
 
     // Debug: Check for existing orders after a delay
     Future.delayed(const Duration(seconds: 3), () {
@@ -924,13 +882,13 @@ class HomePartnerController extends GetxController {
     // Show success dialog for new driver signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
-        SuccessDialog.show(
-          title: 'Welcome to NeoSaver Partner!',
-          message:
-              'Your driver account has been created successfully. You can now start accepting ambulance requests.',
-        );
+        if (Get.context != null) {
+          Alert.success(
+              'Your driver account has been created successfully. You can now start accepting ambulance requests.');
+        }
       });
     }
+    debugPrint('✅ HomePartnerController initialization sequence started');
   }
 
   @override
@@ -939,6 +897,8 @@ class HomePartnerController extends GetxController {
     _nameSubscription?.cancel();
     _imageSubscription?.cancel();
     _rateSubscription?.cancel();
+    _fareResponseSubscription?.cancel();
+    _fareInputController.dispose();
     _locationUpdateTimer?.cancel(); // Cancel location update timer
     shownRequestIds.clear(); // Clear shown requests when controller closes
     // Don't clear declinedRequestIds - they should persist across sessions
@@ -1132,24 +1092,16 @@ class HomePartnerController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          Get.snackbar(
-            'Permission Denied',
-            'Location permission is required to show your location on the map',
-            backgroundColor: Colors.orange[600],
-            colorText: Colors.white,
-          );
+          Alert.info(
+              'Location permission is required to show your location on the map');
           isLoadingLocation.value = false;
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        Get.snackbar(
-          'Permission Denied',
-          'Location permission is permanently denied. Please enable it in settings.',
-          backgroundColor: Colors.red[600],
-          colorText: Colors.white,
-        );
+        Alert.info(
+            'Location permission is permanently denied. Please enable it in settings.');
         isLoadingLocation.value = false;
         return;
       }
@@ -2289,6 +2241,89 @@ class HomePartnerController extends GetxController {
 
               SizedBox(height: 16),
 
+              // Driver Fare Entry Section
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.green.shade300, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.shade100.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.monetization_on,
+                            color: Colors.green.shade700, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'ভাড়া নির্ধারণ করুন',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'দূরত্ব ও রুট দেখে ভাড়া লিখুন। এই ভাড়া ইউজারের কাছে পাঠানো হবে।',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextField(
+                      controller: _fareInputController,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade900,
+                      ),
+                      decoration: InputDecoration(
+                        prefixText: '৳ ',
+                        prefixStyle: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                        hintText: 'ভাড়া লিখুন',
+                        hintStyle: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey.shade400,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.green.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.green.shade600, width: 2),
+                        ),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
               // Action Buttons
               Row(
                 children: [
@@ -2297,6 +2332,7 @@ class HomePartnerController extends GetxController {
                       height: 50,
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          _fareInputController.clear();
                           Get.back();
                           declineRequest(request['id']);
                         },
@@ -2324,12 +2360,25 @@ class HomePartnerController extends GetxController {
                       height: 50,
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          final fareText = _fareInputController.text.trim();
+                          if (fareText.isEmpty) {
+                            Alert.info(
+                                'ভাড়া প্রয়োজন: অনুগ্রহ করে ভাড়ার পরিমাণ লিখুন');
+                            return;
+                          }
+                          final fareAmount = double.tryParse(fareText);
+                          if (fareAmount == null || fareAmount <= 0) {
+                            Alert.info(
+                                'অবৈধ ভাড়া: অনুগ্রহ করে সঠিক ভাড়ার পরিমাণ লিখুন');
+                            return;
+                          }
+                          _fareInputController.clear();
                           Get.back();
-                          acceptRequest(request['id']);
+                          submitFareToUser(request['id'], fareAmount, request);
                         },
-                        icon: Icon(Icons.check_circle, size: 24),
+                        icon: Icon(Icons.send, size: 24),
                         label: Text(
-                          'গ্রহণ করুন',
+                          'ভাড়া পাঠান',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -2546,7 +2595,11 @@ class HomePartnerController extends GetxController {
             token: fcmToken,
             title: 'Order Accepted',
             body: 'Your order has been accepted. The ambulance is on the way.',
-            data: {'type': 'order_accepted', 'orderId': requestId},
+            data: {
+              'type': 'order_accepted',
+              'orderId': requestId,
+              'userId': userId // Add userId for background notification storage
+            },
           );
         }
       }
@@ -2561,12 +2614,7 @@ class HomePartnerController extends GetxController {
         'serviceRate': serviceRate.value
       });
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to accept request: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.info('Failed to accept request: $e');
     }
   }
 
@@ -2579,13 +2627,11 @@ class HomePartnerController extends GetxController {
           .get();
 
       if (!doc.exists) {
-        Get.snackbar(
-          'Error',
-          'Request not found',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
-        Get.back();
+        debugPrint(
+            '⚠️ Request $requestId already removed or processed (doc not found), returning quietly');
+        if (Get.isBottomSheetOpen == true) {
+          Get.back();
+        }
         return;
       }
 
@@ -2619,7 +2665,11 @@ class HomePartnerController extends GetxController {
             token: fcmToken,
             title: 'অর্ডার বাতিল',
             body: 'আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে',
-            data: {'type': 'order_cancelled', 'orderId': requestId},
+            data: {
+              'type': 'order_cancelled',
+              'orderId': requestId,
+              'userId': userId // Add userId for background notification storage
+            },
           );
         }
       }
@@ -2627,20 +2677,122 @@ class HomePartnerController extends GetxController {
       showRequestBottomSheet.value = false;
       debugPrint('❌ Request declined and saved: $requestId');
 
-      Get.snackbar(
-        'Success',
-        'Request declined',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
+      if (Get.context != null) {
+        Get.snackbar(
+          'Success',
+          'Request declined',
+          backgroundColor: Colors.orange.shade100,
+          colorText: Colors.orange.shade800,
+        );
+      }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to decline request: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      debugPrint('❌ Error declining request: $e');
+      Alert.info('Failed to decline request: $e');
     }
+  }
+
+  /// Submit driver's proposed fare to the user
+  Future<void> submitFareToUser(
+      String requestId, double fareAmount, Map<String, dynamic> request) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      // Update Firestore order with proposed fare
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
+        'status': 'fare_proposed',
+        'driverFare': fareAmount,
+        'fareProposedAt': Timestamp.now(),
+        'fareProposedBy': user.uid,
+        'driverName': partnerName.value,
+      });
+
+      debugPrint('✅ Fare proposed: ৳$fareAmount for order $requestId');
+
+      // Send FCM notification to user
+      final userId = request['userId'];
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        final fcmToken = userDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: '💰 ভাড়া প্রস্তাব এসেছে',
+            body:
+                '${partnerName.value} আপনার ট্রিপের জন্য ৳${fareAmount.toStringAsFixed(0)} ভাড়া প্রস্তাব করেছেন।',
+            data: {
+              'type': 'fare_proposed',
+              'orderId': requestId,
+              'driverFare': fareAmount.toString(),
+              'driverName': partnerName.value,
+              'userId':
+                  userId, // Add userId for background notification storage
+            },
+          );
+          debugPrint('✅ FCM notification sent to user $userId');
+        }
+      }
+
+      showRequestBottomSheet.value = false;
+
+      // Start listening for fare response from user
+      _listenForFareResponse(requestId);
+
+      // Delay alert to ensure overlay is available after bottom sheet closes
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Alert.info(
+            '✅ ভাড়া পাঠানো হয়েছে: ৳${fareAmount.toStringAsFixed(0)} ভাড়া ইউজারের কাছে পাঠানো হয়েছে। ইউজারের সম্মতির জন্য অপেক্ষা করুন।');
+      });
+    } catch (e) {
+      debugPrint('❌ Error submitting fare: $e');
+      Alert.info('ত্রুটি: ভাড়া পাঠাতে ব্যর্থ হয়েছে: $e');
+    }
+  }
+
+  /// Listen for user's response to the proposed fare
+  void _listenForFareResponse(String orderId) {
+    _fareResponseSubscription?.cancel();
+    _fareResponseSubscription = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists) return;
+      final data = doc.data();
+      final status = data?['status'];
+
+      if (status == 'accepted') {
+        _fareResponseSubscription?.cancel();
+        debugPrint('✅ User accepted fare for order $orderId');
+
+        Alert.info(
+            '✅ ভাড়া গৃহীত! ইউজার আপনার ভাড়া গ্রহণ করেছেন। ট্রিপ শুরু করুন।');
+
+        // Navigate to accept maps page
+        final updatedRequest = {'id': orderId, ...data!};
+        Get.to(() => AcceptMapsPage(), arguments: {
+          'request': updatedRequest,
+          'serviceRate': serviceRate.value,
+        });
+      } else if (status == 'fare_rejected') {
+        _fareResponseSubscription?.cancel();
+        debugPrint('❌ User rejected fare for order $orderId');
+
+        Alert.info(
+            '❌ ভাড়া প্রত্যাখ্যাত: ইউজার আপনার প্রস্তাবিত ভাড়া প্রত্যাখ্যান করেছেন।');
+
+        showRequestBottomSheet.value = false;
+      }
+    }, onError: (error) {
+      debugPrint('❌ Error listening for fare response: $error');
+    });
   }
 
   /// Fetch request from Firestore and show bottom sheet
@@ -2663,12 +2815,8 @@ class HomePartnerController extends GetxController {
         _showRequestBottomSheet(request);
         debugPrint('🔔 Showing bottom sheet for fetched request: $orderId');
       } else {
-        Get.snackbar(
-          'Request Not Found',
-          'The requested ambulance request could not be found',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        Alert.info(
+            'Request Not Found: The requested ambulance request could not be found');
       }
     } catch (e) {
       debugPrint('❌ Error fetching request $orderId: $e');
@@ -2774,12 +2922,7 @@ class HomePartnerController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error showing bottom sheet for request $orderId: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to show request details: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.info('Failed to show request details: $e');
     }
   }
 
@@ -2810,9 +2953,11 @@ class HomePartnerController extends GetxController {
       }
 
       await _auth.signOut();
-      Get.offAll(() => LoginPage());
+      if (Get.context != null) {
+        Get.offAll(() => LoginPage());
+      }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to sign out: $e');
+      Alert.info('Failed to sign out: $e');
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:saver/components/constants/alert.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/home_partner/home_partner.dart';
 import '../../services/notification_service.dart';
@@ -119,15 +120,7 @@ class LoginController extends GetxController {
   }
 
   void _navigateToPartner() {
-    Get.snackbar(
-      'Login Success',
-      'Welcome Ambulance Partner!',
-      backgroundColor: Colors.green[600],
-      colorText: Colors.white,
-      snackPosition: SnackPosition.TOP,
-      borderRadius: 10,
-      margin: const EdgeInsets.all(10),
-    );
+    Alert.success('Welcome Ambulance Partner!');
     Future.delayed(const Duration(milliseconds: 500), () {
       Get.offAll(() => HomePartnerPage());
       Future.delayed(const Duration(seconds: 1), () {
@@ -137,15 +130,7 @@ class LoginController extends GetxController {
   }
 
   void _navigateToUser() {
-    Get.snackbar(
-      'Login Success',
-      'Welcome User!',
-      backgroundColor: Colors.blue[600],
-      colorText: Colors.white,
-      snackPosition: SnackPosition.TOP,
-      borderRadius: 10,
-      margin: const EdgeInsets.all(10),
-    );
+    Alert.success('Welcome User!');
     Future.delayed(const Duration(milliseconds: 500), () {
       Get.offAll(() => HomePage());
       Future.delayed(const Duration(seconds: 1), () {
@@ -159,15 +144,7 @@ class LoginController extends GetxController {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please enter email and password',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      Alert.error('Please enter email and password');
       return;
     }
 
@@ -206,15 +183,7 @@ class LoginController extends GetxController {
       }
     } catch (e) {
       debugPrint('Email login failed: $e');
-      Get.snackbar(
-        'Login Failed',
-        e.toString(),
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      Alert.error(e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -225,15 +194,7 @@ class LoginController extends GetxController {
     final password = phonePasswordController.text.trim();
 
     if (phone.isEmpty || password.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please enter phone number and password',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      Alert.error('Please enter phone number and password');
       return;
     }
 
@@ -298,15 +259,7 @@ class LoginController extends GetxController {
       }
     } catch (e) {
       debugPrint('Phone login failed: $e');
-      Get.snackbar(
-        'Login Failed',
-        e.toString(),
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      Alert.error(e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -351,37 +304,12 @@ class LoginController extends GetxController {
         final userData = userDoc.data();
         final role = userData?['role'] as String? ?? 'user';
 
-        Get.snackbar(
-          'User Role Check',
-          'Your role: $role\nUID: $uid',
-          backgroundColor: Colors.purple[600],
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          borderRadius: 10,
-          margin: const EdgeInsets.all(10),
-          duration: const Duration(seconds: 5),
-        );
+        Alert.info('Your role: $role\nUID: $uid');
       } else {
-        Get.snackbar(
-          'User Role Check',
-          'User document not found in Firestore',
-          backgroundColor: Colors.red[600],
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          borderRadius: 10,
-          margin: const EdgeInsets.all(10),
-        );
+        Alert.error('User document not found in Firestore');
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to check role: $e',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        borderRadius: 10,
-        margin: const EdgeInsets.all(10),
-      );
+      Alert.error('Failed to check role: $e');
     }
   }
 }

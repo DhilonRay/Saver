@@ -10,22 +10,25 @@ import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:flutter/services.dart' as services;
 import '../partner_file/home_partner/home_partner_controller.dart';
+import 'package:saver/components/constants/alert.dart';
 
 class NotificationService {
   static final FirebaseFunctions _functions = FirebaseFunctions.instance;
-  static final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin
+      _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   // FCM V1 API Configuration
   static const String _fcmProjectId = 'neosaver-f06e9';
-  static const String _fcmUrl = 'https://fcm.googleapis.com/v1/projects/$_fcmProjectId/messages:send';
+  static const String _fcmUrl =
+      'https://fcm.googleapis.com/v1/projects/$_fcmProjectId/messages:send';
 
   // Load Service Account Credentials for FCM V1 from assets
   static Future<Map<String, dynamic>> _loadServiceAccount() async {
-    final String jsonString = await services.rootBundle.loadString('assets/service_account.json');
+    final String jsonString =
+        await services.rootBundle.loadString('assets/service_account.json');
     return json.decode(jsonString);
   }
-  
+
   /// Generate JWT access token for FCM V1 API using googleapis_auth
   static Future<String> _getAccessToken() async {
     try {
@@ -33,7 +36,8 @@ class NotificationService {
       final serviceAccount = await _loadServiceAccount();
 
       // Create service account credentials from loaded data
-      final serviceAccountCredentials = auth.ServiceAccountCredentials.fromJson(serviceAccount);
+      final serviceAccountCredentials =
+          auth.ServiceAccountCredentials.fromJson(serviceAccount);
 
       // Create authenticated client
       final client = await auth.clientViaServiceAccount(
@@ -110,7 +114,8 @@ class NotificationService {
         }
       }
 
-      print('❌ FCM V1 notification failed: ${response.statusCode} - ${response.body}');
+      print(
+          '❌ FCM V1 notification failed: ${response.statusCode} - ${response.body}');
       return false;
     } catch (e) {
       print('❌ Error sending FCM V1 notification: $e');
@@ -137,49 +142,33 @@ class NotificationService {
     required Map<String, dynamic> requestData,
   }) async {
     try {
-      print('🚀 Calling Firebase Function to send notification to driver: $driverId');
-      
-      final HttpsCallable callable = _functions.httpsCallable('sendNotificationToDriver');
-      
+      print(
+          '🚀 Calling Firebase Function to send notification to driver: $driverId');
+
+      final HttpsCallable callable =
+          _functions.httpsCallable('sendNotificationToDriver');
+
       final result = await callable.call({
         'driverId': driverId,
         'requestData': requestData,
       });
 
       final data = result.data;
-      
+
       if (data['success'] == true) {
         print('✅ Notification sent successfully via Firebase Function');
         print('📱 Message ID: ${data['messageId']}');
-        
-        Get.snackbar(
-          '✅ সফল',
-          'ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        );
+
+        Alert.info('ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে');
         return true;
       } else {
         print('❌ Failed to send notification: ${data['message']}');
-        Get.snackbar(
-          '❌ ত্রুটি',
-          'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 3),
-        );
+        Alert.error('নোটিফিকেশন পাঠাতে সমস্যা হয়েছে');
         return false;
       }
     } catch (e) {
       print('❌ Error calling Firebase Function: $e');
-      Get.snackbar(
-        '❌ ত্রুটি',
-        'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        duration: const Duration(seconds: 3),
-      );
+      Alert.error('নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e');
       return false;
     }
   }
@@ -193,9 +182,10 @@ class NotificationService {
   }) async {
     try {
       print('🔍 Looking for nearby drivers via Firebase Function...');
-      
-      final HttpsCallable callable = _functions.httpsCallable('sendNotificationToNearbyDrivers');
-      
+
+      final HttpsCallable callable =
+          _functions.httpsCallable('sendNotificationToNearbyDrivers');
+
       final result = await callable.call({
         'userLocation': {
           'latitude': userLocation['latitude'],
@@ -206,29 +196,19 @@ class NotificationService {
       });
 
       final data = result.data;
-      
+
       if (data['success'] == true) {
         final nearbyCount = data['nearbyDriversCount'] ?? 0;
         final totalFound = data['totalDriversFound'] ?? 0;
-        
-        print('✅ Found $totalFound total drivers, $nearbyCount within ${radiusInKm}km');
-        
+
+        print(
+            '✅ Found $totalFound total drivers, $nearbyCount within ${radiusInKm}km');
+
         if (nearbyCount > 0) {
-          Get.snackbar(
-            '✅ সফল',
-            '$nearbyCount জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-            backgroundColor: Colors.green.shade100,
-            colorText: Colors.green.shade800,
-            duration: const Duration(seconds: 4),
-          );
+          Alert.info(
+              '$nearbyCount জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে');
         } else {
-          Get.snackbar(
-            '⚠️ তথ্য',
-            'আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি',
-            backgroundColor: Colors.orange.shade100,
-            colorText: Colors.orange.shade800,
-            duration: const Duration(seconds: 4),
-          );
+          Alert.info('আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি');
         }
         return true;
       } else {
@@ -237,12 +217,7 @@ class NotificationService {
       }
     } catch (e) {
       print('❌ Error sending notifications to nearby drivers: $e');
-      Get.snackbar(
-        '❌ ত্রুটি',
-        'আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে: $e');
       return false;
     }
   }
@@ -257,9 +232,10 @@ class NotificationService {
       print('🚑 Sending ambulance request via Firebase Function...');
       print('🚑 Partner ID: $partnerId');
       print('🚑 Request Data: $requestData');
-      
-      final HttpsCallable callable = _functions.httpsCallable('sendAmbulanceNotification');
-      
+
+      final HttpsCallable callable =
+          _functions.httpsCallable('sendAmbulanceNotification');
+
       final result = await callable.call({
         'partnerId': partnerId,
         'requestData': requestData,
@@ -267,37 +243,22 @@ class NotificationService {
 
       final data = result.data;
       print('🚑 Cloud Function Response: $data');
-      
+
       if (data['success'] == true) {
         print('✅ Ambulance notification sent successfully');
         print('📱 Message ID: ${data['messageId']}');
-        
-        Get.snackbar(
-          '✅ সফল',
-          'অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        );
+
+        Alert.info('অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে');
         return true;
       } else {
         print('❌ Failed to send ambulance notification: ${data['message']}');
-        Get.snackbar(
-          '❌ ত্রুটি',
-          'অ্যাম্বুলেন্স নোটিফিকেশন পাঠাতে সমস্যা: ${data['message']}',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        Alert.error(
+            'অ্যাম্বুলেন্স নোটিফিকেশন পাঠাতে সমস্যা: ${data['message']}');
         return false;
       }
     } catch (e) {
       print('❌ Error sending ambulance notification: $e');
-      Get.snackbar(
-        '❌ ত্রুটি',
-        'অ্যাম্বুলেন্স রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('অ্যাম্বুলেন্স রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e');
       return false;
     }
   }
@@ -335,10 +296,13 @@ class NotificationService {
       print('🚑 FCM Token: $fcmToken');
 
       // Validate FCM token format
-      if (fcmToken == null || fcmToken.isEmpty || fcmToken.length < 100) {
-        print('⚠️ Partner FCM token invalid or too short (length: ${fcmToken?.length}), saving notification for later');
+      if (fcmToken == null || fcmToken.isEmpty || fcmToken.length < 20) {
+        print(
+            '⚠️ Partner FCM token invalid or too short (length: ${fcmToken?.length}), saving notification for later');
         // Save notification for when partner comes online
-        await FirebaseFirestore.instance.collection('pending_notifications').add({
+        await FirebaseFirestore.instance
+            .collection('pending_notifications')
+            .add({
           'type': 'ambulance_request',
           'partnerId': partnerId,
           'userId': currentUser.uid,
@@ -346,13 +310,6 @@ class NotificationService {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        Get.snackbar(
-          '✅ সফল',
-          'অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        );
         return true;
       }
 
@@ -363,27 +320,33 @@ class NotificationService {
           .get();
 
       final userData = userDoc.data();
-      final patientName = requestData['patientName'] ?? userData?['name'] ?? 'রোগী';
+      final patientName =
+          requestData['patientName'] ?? userData?['name'] ?? 'রোগী';
 
       // Prepare comprehensive notification data with full user details
       final notificationData = {
         'type': 'ambulance_request',
         'orderId': requestData['orderId'] ?? '',
         'userId': currentUser.uid,
-        'partnerId': partnerId, // Add partner ID for background notification storage
+        'partnerId':
+            partnerId, // Add partner ID for background notification storage
         'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
 
         // Patient Information
         'patientName': patientName,
         'patientAge': requestData['patientAge'] ?? userData?['age'] ?? '',
-        'patientGender': requestData['patientGender'] ?? userData?['gender'] ?? '',
+        'patientGender':
+            requestData['patientGender'] ?? userData?['gender'] ?? '',
         'bloodType': requestData['bloodType'] ?? userData?['bloodType'] ?? '',
 
         // Contact Information
         'userPhone': userData?['phone'] ?? '',
         'userEmail': userData?['email'] ?? currentUser.email ?? '',
-        'emergencyContact': requestData['emergencyContact'] ?? userData?['emergencyContact'] ?? '',
-        'emergencyPhone': requestData['emergencyPhone'] ?? userData?['emergencyPhone'] ?? '',
+        'emergencyContact': requestData['emergencyContact'] ??
+            userData?['emergencyContact'] ??
+            '',
+        'emergencyPhone':
+            requestData['emergencyPhone'] ?? userData?['emergencyPhone'] ?? '',
 
         // Location Information
         'pickupLocation': json.encode(requestData['userLocation'] ?? {}),
@@ -392,10 +355,14 @@ class NotificationService {
 
         // Medical Information
         'urgency': requestData['urgency'] ?? 'high',
-        'medicalCondition': requestData['medicalCondition'] ?? userData?['medicalCondition'] ?? '',
+        'medicalCondition': requestData['medicalCondition'] ??
+            userData?['medicalCondition'] ??
+            '',
         'allergies': requestData['allergies'] ?? userData?['allergies'] ?? '',
-        'medications': requestData['medications'] ?? userData?['medications'] ?? '',
-        'specialNeeds': requestData['specialNeeds'] ?? userData?['specialNeeds'] ?? '',
+        'medications':
+            requestData['medications'] ?? userData?['medications'] ?? '',
+        'specialNeeds':
+            requestData['specialNeeds'] ?? userData?['specialNeeds'] ?? '',
 
         // Request Details
         'notes': requestData['notes'] ?? '',
@@ -412,14 +379,20 @@ class NotificationService {
       };
 
       // Create detailed notification message
-      final urgencyText = requestData['urgency'] == 'critical' ? 'জরুরি' :
-                         requestData['urgency'] == 'high' ? 'উচ্চ' :
-                         requestData['urgency'] == 'medium' ? 'মাঝারি' : 'সাধারণ';
+      final urgencyText = requestData['urgency'] == 'critical'
+          ? 'জরুরি'
+          : requestData['urgency'] == 'high'
+              ? 'উচ্চ'
+              : requestData['urgency'] == 'medium'
+                  ? 'মাঝারি'
+                  : 'সাধারণ';
 
-      final notificationBody = 'রোগী: $patientName | জরুরি: $urgencyText | ফোন: ${userData?['phone'] ?? 'N/A'}';
+      final notificationBody =
+          'রোগী: $patientName | জরুরি: $urgencyText | ফোন: ${userData?['phone'] ?? 'N/A'}';
 
       // Send FCM notification
-      print('🚑 Calling _sendFCMNotification with token: ${fcmToken.substring(0, 20)}...');
+      print(
+          '🚑 Calling _sendFCMNotification with token: ${fcmToken.substring(0, 20)}...');
       final success = await _sendFCMNotification(
         fcmToken: fcmToken,
         title: '🚑 জরুরি অ্যাম্বুলেন্স রিকুয়েস্ট',
@@ -450,18 +423,13 @@ class NotificationService {
       });
 
       if (success) {
-        Get.snackbar(
-          '✅ সফল',
-          'অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        );
         print('✅ Ambulance notification sent successfully via FCM V1 API');
         return true;
       } else {
         // Fallback: save as pending notification
-        await FirebaseFirestore.instance.collection('pending_notifications').add({
+        await FirebaseFirestore.instance
+            .collection('pending_notifications')
+            .add({
           'type': 'ambulance_request',
           'partnerId': partnerId,
           'userId': currentUser.uid,
@@ -469,13 +437,6 @@ class NotificationService {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        Get.snackbar(
-          '✅ সফল',
-          'অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        );
         return true; // Still return true for UX
       }
     } catch (e) {
@@ -485,7 +446,9 @@ class NotificationService {
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
-          await FirebaseFirestore.instance.collection('pending_notifications').add({
+          await FirebaseFirestore.instance
+              .collection('pending_notifications')
+              .add({
             'type': 'ambulance_request',
             'partnerId': partnerId,
             'userId': currentUser.uid,
@@ -497,14 +460,6 @@ class NotificationService {
       } catch (logError) {
         print('❌ Error saving pending notification: $logError');
       }
-
-      Get.snackbar(
-        '✅ সফল',
-        'অ্যাম্বুলেন্স পার্টনারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-        duration: const Duration(seconds: 3),
-      );
 
       return true; // Always return true for partners to maintain UX
     }
@@ -562,7 +517,8 @@ class NotificationService {
         }
       }
 
-      print('❌ FCM token test failed: ${response.statusCode} - ${response.body}');
+      print(
+          '❌ FCM token test failed: ${response.statusCode} - ${response.body}');
       return false;
     } catch (e) {
       print('❌ Error testing FCM token: $e');
@@ -578,7 +534,8 @@ class NotificationService {
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings();
 
-    const InitializationSettings initializationSettings = InitializationSettings(
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
@@ -620,11 +577,25 @@ class NotificationService {
       enableVibration: true,
     );
 
-    final androidPlugin = _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    
+    // Create ambulance requests notification channel (CRITICAL FIX)
+    const AndroidNotificationChannel ambulanceChannel =
+        AndroidNotificationChannel(
+      'ambulance_requests',
+      'Ambulance Requests',
+      description: 'This channel is used for incoming ambulance requests.',
+      importance: Importance.max,
+      showBadge: true,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    final androidPlugin =
+        _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
     await androidPlugin?.createNotificationChannel(channel);
     await androidPlugin?.createNotificationChannel(userChannel);
+    await androidPlugin?.createNotificationChannel(ambulanceChannel);
   }
 
   /// Show local notification
@@ -633,9 +604,21 @@ class NotificationService {
     final notification = message.notification;
     final data = message.data;
 
-    if (notification != null) {
-      print('📱 Notification title: ${notification.title}');
-      print('📱 Notification body: ${notification.body}');
+    final type = data['type'];
+    // Check if it's a critical notification type that should always show
+    final isCritical = type == 'ambulance_request' ||
+        type == 'emergency' ||
+        type == 'ride_request';
+
+    if (notification != null || isCritical) {
+      final title = notification?.title ?? data['title'] ?? 'New Request';
+      final body = notification?.body ??
+          data['body'] ??
+          data['message'] ??
+          'You have a new request';
+
+      print('📱 Local Notification Title: $title');
+      print('📱 Local Notification Body: $body');
       print('📱 Notification data: $data');
 
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -666,14 +649,14 @@ class NotificationService {
 
       await _flutterLocalNotificationsPlugin.show(
         message.hashCode,
-        notification.title ?? 'Notification',
-        notification.body ?? '',
+        title,
+        body,
         platformChannelSpecifics,
         payload: json.encode(data),
       );
       print('✅ Local notification shown successfully');
     } else {
-      print('❌ No notification object in FCM message');
+      print('❌ No notification object in FCM message and not a critical type');
     }
   }
 
@@ -684,7 +667,7 @@ class NotificationService {
       await _initializeLocalNotifications();
 
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
-      
+
       // Request notification permissions
       final NotificationSettings settings = await messaging.requestPermission(
         alert: true,
@@ -705,46 +688,78 @@ class NotificationService {
 
       // Get FCM token
       final String? token = await messaging.getToken();
-      
+
       if (token != null) {
         print('📱 FCM Token obtained: ${token.substring(0, 20)}...');
-        
-        // Save token to user's profile in Firestore
+
+        // Save token to user's profile in Firestore (Try both users and drivers collections)
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
           print('👤 Current user ID: ${currentUser.uid}');
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(currentUser.uid)
-              .update({
-            'fcmToken': token,
-            'lastTokenUpdate': Timestamp.now(),
-          });
+
+          // Try updating users collection
+          bool updatedInUsers = false;
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(currentUser.uid)
+                .update({
+              'fcmToken': token,
+              'lastTokenUpdate': Timestamp.now(),
+            });
+            updatedInUsers = true;
+            print('✅ FCM token updated in users collection');
+          } catch (e) {
+            print('ℹ️ User not found in users collection, trying drivers...');
+          }
+
+          // Try updating drivers collection
+          bool updatedInDrivers = false;
+          try {
+            await FirebaseFirestore.instance
+                .collection('drivers')
+                .doc(currentUser.uid)
+                .update({
+              'fcmToken': token,
+              'lastTokenUpdate': Timestamp.now(),
+            });
+            updatedInDrivers = true;
+            print('✅ FCM token updated in drivers collection');
+          } catch (e) {
+            print('ℹ️ User not found in drivers collection');
+          }
 
           // Also update partners collection if user is a driver/partner
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(currentUser.uid)
-              .get();
-          
-          if (userDoc.exists) {
-            final userData = userDoc.data();
-            final role = userData?['role'] as String?;
-            print('👤 User role: $role');
-            
-            if (role == 'partner' || role == 'driver' || role == 'ambulance') {
-              print('💾 Saving FCM token to partners collection for role: $role');
-              await FirebaseFirestore.instance
-                  .collection('partners')
-                  .doc(currentUser.uid)
-                  .update({
-                'fcmToken': token,
-                'lastTokenUpdate': Timestamp.now(),
-              });
-              print('✅ FCM token saved to partners collection');
-            } else {
-              print('❌ User role "$role" not eligible for partners collection FCM token');
-            }
+          // We check both collections to find the role
+          String? role;
+          if (updatedInUsers) {
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(currentUser.uid)
+                .get();
+            role = userDoc.data()?['role'];
+          }
+
+          if (role == null && updatedInDrivers) {
+            final driverDoc = await FirebaseFirestore.instance
+                .collection('drivers')
+                .doc(currentUser.uid)
+                .get();
+            role = driverDoc.data()?['role'];
+          }
+
+          print('👤 User role identified: $role');
+
+          if (role == 'partner' || role == 'driver' || role == 'ambulance') {
+            print('💾 Saving FCM token to partners collection for role: $role');
+            await FirebaseFirestore.instance
+                .collection('partners')
+                .doc(currentUser.uid)
+                .set({
+              'fcmToken': token,
+              'lastTokenUpdate': Timestamp.now(),
+            }, SetOptions(merge: true));
+            print('✅ FCM token saved to partners collection');
           }
         }
 
@@ -758,16 +773,16 @@ class NotificationService {
                 .collection('users')
                 .doc(currentUser.uid)
                 .update({
-                  'fcmToken': newToken,
-                  'lastTokenUpdate': Timestamp.now(),
-                });
+              'fcmToken': newToken,
+              'lastTokenUpdate': Timestamp.now(),
+            });
 
             // Also update partners collection if needed
             _updatePartnerTokenIfApplicable(currentUser.uid, newToken);
           }
         });
       }
-      
+
       return token;
     } catch (e) {
       print('❌ Error initializing FCM token: $e');
@@ -776,27 +791,38 @@ class NotificationService {
   }
 
   /// Helper method to update partner token if user is a partner/driver
-  static Future<void> _updatePartnerTokenIfApplicable(String userId, String token) async {
+  static Future<void> _updatePartnerTokenIfApplicable(
+      String userId, String token) async {
     try {
+      // Check users collection
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .get();
 
+      String? role;
       if (userDoc.exists) {
-        final userData = userDoc.data();
-        final role = userData?['role'] as String?;
-
-        if (role == 'partner' || role == 'driver' || role == 'ambulance') {
-          await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(userId)
-              .update({
-                'fcmToken': token,
-                'lastTokenUpdate': Timestamp.now(),
-              });
-          print('✅ Partner FCM token updated for user: $userId');
+        role = userDoc.data()?['role'];
+      } else {
+        // Check drivers collection
+        final driverDoc = await FirebaseFirestore.instance
+            .collection('drivers')
+            .doc(userId)
+            .get();
+        if (driverDoc.exists) {
+          role = driverDoc.data()?['role'];
         }
+      }
+
+      if (role == 'partner' || role == 'driver' || role == 'ambulance') {
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(userId)
+            .set({
+          'fcmToken': token,
+          'lastTokenUpdate': Timestamp.now(),
+        }, SetOptions(merge: true));
+        print('✅ Partner FCM token updated for user: $userId');
       }
     } catch (e) {
       print('❌ Error updating partner token: $e');
@@ -806,15 +832,49 @@ class NotificationService {
   /// Show background notification (called from main.dart background handler)
   static Future<void> showBackgroundNotification(RemoteMessage message) async {
     // Initialize local notifications if not already done
+    // Initialize local notifications if not already done
     await _initializeLocalNotifications();
-    await _showLocalNotification(message);
 
-    // Try to store notification in partner's collection if we can determine the partner ID
-    // For ambulance requests, the partner ID should be in the data
+    // Skip local notification if message has notification payload (System handles it in background)
+    // UNLESS it's a critical partner notification which needs explicit handling
     final data = message.data;
+    final isPartnerRequest =
+        data['type'] == 'ambulance_request' || data['type'] == 'emergency';
+
+    if (message.notification == null || isPartnerRequest) {
+      await _showLocalNotification(message);
+    } else {
+      print(
+          '🔕 Skipping local notification in background to prevent duplicate (System handles it)');
+    }
+
+    // Handle User Notification Storage (New)
+    final userId = data['userId'] ?? data['toUserId'];
+    if (userId != null && userId.isNotEmpty && message.notification != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('notifications')
+            .add({
+          'title': message.notification!.title ?? 'Notification',
+          'message': message.notification!.body ?? '',
+          'type': data['type'] ?? 'info',
+          'isRead': false,
+          'timestamp': FieldValue.serverTimestamp(),
+          'data': data,
+        });
+        print('✅ Background notification stored for user: $userId');
+      } catch (e) {
+        print('❌ Error storing background notification for user: $e');
+      }
+    }
+
     final partnerId = data['partnerId'] ?? data['toPartnerId'];
 
-    if (partnerId != null && partnerId.isNotEmpty && message.notification != null) {
+    if (partnerId != null &&
+        partnerId.isNotEmpty &&
+        message.notification != null) {
       try {
         await addPartnerNotification(
           partnerId: partnerId,
@@ -828,7 +888,8 @@ class NotificationService {
         print('❌ Error storing background notification: $e');
       }
     } else {
-      print('⚠️ Could not determine partner ID for background notification storage');
+      print(
+          '⚠️ Could not determine partner ID for background notification storage');
     }
   }
 
@@ -868,7 +929,6 @@ class NotificationService {
       // Initialize FCM if no token exists
       print('📱 Initializing FCM token for user...');
       await initializeFCMToken();
-
     } catch (e) {
       print('❌ Error ensuring FCM initialization: $e');
     }
@@ -885,11 +945,16 @@ class NotificationService {
       // Setup foreground message handling
       setupForegroundNotificationHandling();
 
-      // Ensure FCM token is initialized
-      await ensureFCMInitialized();
+      // Handle the initial message if the app was opened from a terminated state
+      RemoteMessage? initialMessage =
+          await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        print(
+            '📱 App opened from terminated state via notification: ${initialMessage.notification?.title}');
+        handleNotificationTap(initialMessage.data);
+      }
 
       print('✅ FCM setup completed');
-
     } catch (e) {
       print('❌ Error setting up FCM: $e');
     }
@@ -909,7 +974,8 @@ class NotificationService {
         try {
           // Check if this is a user notification
           final notificationType = message.data['type'] ?? 'info';
-          if (notificationType.contains('ambulance') || notificationType.contains('user')) {
+          if (notificationType.contains('ambulance') ||
+              notificationType.contains('user')) {
             // Add to user notifications
             await FirebaseFirestore.instance
                 .collection('users')
@@ -941,19 +1007,9 @@ class NotificationService {
       }
 
       // Handle the notification when app is in foreground
-      if (message.notification != null) {
-        Get.snackbar(
-          message.notification!.title ?? 'Notification',
-          message.notification!.body ?? '',
-          backgroundColor: Colors.blue.shade100,
-          colorText: Colors.blue.shade800,
-          duration: const Duration(seconds: 4),
-          onTap: (snack) {
-            // Handle notification tap
-            handleNotificationTap(message.data);
-          },
-        );
-      }
+      // Handle the notification when app is in foreground
+      // Note: We use _showLocalNotification above instead of Get.snackbar to avoid overlay errors
+      // and ensure consistent behavior with background notifications.
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -970,7 +1026,8 @@ class NotificationService {
             type: message.data['type'] ?? 'info',
             data: message.data,
           );
-          print('✅ Background notification added to partner list when app opened');
+          print(
+              '✅ Background notification added to partner list when app opened');
         } catch (e) {
           print('❌ Error adding background notification to partner list: $e');
         }
@@ -983,7 +1040,7 @@ class NotificationService {
   /// Handles notification tap actions
   static void handleNotificationTap(Map<String, dynamic> data) {
     final type = data['type'] as String?;
-    
+
     switch (type) {
       case 'ride_request':
         // Navigate to ride requests page
@@ -1065,7 +1122,7 @@ class NotificationService {
       payload: '{"type": "test"}',
     );
 
-        print('✅ Test notification sent');
+    print('✅ Test notification sent');
   }
 
   /// Test FCM V1 notification (for debugging)
@@ -1089,29 +1146,14 @@ class NotificationService {
 
       if (success) {
         print('✅ FCM V1 test notification sent successfully');
-        Get.snackbar(
-          '✅ Test Success',
-          'FCM V1 notification sent successfully',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-        );
+        Alert.info('✅ Test Success: FCM V1 notification sent successfully');
       } else {
         print('❌ FCM V1 test notification failed');
-        Get.snackbar(
-          '❌ Test Failed',
-          'FCM V1 notification failed',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        Alert.error('❌ Test Failed: FCM V1 notification failed');
       }
     } catch (e) {
       print('❌ Error testing FCM V1: $e');
-      Get.snackbar(
-        '❌ Test Error',
-        'Error testing FCM V1: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('❌ Test Error: Error testing FCM V1: $e');
     }
   }
 
@@ -1215,8 +1257,9 @@ class NotificationService {
       debugPrint('📱 User FCM Token: ${fcmToken?.substring(0, 20)}...');
 
       // Validate FCM token format
-      if (fcmToken == null || fcmToken.isEmpty || fcmToken.length < 100) {
-        debugPrint('⚠️ User FCM token invalid or too short (length: ${fcmToken?.length})');
+      if (fcmToken == null || fcmToken.isEmpty || fcmToken.length < 20) {
+        debugPrint(
+            '⚠️ User FCM token invalid or too short (length: ${fcmToken?.length})');
         return false;
       }
 
@@ -1232,7 +1275,10 @@ class NotificationService {
             'title': title,
             'body': message,
           },
-          'data': data != null ? Map<String, String>.from(data.map((k, v) => MapEntry(k, v.toString()))) : <String, String>{},
+          'data': data != null
+              ? Map<String, String>.from(
+                  data.map((k, v) => MapEntry(k, v.toString())))
+              : <String, String>{},
           'android': {
             'notification': {
               'channel_id': 'user_notifications',

@@ -178,7 +178,8 @@ class PartnersOrdersPage extends StatelessWidget {
                   if (orderData['notes'] != null &&
                       orderData['notes'].toString().isNotEmpty)
                     _buildOrderDetail('Notes', orderData['notes']),
-                  if (orderData['fareAmount'] != null)
+                  if ((orderData['finalFare'] ?? orderData['fareAmount']) !=
+                      null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
@@ -204,7 +205,7 @@ class PartnersOrdersPage extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '৳${orderData['fareAmount']}',
+                              '৳${orderData['finalFare'] ?? orderData['fareAmount']}',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.green.shade700,
@@ -463,7 +464,9 @@ class PartnersOrdersPage extends StatelessWidget {
                           ),
 
                         // Fare Amount (for completed orders)
-                        if (orderData['fareAmount'] != null &&
+                        if ((orderData['finalFare'] ??
+                                    orderData['fareAmount']) !=
+                                null &&
                             orderStatus == 'completed')
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -476,7 +479,7 @@ class PartnersOrdersPage extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Earnings: ৳${orderData['fareAmount']}',
+                                  'Earnings: ৳${orderData['finalFare'] ?? orderData['fareAmount']}',
                                   style: TextStyle(
                                     color: Colors.green.shade700,
                                     fontSize: 12,

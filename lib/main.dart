@@ -13,6 +13,8 @@ import 'package:saver/admin/admin_login/admin_login_screen.dart';
 import 'package:saver/admin/admin_dashboard/admin_dashboard.dart';
 import 'package:saver/admin/admin_setup_screen.dart';
 import 'package:saver/admin/easy_admin_creator.dart';
+import 'package:saver/fare_negotiation/fare_negotiation_page.dart';
+import 'package:saver/payment/payment_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +42,7 @@ void main() async {
 }
 
 // Background message handler
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('📩 BACKGROUND MESSAGE RECEIVED: ${message.messageId}');
@@ -91,6 +94,8 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/privacy-policy', page: () => const PrivacyPolicyPage()),
         GetPage(
             name: '/terms-conditions', page: () => const TermsConditionPage()),
+        GetPage(name: '/fare-negotiation', page: () => FareNegotiationPage()),
+        GetPage(name: '/payment', page: () => PaymentPage()),
       ],
     );
   }

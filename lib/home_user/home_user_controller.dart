@@ -32,6 +32,7 @@ import '../services/notification_service.dart';
 import '../user_tracking/user_tracking_page.dart';
 import '../services/fares_service.dart';
 import '../widgets/fares_widgets.dart';
+import 'package:saver/components/constants/alert.dart';
 
 class HomeController extends GetxController {
   final bool isNewSignup;
@@ -468,24 +469,16 @@ class HomeController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          Get.snackbar(
-            'Permission Denied',
-            'Location permission is required to show your location on the map',
-            backgroundColor: Colors.orange[600],
-            colorText: Colors.white,
-          );
+          Alert.error(
+              'Location permission is required to show your location on the map');
           isLoadingLocation.value = false;
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        Get.snackbar(
-          'Permission Denied',
-          'Location permission is permanently denied. Please enable it in settings.',
-          backgroundColor: Colors.red[600],
-          colorText: Colors.white,
-        );
+        Alert.error(
+            'Location permission is permanently denied. Please enable it in settings.');
         isLoadingLocation.value = false;
         return;
       }
@@ -537,12 +530,7 @@ class HomeController extends GetxController {
 
   Future<void> setDestinationMarker() async {
     if (destinationController.text.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please enter a destination',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Please enter a destination');
       return;
     }
 
@@ -627,40 +615,20 @@ class HomeController extends GetxController {
           );
           _addDestinationMarkerAndRoute();
         } else {
-          Get.snackbar(
-            'Error',
-            'Could not get details for the destination',
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-          );
+          Alert.error('Could not get details for the destination');
         }
       } else {
-        Get.snackbar(
-          'Error',
-          'Could not find the destination location',
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
-        );
+        Alert.error('Could not find the destination location');
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to set destination: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Failed to set destination: $e');
     }
   }
 
   Future<void> _addDestinationMarkerAndRoute() async {
     // Check if positions are available
     if (currentPosition.value == null || destinationPosition.value == null) {
-      Get.snackbar(
-        'Error',
-        'Location information is not available. Please try again.',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Location information is not available. Please try again.');
       return;
     }
 
@@ -783,12 +751,8 @@ class HomeController extends GetxController {
               points: [currentPosition.value!, destinationPosition.value!],
             ),
           );
-          Get.snackbar(
-            'Route Warning',
-            'Using approximate straight-line route because detailed directions were not available.',
-            backgroundColor: Colors.orange.shade100,
-            colorText: Colors.orange.shade800,
-          );
+          Alert.info(
+              'Using approximate straight-line route because detailed directions were not available.');
         }
 
         // Add start marker if not already present
@@ -817,12 +781,8 @@ class HomeController extends GetxController {
             ],
           ),
         );
-        Get.snackbar(
-          'Route Warning',
-          'Using approximate route. Actual driving directions may vary.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        Alert.info(
+            'Using approximate route. Actual driving directions may vary.');
       }
     } catch (e) {
       // Fallback to straight line
@@ -951,12 +911,7 @@ class HomeController extends GetxController {
   void selectPlace(Map<String, dynamic> place) {
     final placeId = place['placeId'] as String? ?? '';
     if (placeId.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Invalid destination selected',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Invalid destination selected');
       return;
     }
 
@@ -1100,13 +1055,8 @@ class HomeController extends GetxController {
     final String addressForGeocoding =
         _selectedPlaceName ?? destinationController.text;
     if (addressForGeocoding.trim().isEmpty) {
-      Get.snackbar(
-        'Destination Not Found',
-        'Could not get details for the selected destination. Try entering a different destination.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        duration: Duration(seconds: 5),
-      );
+      Alert.error(
+          'Could not get details for the selected destination. Try entering a different destination.');
       return;
     }
 
@@ -1138,13 +1088,7 @@ class HomeController extends GetxController {
         if (lat != null && lng != null) {
           destinationPosition.value =
               LatLng((lat as num).toDouble(), (lng as num).toDouble());
-          Get.snackbar(
-            'Geocoding',
-            'Resolved: lat=$lat, lng=$lng',
-            backgroundColor: Colors.blue.shade50,
-            colorText: Colors.blue.shade900,
-            duration: Duration(seconds: 4),
-          );
+          Alert.info('Resolved: lat=$lat, lng=$lng');
           _addDestinationMarkerAndRoute();
           return;
         }
@@ -1153,21 +1097,12 @@ class HomeController extends GetxController {
       // If we reach here, fallback failed
       debugPrint(
           'getPlaceDetails: Geocoding fallback returned no results or no location');
-      Get.snackbar(
-        'Destination Not Found',
-        'Could not get details for "${_selectedPlaceName ?? addressForGeocoding}". Try using the "Set Route" button or enter a different destination.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-        duration: Duration(seconds: 5),
-      );
+      Alert.error(
+          'Could not get details for "${_selectedPlaceName ?? addressForGeocoding}". Try using the "Set Route" button or enter a different destination.');
     } catch (e) {
       debugPrint('getPlaceDetails: Geocoding fallback failed: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to get destination details. Check your network or try another destination.',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error(
+          'Failed to get destination details. Check your network or try another destination.');
     }
   }
 
@@ -1441,8 +1376,8 @@ class HomeController extends GetxController {
                           //     };
 
                           return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: 3,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 2,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1457,216 +1392,219 @@ class HomeController extends GetxController {
                                 longitude,
                               ),
                               borderRadius: BorderRadius.circular(12),
-                              child: Column(
-                                children: [
-                                  // Ambulance Image Section
-                                  if (ambulanceImageUrl != null)
-                                    ClipRRect(
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(12),
-                                        topRight: Radius.circular(12),
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Image.network(
-                                            ambulanceImageUrl,
-                                            height: 120,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    Container(
-                                              height: 120,
-                                              color: Colors.grey.shade200,
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.local_shipping,
-                                                  size: 40,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            ),
-                                            loadingBuilder: (context, child,
-                                                loadingProgress) {
-                                              if (loadingProgress == null)
-                                                return child;
-                                              return Container(
-                                                height: 120,
-                                                color: Colors.grey.shade100,
-                                                child: const Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                          strokeWidth: 2),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          // Ambulance type badge
-                                          Positioned(
-                                            top: 8,
-                                            left: 8,
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF1976D2),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                ambulanceType,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Ambulance Name with number
+                                    Text(
+                                      '${index + 1}.$name',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1A1A1A),
                                       ),
                                     ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
+                                    const SizedBox(height: 12),
+
+                                    // Location Row
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            // Driver Profile Image
-                                            Container(
-                                              width: 50,
-                                              height: 50,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: const Color(0xFF1976D2)
-                                                    .withValues(alpha: 0.1),
-                                                border: Border.all(
-                                                  color:
-                                                      const Color(0xFF1976D2),
-                                                  width: 2,
-                                                ),
-                                                image: profileImageUrl != null
-                                                    ? DecorationImage(
-                                                        image: NetworkImage(
-                                                            profileImageUrl),
-                                                        fit: BoxFit.cover,
-                                                      )
-                                                    : null,
-                                              ),
-                                              child: profileImageUrl == null
-                                                  ? const Icon(
-                                                      Icons.person,
-                                                      color: Color(0xFF1976D2),
-                                                      size: 28,
-                                                    )
-                                                  : null,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    name,
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  if (ambulanceImageUrl ==
-                                                      null) ...[
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      '🚑 $ambulanceType',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.grey[600],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    '📍 $address',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    '📞 $phone',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const Icon(
-                                              Icons.chevron_right,
-                                              color: Color(0xFF1976D2),
-                                            ),
-                                          ],
+                                        const Icon(
+                                          Icons.location_on,
+                                          color: Colors.red,
+                                          size: 20,
                                         ),
-                                        const SizedBox(height: 12),
-                                        // Show fare estimation if destination is set
-                                        if (currentPosition.value != null &&
-                                            destinationPosition.value !=
-                                                null) ...[
-                                          FutureBuilder<Map<String, int>>(
-                                            future: _fetchPartnerRates(
-                                                ambulance.id),
-                                            builder: (context, rateSnapshot) {
-                                              if (rateSnapshot
-                                                      .connectionState ==
-                                                  ConnectionState.waiting) {
-                                                return const SizedBox(
-                                                  height: 60,
-                                                  child: Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                            strokeWidth: 2),
-                                                  ),
-                                                );
-                                              }
-
-                                              final rates = rateSnapshot.data ??
-                                                  {'serviceRate': 2500};
-                                              final distance =
-                                                  FareCalculationService
-                                                      .calculateDistance(
-                                                currentPosition.value!.latitude,
-                                                currentPosition
-                                                    .value!.longitude,
-                                                destinationPosition
-                                                    .value!.latitude,
-                                                destinationPosition
-                                                    .value!.longitude,
-                                              );
-
-                                              return FareEstimationWidget(
-                                                distance: distance,
-                                                serviceType: 'ambulance',
-                                                partnerRates: rates,
-                                                urgency: 'normal',
-                                              );
-                                            },
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            address,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey[700],
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 12),
-                                        ],
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 8),
+
+                                    // Phone Row
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.phone,
+                                          color: Color(0xFF1976D2),
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          phone,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    // Ambulance Type Row
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.local_hospital,
+                                          color: Colors.red[400],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          ambulanceType,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    // Photo Row
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.photo_camera,
+                                          color: Colors.amber[700],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Photo ',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        Text(
+                                          '(ambulance)',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // Ambulance Photo Placeholder
+                                    if (ambulanceImageUrl != null)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          ambulanceImageUrl,
+                                          height: 100,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Container(
+                                            height: 100,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade200,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.local_shipping,
+                                                size: 40,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                          loadingBuilder: (context, child,
+                                              loadingProgress) {
+                                            if (loadingProgress == null)
+                                              return child;
+                                            return Container(
+                                              height: 100,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade100,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    else
+                                      Container(
+                                        height: 100,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.local_shipping,
+                                            size: 40,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Show fare estimation if destination is set
+                                    if (currentPosition.value != null &&
+                                        destinationPosition.value != null) ...[
+                                      const SizedBox(height: 12),
+                                      FutureBuilder<Map<String, int>>(
+                                        future:
+                                            _fetchPartnerRates(ambulance.id),
+                                        builder: (context, rateSnapshot) {
+                                          if (rateSnapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return const SizedBox(
+                                              height: 40,
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                            );
+                                          }
+
+                                          final rates = rateSnapshot.data ??
+                                              {'serviceRate': 2500};
+                                          final distance =
+                                              FareCalculationService
+                                                  .calculateDistance(
+                                            currentPosition.value!.latitude,
+                                            currentPosition.value!.longitude,
+                                            destinationPosition.value!.latitude,
+                                            destinationPosition
+                                                .value!.longitude,
+                                          );
+
+                                          return FareEstimationWidget(
+                                            distance: distance,
+                                            serviceType: 'ambulance',
+                                            partnerRates: rates,
+                                            urgency: 'normal',
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ),
                           );
@@ -1732,12 +1670,7 @@ class HomeController extends GetxController {
   void _bookSpecificAmbulance(Map<String, dynamic> ambulanceData) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) {
-      Get.snackbar(
-        'Authentication Required',
-        'You need to be logged in to place an order.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
+      Alert.error('You need to be logged in to place an order.');
       return;
     }
 
@@ -1746,12 +1679,7 @@ class HomeController extends GetxController {
         ambulanceData['name'] as String? ?? 'Ambulance Provider';
 
     if (partnerId == null) {
-      Get.snackbar(
-        'Error',
-        'Invalid ambulance provider selected.',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Invalid ambulance provider selected.');
       return;
     }
 
@@ -2625,12 +2553,8 @@ class HomeController extends GetxController {
                                       'Calling ${ambulanceData['name']}...',
                                 );
                               } catch (e) {
-                                Get.snackbar(
-                                  'Error',
-                                  'Unable to make call. Please dial $numberToCall manually.',
-                                  backgroundColor: Colors.red.shade100,
-                                  colorText: Colors.red.shade800,
-                                );
+                                Alert.error(
+                                    'Unable to make call. Please dial $numberToCall manually.');
                               }
                               Get.back();
                             },
@@ -2785,17 +2709,7 @@ class HomeController extends GetxController {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: phoneNumber));
                         Get.back();
-                        Get.snackbar(
-                          'Copied!',
-                          'Emergency number copied to clipboard',
-                          backgroundColor: Colors.green.shade100,
-                          colorText: Colors.green.shade800,
-                          snackPosition: SnackPosition.BOTTOM,
-                          margin: const EdgeInsets.all(16),
-                          borderRadius: 12,
-                          icon: Icon(Icons.check_circle,
-                              color: Colors.green.shade700),
-                        );
+                        Alert.success('Emergency number copied to clipboard');
                       },
                       icon: const Icon(Icons.copy, size: 18),
                       label: const Text('Copy'),
@@ -2866,47 +2780,22 @@ class HomeController extends GetxController {
         if (await canLaunchUrl(uri)) {
           bool launched = await launchUrl(uri);
           if (!launched) {
-            Get.snackbar(
-              'Cannot Call',
-              'Unable to open the phone dialer on this device.',
-              backgroundColor: Colors.red.shade100,
-              colorText: Colors.red.shade800,
-            );
+            Alert.error('Unable to open the phone dialer on this device.');
           }
         } else {
-          Get.snackbar(
-            'Cannot Call',
-            'Unable to open the phone dialer on this device.',
-            backgroundColor: Colors.red.shade100,
-            colorText: Colors.red.shade800,
-          );
+          Alert.error('Unable to open the phone dialer on this device.');
         }
       } else if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Phone call permission is permanently denied. Please enable it in app settings.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: Duration(seconds: 5),
-        );
+        Alert.error(
+            'Phone call permission is permanently denied. Please enable it in app settings.');
         // Open app settings
         await openAppSettings();
       } else {
-        Get.snackbar(
-          'Permission Denied',
-          'Phone call permission is required to make calls.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        Alert.error('Phone call permission is required to make calls.');
       }
     } catch (e) {
       debugPrint('Failed to launch dialer: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to start call. Please manually dial $phoneNumber',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Failed to start call. Please manually dial $phoneNumber');
     }
   }
 
@@ -3190,7 +3079,34 @@ class HomeController extends GetxController {
         final status = data?['orderStatus'] ?? data?['status'];
 
         // Handle status updates
-        if (status == 'accepted') {
+        if (status == 'fare_proposed') {
+          // Driver has proposed a fare - show it to the user
+          final driverFare = data?['driverFare'] as double?;
+          final driverName = data?['driverName'] as String? ?? 'ড্রাইভার';
+          if (driverFare != null) {
+            _showFareProposalBottomSheet(
+              orderId: orderId,
+              driverFare: driverFare,
+              driverName: driverName,
+              pickupAddress: data?['pickupAddress'] as String?,
+              destinationAddress: data?['destinationAddress'] as String?,
+              distance: data?['distance'] as double?,
+            );
+
+            // Add notification for user
+            _addUserNotification(
+              title: '💰 ভাড়া প্রস্তাব এসেছে',
+              message:
+                  '$driverName আপনার ট্রিপের জন্য ৳${driverFare.toStringAsFixed(0)} ভাড়া প্রস্তাব করেছেন।',
+              type: 'ambulance',
+              data: {
+                'type': 'fare_proposed',
+                'requestId': orderId,
+                'driverFare': driverFare,
+              },
+            );
+          }
+        } else if (status == 'accepted') {
           isTrackingPartner.value = true;
           // Don't show OTP in success dialog - it will be shown when ambulance arrives at pickup
           SuccessDialog.show(
@@ -3438,7 +3354,11 @@ class HomeController extends GetxController {
               content: Text('আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।'),
               actions: [
                 TextButton(
-                  onPressed: () => Get.back(),
+                  onPressed: () {
+                    try {
+                      Get.back();
+                    } catch (_) {}
+                  },
                   child: Text('ঠিক আছে'),
                 ),
               ],
@@ -3552,6 +3472,386 @@ class HomeController extends GetxController {
         }
       }
     });
+  }
+
+  /// Show bottom sheet with driver's proposed fare for user to accept or reject
+  void _showFareProposalBottomSheet({
+    required String orderId,
+    required double driverFare,
+    required String driverName,
+    String? pickupAddress,
+    String? destinationAddress,
+    double? distance,
+  }) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.monetization_on,
+                        color: Colors.green.shade700, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ভাড়া প্রস্তাব',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '$driverName ভাড়া পাঠিয়েছেন',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Fare amount - prominent display
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade50, Colors.green.shade100],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.green.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'প্রস্তাবিত ভাড়া',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '৳${driverFare.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Trip info
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    if (pickupAddress != null)
+                      _buildFareInfoRow(
+                        Icons.my_location,
+                        'পিকআপ',
+                        pickupAddress,
+                        Colors.blue.shade700,
+                      ),
+                    if (destinationAddress != null) ...[
+                      const SizedBox(height: 12),
+                      _buildFareInfoRow(
+                        Icons.flag,
+                        'গন্তব্য',
+                        destinationAddress,
+                        Colors.red.shade700,
+                      ),
+                    ],
+                    if (distance != null) ...[
+                      const SizedBox(height: 12),
+                      _buildFareInfoRow(
+                        Icons.straighten,
+                        'দূরত্ব',
+                        '${distance.toStringAsFixed(1)} কিমি',
+                        Colors.orange.shade700,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          try {
+                            Get.back();
+                          } catch (_) {}
+                          _rejectProposedFare(orderId);
+                        },
+                        icon: const Icon(Icons.close, size: 22),
+                        label: const Text(
+                          'প্রত্যাখ্যান',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          try {
+                            Get.back();
+                          } catch (_) {}
+                          _acceptProposedFare(orderId, driverFare);
+                        },
+                        icon: const Icon(Icons.check_circle, size: 22),
+                        label: const Text(
+                          'গ্রহণ করুন',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+      isDismissible: false,
+      enableDrag: false,
+    );
+  }
+
+  /// Helper widget for fare info rows
+  Widget _buildFareInfoRow(
+      IconData icon, String label, String value, Color iconColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: iconColor),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Accept the driver's proposed fare
+  Future<void> _acceptProposedFare(String orderId, double driverFare) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Update Firestore order to accepted
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .update({
+        'status': 'accepted',
+        'fareAcceptedAt': Timestamp.now(),
+        'fareAcceptedBy': user.uid,
+        'totalAmount': driverFare,
+        'fareAmount': driverFare.toInt(),
+      });
+
+      debugPrint('✅ User accepted fare ৳$driverFare for order $orderId');
+
+      // Send FCM notification to driver
+      final orderDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+      final partnerId = orderDoc.data()?['partnerId'];
+      if (partnerId != null) {
+        final partnerDoc = await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(partnerId)
+            .get();
+        final fcmToken = partnerDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: '✅ ভাড়া গৃহীত হয়েছে',
+            body:
+                'ইউজার আপনার ৳${driverFare.toStringAsFixed(0)} ভাড়া গ্রহণ করেছেন। ট্রিপ শুরু করুন।',
+            data: {
+              'type': 'fare_accepted',
+              'orderId': orderId,
+            },
+          );
+        }
+      }
+
+      // Add notification
+      _addUserNotification(
+        title: '✅ ভাড়া গ্রহণ করা হয়েছে',
+        message:
+            '৳${driverFare.toStringAsFixed(0)} ভাড়া গ্রহণ করা হয়েছে। অ্যাম্বুলেন্স আসছে।',
+        type: 'ambulance',
+        data: {
+          'type': 'fare_accepted',
+          'requestId': orderId,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error accepting fare: $e');
+      Alert.error('ভাড়া গ্রহণ করতে ব্যর্থ হয়েছে: $e');
+    }
+  }
+
+  /// Reject the driver's proposed fare
+  Future<void> _rejectProposedFare(String orderId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Update Firestore order to fare_rejected
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .update({
+        'status': 'fare_rejected',
+        'fareRejectedAt': Timestamp.now(),
+        'fareRejectedBy': user.uid,
+      });
+
+      debugPrint('❌ User rejected fare for order $orderId');
+
+      // Send FCM notification to driver
+      final orderDoc = await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .get();
+      final partnerId = orderDoc.data()?['partnerId'];
+      if (partnerId != null) {
+        final partnerDoc = await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(partnerId)
+            .get();
+        final fcmToken = partnerDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: '❌ ভাড়া প্রত্যাখ্যাত',
+            body: 'ইউজার আপনার প্রস্তাবিত ভাড়া প্রত্যাখ্যান করেছেন।',
+            data: {
+              'type': 'fare_rejected',
+              'orderId': orderId,
+            },
+          );
+        }
+      }
+
+      // Add notification
+      _addUserNotification(
+        title: '❌ ভাড়া প্রত্যাখ্যান করা হয়েছে',
+        message: 'আপনি ভাড়া প্রত্যাখ্যান করেছেন।',
+        type: 'ambulance',
+        data: {
+          'type': 'fare_rejected',
+          'requestId': orderId,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error rejecting fare: $e');
+      Alert.error('ভাড়া প্রত্যাখ্যান করতে ব্যর্থ হয়েছে: $e');
+    }
   }
 
   void navigateToPartnersOrders() {
@@ -3720,7 +4020,9 @@ class HomeController extends GetxController {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Get.back();
+                        try {
+                          Get.back();
+                        } catch (_) {}
                         _addAcknowledgedOrder(orderId);
                         navigateToUserTracking(orderId);
                       },
@@ -4314,23 +4616,11 @@ class HomeController extends GetxController {
         ); */
       } else {
         print('⚠️ No nearby drivers found');
-        Get.snackbar(
-          'তথ্য',
-          'আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 4),
-        );
+        Alert.info('আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি');
       }
     } catch (e) {
       print('❌ Error sending notifications to nearby drivers: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        duration: const Duration(seconds: 3),
-      );
+      Alert.error('আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে');
     }
   }
 
@@ -4407,12 +4697,7 @@ class HomeController extends GetxController {
       );
     } catch (e) {
       print('❌ Error sending ride request: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'রাইড রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('রাইড রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e');
     }
   }
 
@@ -4426,12 +4711,12 @@ class HomeController extends GetxController {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-        Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন');
+        Alert.error('অনুগ্রহ করে লগইন করুন');
         return;
       }
 
       if (currentPosition.value == null) {
-        Get.snackbar('ত্রুটি', 'আপনার বর্তমান অবস্থান পাওয়া যায়নি');
+        Alert.error('আপনার বর্তমান অবস্থান পাওয়া যায়নি');
         return;
       }
 
@@ -4484,14 +4769,8 @@ class HomeController extends GetxController {
     final fileSize = await file.length();
     if (fileSize > maxFileSizeBytes) {
       final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-      Get.snackbar(
-        'File Too Large',
-        'Image size ($fileSizeMB MB) exceeds 2MB limit. Please choose a smaller image or take a new photo.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade900,
-        duration: const Duration(seconds: 5),
-      );
+      Alert.error(
+          'Image size ($fileSizeMB MB) exceeds 2MB limit. Please choose a smaller image or take a new photo.');
       return false;
     }
     return true;
@@ -4515,28 +4794,14 @@ class HomeController extends GetxController {
       }
 
       if (status.isDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is required to select images. Please grant permission when prompted.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-        );
+        Alert.error(
+            'Photo library access is required to select images. Please grant permission when prompted.');
         return;
       }
 
       if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Photo library access is permanently denied. Please enable it in app settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          mainButton: TextButton(
-            onPressed: () {
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        );
+        Alert.error(
+            'Photo library access is permanently denied. Please enable it in app settings.');
         return;
       }
 
@@ -4571,11 +4836,7 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error picking image: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to pick image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Alert.error('Failed to pick image. Please try again.');
     }
   }
 
@@ -4584,12 +4845,8 @@ class HomeController extends GetxController {
       // Request camera permission first
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Camera access is required to take photos. Please grant permission in settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-        );
+        Alert.error(
+            'Camera access is required to take photos. Please grant permission in settings.');
         return;
       }
 
@@ -4624,11 +4881,7 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error taking photo: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to take photo. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Alert.error('Failed to take photo. Please try again.');
     }
   }
 
@@ -4638,23 +4891,12 @@ class HomeController extends GetxController {
       uploadProgress.value = 0.0; // Reset progress
 
       // Show immediate feedback
-      Get.snackbar(
-        'Uploading...',
-        'Please wait while we upload your profile image',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-        showProgressIndicator: true,
-      );
+      Alert.info('Uploading profile image...');
 
       // Check network connectivity first
       final isConnected = await _isConnected();
       if (!isConnected) {
-        Get.snackbar(
-          'No Internet',
-          'Please check your internet connection and try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
-        );
+        Alert.error('Please check your internet connection and try again.');
         return;
       }
 
@@ -4736,16 +4978,8 @@ class HomeController extends GetxController {
         errorMessage =
             'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
-        Get.snackbar(
-          'Upload Failed',
-          'Network error occurred. Tap to retry.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          onTap: (snack) {
-            debugPrint('🔄 User tapped retry for network error');
-            _retryUpload(imageFile);
-          },
-        );
+        // Network error retry not supported in Alert yet
+        Alert.error('Network error occurred. Please try again.');
         return; // Don't show the default error snackbar
       } else if (e.toString().contains('permission') ||
           e.toString().contains('denied')) {
@@ -4756,12 +4990,7 @@ class HomeController extends GetxController {
         return; // Don't show error snackbar for cancelled uploads
       }
 
-      Get.snackbar(
-        'Error',
-        errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-      );
+      Alert.error(errorMessage);
     } finally {
       isUploadingImage.value = false;
       uploadProgress.value = 0.0; // Reset progress
@@ -4926,11 +5155,7 @@ class HomeController extends GetxController {
       );
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to remove profile image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Alert.error('Failed to remove profile image. Please try again.');
     }
   }
 
@@ -4980,30 +5205,6 @@ class HomeController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error in ultra-fast compression: $e');
       return imageFile; // Return original on error
-    }
-  }
-
-  // Retry upload with exponential backoff
-  Future<void> _retryUpload(File imageFile,
-      {int retryCount = 0, int maxRetries = 3}) async {
-    const baseDelay = Duration(seconds: 1);
-
-    try {
-      await uploadProfileImage(imageFile);
-    } catch (e) {
-      if (retryCount < maxRetries &&
-          (e.toString().contains('network') ||
-              e.toString().contains('unavailable'))) {
-        final delay = baseDelay * (1 << retryCount); // Exponential backoff
-        debugPrint(
-            '🔄 Retrying upload in ${delay.inSeconds} seconds (attempt ${retryCount + 1}/${maxRetries})');
-
-        await Future.delayed(delay);
-        return _retryUpload(imageFile,
-            retryCount: retryCount + 1, maxRetries: maxRetries);
-      } else {
-        rethrow; // Re-throw if max retries reached or non-network error
-      }
     }
   }
 
@@ -5097,12 +5298,7 @@ class HomeController extends GetxController {
       );
       launchUrl(launchUri);
     } else {
-      Get.snackbar(
-        'Error',
-        'Phone number not available',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Phone number not available');
     }
   }
 

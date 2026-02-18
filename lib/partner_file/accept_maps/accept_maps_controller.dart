@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:lottie/lottie.dart' as lottie hide Marker;
 import '../../services/notification_service.dart';
+import '../home_partner/home_partner.dart';
 
 class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -78,7 +79,7 @@ class AcceptMapsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    
+
     try {
       _initializeDirections();
       _loadCustomIcons();
@@ -86,31 +87,30 @@ class AcceptMapsController extends GetxController {
       // Get request data from arguments first
       final args = Get.arguments;
       if (args != null && args is Map<String, dynamic>) {
-      requestData.value = args['request'];
-      showSlidePanel.value = args['fromActivityTab'] == true || 
-          args['request']?['status'] == 'in_transit' ||
-          args['request']?['status'] == 'accepted' ||
-          args['request']?['status'] == 'pickup' ||
-          args['request']?['status'] == 'to_destination';
-      serviceRate.value = args['request']?['totalAmount']?.toInt() ??
-          args['serviceRate'] ??
-          2500;
-      debugPrint(
-          'AcceptMaps: Received request data with ID: ${args['request']?['id']}');
-      debugPrint(
-          'AcceptMaps: Received serviceRate from arguments: ${serviceRate.value}');
-      debugPrint(
-          'AcceptMaps: Request status: ${args['request']?['status']}');
-      debugPrint(
-          'AcceptMaps: showSlidePanel set to: ${showSlidePanel.value}');
-      if (args['request']?['pickupLat'] != null &&
-          args['request']?['pickupLng'] != null) {
-        userPosition.value =
-            LatLng(args['request']['pickupLat'], args['request']['pickupLng']);
+        requestData.value = args['request'];
+        showSlidePanel.value = args['fromActivityTab'] == true ||
+            args['request']?['status'] == 'in_transit' ||
+            args['request']?['status'] == 'accepted' ||
+            args['request']?['status'] == 'pickup' ||
+            args['request']?['status'] == 'to_destination';
+        serviceRate.value = args['request']?['totalAmount']?.toInt() ??
+            args['serviceRate'] ??
+            2500;
+        debugPrint(
+            'AcceptMaps: Received request data with ID: ${args['request']?['id']}');
+        debugPrint(
+            'AcceptMaps: Received serviceRate from arguments: ${serviceRate.value}');
+        debugPrint('AcceptMaps: Request status: ${args['request']?['status']}');
+        debugPrint(
+            'AcceptMaps: showSlidePanel set to: ${showSlidePanel.value}');
+        if (args['request']?['pickupLat'] != null &&
+            args['request']?['pickupLng'] != null) {
+          userPosition.value = LatLng(
+              args['request']['pickupLat'], args['request']['pickupLng']);
+        }
       }
-    }
 
-    // Get current location and then calculate ETA
+      // Get current location and then calculate ETA
       _getCurrentLocation();
     } catch (e) {
       debugPrint('❌ Error initializing AcceptMapsController: $e');
@@ -474,14 +474,16 @@ class AcceptMapsController extends GetxController {
             await NotificationService.sendFCMNotification(
               token: fcmToken,
               title: 'রাইড সম্পন্ন',
-              body: 'আপনার রাইড সম্পন্ন হয়েছে। মোট খরচ: ৳${fareAmount.toStringAsFixed(0)}',
+              body:
+                  'আপনার রাইড সম্পন্ন হয়েছে। মোট খরচ: ৳${fareAmount.toStringAsFixed(0)}',
               data: {
                 'type': 'ride_completed',
                 'orderId': requestId,
                 'fareAmount': fareAmount.toString(),
               },
             );
-            debugPrint('✅ Completion notification sent with fare: ৳$fareAmount');
+            debugPrint(
+                '✅ Completion notification sent with fare: ৳$fareAmount');
           }
         }
 
@@ -506,7 +508,8 @@ class AcceptMapsController extends GetxController {
 
         Get.back(); // Go back to home partner page
         _showSuccessDialog('রাইড সম্পন্ন',
-            'রাইড সফলভাবে সম্পন্ন হয়েছে!\n\nমোট খরচ: ৳${fareAmount.toStringAsFixed(0)}');
+            'রাইড সফলভাবে সম্পন্ন হয়েছে!\n\nমোট খরচ: ৳${fareAmount.toStringAsFixed(0)}',
+            navigateHome: true);
       }
     } catch (e) {
       _showSuccessDialog('Error', 'Failed to complete ride: $e');
@@ -523,7 +526,8 @@ class AcceptMapsController extends GetxController {
     final requestId = requestData.value!['id'];
     final userId = requestData.value!['userId'];
 
-    debugPrint('📤 Attempting to send status change notification for status: $status, userId: $userId, requestId: $requestId');
+    debugPrint(
+        '📤 Attempting to send status change notification for status: $status, userId: $userId, requestId: $requestId');
 
     try {
       // Get user's FCM token
@@ -538,7 +542,8 @@ class AcceptMapsController extends GetxController {
       }
 
       final fcmToken = userDoc.data()?['fcmToken'];
-      debugPrint('📱 FCM Token retrieved: ${fcmToken != null ? 'YES (${fcmToken.substring(0, 20)}...)' : 'NO'}');
+      debugPrint(
+          '📱 FCM Token retrieved: ${fcmToken != null ? 'YES (${fcmToken.substring(0, 20)}...)' : 'NO'}');
 
       if (fcmToken != null && fcmToken.isNotEmpty) {
         String title = 'Order Status Update';
@@ -578,11 +583,13 @@ class AcceptMapsController extends GetxController {
             'status': status,
           },
         );
-        
+
         if (success) {
-          debugPrint('✅ Status change notification sent successfully for status: $status');
+          debugPrint(
+              '✅ Status change notification sent successfully for status: $status');
         } else {
-          debugPrint('⚠️ Failed to send notification - user may have uninstalled app or token expired');
+          debugPrint(
+              '⚠️ Failed to send notification - user may have uninstalled app or token expired');
         }
       } else {
         debugPrint('❌ FCM token not found or empty for user: $userId');
@@ -658,7 +665,8 @@ class AcceptMapsController extends GetxController {
     );
 
     _showSuccessDialog('Live Tracking Started',
-        'Your location is now being tracked in real-time');
+        'Your location is now being tracked in real-time',
+        duration: const Duration(seconds: 2));
   }
 
   void _scheduleFirestoreUpdate(Position position) {
@@ -737,7 +745,9 @@ class AcceptMapsController extends GetxController {
     if (_etaUpdateTimer?.isActive != true) {
       // Schedule ETA update
       _etaUpdateTimer = Timer(_etaUpdateInterval, () {
-        if (isLiveTracking.value && partnerPosition.value != null && userPosition.value != null) {
+        if (isLiveTracking.value &&
+            partnerPosition.value != null &&
+            userPosition.value != null) {
           calculateETA();
         }
       });
@@ -778,7 +788,7 @@ class AcceptMapsController extends GetxController {
     if (partnerPosition.value != null && userPosition.value != null) {
       try {
         final GoogleMapController controller = await _controller.future;
-        
+
         // Calculate bounds to show both partner and destination
         final double southWestLat = min(
           partnerPosition.value!.latitude,
@@ -806,7 +816,7 @@ class AcceptMapsController extends GetxController {
         controller.animateCamera(
           CameraUpdate.newLatLngBounds(bounds, 100), // 100 pixels padding
         );
-        
+
         debugPrint('✅ Camera animated to show destination route');
       } catch (e) {
         debugPrint('❌ Error animating camera to route: $e');
@@ -859,14 +869,18 @@ class AcceptMapsController extends GetxController {
 
         Get.back(); // Go back to home partner page
         _showSuccessDialog(
-            'Ride Cancelled', 'The ride has been cancelled successfully');
+            'Ride Cancelled', 'The ride has been cancelled successfully',
+            navigateHome: true);
       }
     } catch (e) {
       _showSuccessDialog('Error', 'Failed to cancel ride: $e');
     }
   }
 
-  void _showSuccessDialog(String title, String message, {String? orderId}) {
+  void _showSuccessDialog(String title, String message,
+      {String? orderId,
+      bool navigateHome = false,
+      Duration duration = const Duration(seconds: 2)}) {
     Get.dialog(
       AlertDialog(
         content: Column(
@@ -881,10 +895,17 @@ class AcceptMapsController extends GetxController {
           ],
         ),
       ),
+      barrierDismissible: false,
     );
-    // Auto close after 3 seconds
-    Future.delayed(Duration(seconds: 3), () {
-      Get.back();
+    // Auto close after duration
+    Future.delayed(duration, () {
+      if (Get.isDialogOpen ?? false) {
+        if (navigateHome) {
+          Get.offAll(() => HomePartnerPage());
+        } else {
+          Get.back();
+        }
+      }
     });
   }
 
@@ -1195,7 +1216,8 @@ class AcceptMapsController extends GetxController {
           );
 
           polylines.add(polyline);
-          debugPrint('✅ Destination route polyline created - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
+          debugPrint(
+              '✅ Destination route polyline created - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
         }
       } catch (e) {
         debugPrint('❌ Error creating destination route: $e');
@@ -1218,7 +1240,8 @@ class AcceptMapsController extends GetxController {
           markerId: MarkerId('destination_location'),
           position: userPosition.value!,
           infoWindow: InfoWindow(title: 'Destination'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
 
