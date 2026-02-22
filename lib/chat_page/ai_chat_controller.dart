@@ -30,28 +30,41 @@ class AIChatController extends GetxController {
   static const String _geminiApiKey = ApiKeysSecret.geminiApiKey;
   static const String _geminiApiUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-  
+
   // Flag to track if API is available
   var useLocalResponses = false.obs;
 
   // System context for the AI
   final String _systemPrompt = '''
-আপনি NeoSaver অ্যাপের একটি সহায়ক AI সহকারী। NeoSaver একটি জরুরি অ্যাম্বুলেন্স বুকিং এবং ট্র্যাকিং অ্যাপ্লিকেশন যা বাংলাদেশে কাজ করে।
+আপনি NeoSaver অ্যাপের একটি সহায়ক AI সহকারী। আপনি শুধুমাত্র নিচের দুটি বিষয়ের উত্তর দেবেন:
 
-আপনার কাজ:
-1. ব্যবহারকারীদের প্রশ্নের উত্তর দেওয়া
-2. জরুরি চিকিৎসা সংক্রান্ত প্রাথমিক পরামর্শ দেওয়া
-3. অ্যাপ ব্যবহার সম্পর্কে সাহায্য করা
-4. অ্যাম্বুলেন্স সেবা সম্পর্কে তথ্য দেওয়া
+১. স্বাস্থ্য সংক্রান্ত প্রশ্ন (Health related questions):
+- প্রাথমিক চিকিৎসা (First aid)
+- জরুরি নির্দেশনা (Emergency guidance - অ-নিদানিক/non-diagnostic)
+- সাধারণ স্বাস্থ্য সচেতনতা (Basic health awareness)
 
-গুরুত্বপূর্ণ নির্দেশনা:
-- সবসময় বাংলা ও ইংরেজি উভয় ভাষায় উত্তর দিতে পারবেন
-- জরুরি পরিস্থিতিতে ব্যবহারকারীকে 999 বা নিকটতম হাসপাতালে যোগাযোগ করতে বলুন
-- চিকিৎসা পরামর্শ দেওয়ার সময় সতর্কতার সাথে বলুন যে এটি শুধুমাত্র প্রাথমিক তথ্য এবং ডাক্তারের পরামর্শ নেওয়া উচিত
-- সংক্ষিপ্ত এবং সহজ ভাষায় উত্তর দিন
-- বন্ধুত্বপূর্ণ এবং সহায়ক হন
+২. NeoSaver সংক্রান্ত প্রশ্ন (NeoSaver related questions):
+- অ্যাম্বুলেন্স বুকিং পদ্ধতি (How to book ambulance)
+- পেমেন্ট প্রক্রিয়া (Payment process)
+- নিরাপত্তা ও সেবা সংক্রান্ত তথ্য (Safety & service info)
+- অ্যাপ ব্যবহারের নিয়ম (App usage help)
 
-You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambulance booking and tracking application in Bangladesh.
+অন্য কোনো বিষয় (রাজনীতি, ব্যক্তিগত আলাপ, শিক্ষা, সাধারণ জ্ঞান বা অন্য কোনো সম্পর্কহীন তথ্য) নিয়ে প্রশ্ন করলে আপনি বিনীতভাবে উত্তর দিতে অস্বীকার করবেন। আপনার উত্তরগুলো সংক্ষিপ্ত এবং সহায়ক হতে হবে।
+
+You are a helpful AI assistant for the NeoSaver app. You ONLY respond to the following two categories:
+
+1. Health-related questions:
+- First aid
+- Emergency guidance (non-diagnostic)
+- Basic health awareness
+
+2. NeoSaver-related questions:
+- How to book an ambulance
+- Payment process
+- Safety & service info
+- App usage help
+
+DO NOT answer any other topics (politics, personal chat, general knowledge, or any unrelated information). If asked about these, politely decline to answer.
 ''';
 
   // Conversation history for context
@@ -186,7 +199,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 
   Future<String> _getGeminiResponse(String userMessage) async {
     // Check if API key is placeholder or use local responses
-    if (_geminiApiKey == 'YOUR_GEMINI_API_KEY_HERE' || _geminiApiKey.isEmpty || useLocalResponses.value) {
+    if (_geminiApiKey == 'YOUR_GEMINI_API_KEY_HERE' ||
+        _geminiApiKey.isEmpty ||
+        useLocalResponses.value) {
       return _getLocalResponse(userMessage);
     }
 
@@ -265,7 +280,8 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
         }
         return 'কোন উত্তর পাওয়া যায়নি। আবার চেষ্টা করুন।';
       } else {
-        debugPrint('Gemini API error: ${response.statusCode} - ${response.body}');
+        debugPrint(
+            'Gemini API error: ${response.statusCode} - ${response.body}');
         // Switch to local responses on API error
         useLocalResponses.value = true;
         return _getLocalResponse(userMessage);
@@ -281,9 +297,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
   // Local response system for when API is unavailable
   String _getLocalResponse(String query) {
     final lowerQuery = query.toLowerCase();
-    
+
     // Ambulance booking related
-    if (lowerQuery.contains('অ্যাম্বুলেন্স') || 
+    if (lowerQuery.contains('অ্যাম্বুলেন্স') ||
         lowerQuery.contains('ambulance') ||
         lowerQuery.contains('বুক') ||
         lowerQuery.contains('book')) {
@@ -304,9 +320,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 4. Click "Book Now"
 5. Track your order once confirmed''';
     }
-    
+
     // Emergency numbers
-    if (lowerQuery.contains('জরুরি') || 
+    if (lowerQuery.contains('জরুরি') ||
         lowerQuery.contains('নম্বর') ||
         lowerQuery.contains('emergency') ||
         lowerQuery.contains('number') ||
@@ -326,9 +342,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 - Health Hotline: 16263
 - Fire Service: 199''';
     }
-    
+
     // Hospital related
-    if (lowerQuery.contains('হাসপাতাল') || 
+    if (lowerQuery.contains('হাসপাতাল') ||
         lowerQuery.contains('hospital') ||
         lowerQuery.contains('নিকটতম') ||
         lowerQuery.contains('nearest')) {
@@ -347,9 +363,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 3. Select from suggestions
 4. View route on map''';
     }
-    
+
     // First aid
-    if (lowerQuery.contains('প্রাথমিক') || 
+    if (lowerQuery.contains('প্রাথমিক') ||
         lowerQuery.contains('চিকিৎসা') ||
         lowerQuery.contains('first aid') ||
         lowerQuery.contains('টিপস') ||
@@ -373,9 +389,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 
 *এটি শুধুমাত্র প্রাথমিক তথ্য। ডাক্তারের পরামর্শ নিন।*''';
     }
-    
+
     // Tracking
-    if (lowerQuery.contains('ট্র্যাক') || 
+    if (lowerQuery.contains('ট্র্যাক') ||
         lowerQuery.contains('track') ||
         lowerQuery.contains('কোথায়') ||
         lowerQuery.contains('where')) {
@@ -392,9 +408,9 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 3. View real-time location on map
 4. Call driver directly if needed''';
     }
-    
+
     // App usage / help
-    if (lowerQuery.contains('কিভাবে') || 
+    if (lowerQuery.contains('কিভাবে') ||
         lowerQuery.contains('how') ||
         lowerQuery.contains('সাহায্য') ||
         lowerQuery.contains('help') ||
@@ -417,54 +433,54 @@ You are a helpful AI assistant for NeoSaver app. NeoSaver is an emergency ambula
 
 **কোন সমস্যা হলে Feedback দিন!**''';
     }
-    
-    // Greeting
-    if (lowerQuery.contains('হাই') || 
+
+    // Generic greetings are allowed but should point to scope
+    if (lowerQuery.contains('হাই') ||
         lowerQuery.contains('হ্যালো') ||
         lowerQuery.contains('hi') ||
-        lowerQuery.contains('hello') ||
-        lowerQuery.contains('স্বাগতম')) {
+        lowerQuery.contains('hello')) {
       return '''👋 হ্যালো! আমি NeoSaver AI সহকারী।
 
-আপনাকে কিভাবে সাহায্য করতে পারি?
+আমি শুধুমাত্র স্বাস্থ্য সংক্রান্ত এবং NeoSaver অ্যাপ সংক্রান্ত তথ্য দিতে পারি। আপনাকে কিভাবে সাহায্য করতে পারি?
 
-• 🚑 অ্যাম্বুলেন্স বুকিং
-• 📞 জরুরি নম্বর
-• 🏥 নিকটতম হাসপাতাল
-• 💊 প্রাথমিক চিকিৎসা টিপস
-• 📱 অ্যাপ ব্যবহার গাইড
-
-যেকোনো প্রশ্ন করুন! 😊
-
-Hello! I'm NeoSaver AI Assistant. How can I help you today?''';
+Hello! I'm NeoSaver AI Assistant. I can only help with health-related or NeoSaver-related questions. How can I help you today?''';
     }
-    
-    // Thank you
-    if (lowerQuery.contains('ধন্যবাদ') || 
-        lowerQuery.contains('thank')) {
-      return '''😊 আপনাকেও ধন্যবাদ!
 
-NeoSaver ব্যবহার করার জন্য কৃতজ্ঞ। আপনার কোন প্রশ্ন থাকলে জানাবেন।
+    // Out of scope detection for local response
+    final outOfScopeTerms = [
+      'politics',
+      'রাজনীতি',
+      'game',
+      'খেলা',
+      'movie',
+      'ছবি',
+      'song',
+      'গান',
+      'weather',
+      'আবহাওয়া',
+      'news',
+      'খবর'
+    ];
+    for (var term in outOfScopeTerms) {
+      if (lowerQuery.contains(term)) {
+        return '''🤖 দুঃখিত, আমি শুধুমাত্র স্বাস্থ্য সংক্রান্ত এবং NeoSaver অ্যাপ সংক্রান্ত প্রশ্নের উত্তর দিতে পারি।
 
-জরুরি প্রয়োজনে: 999 বা +8801793399913
-
-You're welcome! Thank you for using NeoSaver. Feel free to ask any questions.''';
+Sorry, I can only answer questions related to Health and the NeoSaver app.''';
+      }
     }
-    
-    // Default response
+
+    // Default response for unrecognized but potentially in-scope queries
     return '''🤖 আমি আপনার প্রশ্ন বুঝতে পেরেছি।
 
 আমি এই বিষয়গুলোতে সাহায্য করতে পারি:
 
-🚑 **অ্যাম্বুলেন্স বুকিং** - "অ্যাম্বুলেন্স বুক করব কিভাবে?" লিখুন
-📞 **জরুরি নম্বর** - "জরুরি নম্বর দিন" লিখুন  
-🏥 **হাসপাতাল খোঁজা** - "নিকটতম হাসপাতাল" লিখুন
-💊 **প্রাথমিক চিকিৎসা** - "প্রাথমিক চিকিৎসা টিপস" লিখুন
-📱 **অ্যাপ সাহায্য** - "অ্যাপ কিভাবে ব্যবহার করব?" লিখুন
+🚑 **অ্যাম্বুলেন্স বুকিং** - "অ্যাম্বুলেন্স বুক করব কিভাবে?"
+💊 **প্রাথমিক চিকিৎসা** - "প্রাথমিক চিকিৎসা টিপস"
+📱 **অ্যাপ সাহায্য** - "অ্যাপ কিভাবে ব্যবহার করব?"
 
-জরুরি অবস্থায় সরাসরি **999** কল করুন।
+অন্য কোনো বিষয়ে (যেমন রাজনীতি বা ব্যক্তিগত আলাপ) আমি উত্তর দিতে পারি না।
 
-I can help with ambulance booking, emergency numbers, finding hospitals, first aid tips, and app usage. For emergencies, call 999 directly.''';
+I can help with ambulance booking, first aid, and app usage. I cannot participate in other topics like politics or personal chats.''';
   }
 
   void _scrollToBottom() {
