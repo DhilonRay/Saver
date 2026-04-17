@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../components/alert.dart';
 import '../home_partner/home_partner.dart';
 
 class PartnerController extends GetxController {
@@ -32,13 +33,7 @@ class PartnerController extends GetxController {
         contactNumberController.text.trim().isEmpty ||
         emailAddressController.text.trim().isEmpty ||
         companyNameController.text.trim().isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please fill in all required fields',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
+      Alert.info('Please fill in all required fields');
       return;
     }
 
@@ -82,13 +77,7 @@ class PartnerController extends GetxController {
         print('📄 Document ID: ${savedDoc.id}');
         print('📊 Saved Data: ${savedDoc.data()}');
 
-        Get.snackbar(
-          'Success',
-          'Partner info submitted successfully',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        Alert.info('Partner info submitted successfully');
 
         clearForm();
         // Navigate to home partner page after successful registration
@@ -99,13 +88,7 @@ class PartnerController extends GetxController {
       }
     } catch (e) {
       print('❌ Error saving partner data: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to save partner data: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Alert.info('Failed to save partner data: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }

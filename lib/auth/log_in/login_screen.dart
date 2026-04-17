@@ -29,11 +29,7 @@ class LoginPage extends StatelessWidget {
                 children: [
                   _buildHeader(),
                   const VerticalGap(22),
-                  _buildLoginTypeSelection(controller),
-                  const VerticalGap(20),
-                  Obx(() => controller.selectedTabIndex.value == 0
-                      ? _buildEmailLoginForm(controller)
-                      : _buildPhoneLoginForm(controller)),
+                  _buildLoginForm(controller),
                   const VerticalGap(16),
                   Align(
                     alignment: Alignment.centerRight,
@@ -59,10 +55,10 @@ class LoginPage extends StatelessWidget {
                         minHeight: 44,
                         borderRadiusValue: 8,
                       )),
-                  const VerticalGap(32),
-                  _buildSocialLoginDivider(),
-                  const VerticalGap(20),
-                  _buildGoogleLoginButton(),
+                  /*  const VerticalGap(32),
+                  _buildSocialLoginDivider(), */
+                  /*  const VerticalGap(20),
+                  _buildGoogleLoginButton(), */
                   const VerticalGap(32),
                   _buildSignUpLink(controller),
                 ],
@@ -105,101 +101,13 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginTypeSelection(LoginController controller) {
-    return Obx(() => Row(
-          children: [
-            Expanded(
-              child: controller.selectedTabIndex.value == 0
-                  ? FilledButtonWidget(
-                      onTap: () => controller.changeTab(0),
-                      buttonText: 'Email Login',
-                      backgroundColor: AppColors.lightBlue,
-                      minHeight: 44,
-                      borderRadiusValue: 8,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.email,
-                              color: Colors.white, size: 18),
-                          const HorizontalGap(8),
-                          Text('Email Login',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    )
-                  : OutlinedButtonWidget(
-                      onTap: () => controller.changeTab(0),
-                      buttonText: 'Email Login',
-                      minHeight: 44,
-                      borderRadiusValue: 8,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.email,
-                              color: AppColors.primaryText, size: 18),
-                          const HorizontalGap(8),
-                          Text('Email Login',
-                              style: const TextStyle(
-                                  color: AppColors.primaryText,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-            ),
-            const HorizontalGap(16),
-            Expanded(
-              child: controller.selectedTabIndex.value == 1
-                  ? FilledButtonWidget(
-                      onTap: () => controller.changeTab(1),
-                      buttonText: 'Phone Login',
-                      backgroundColor: AppColors.lightBlue,
-                      minHeight: 44,
-                      borderRadiusValue: 8,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.phone,
-                              color: Colors.white, size: 18),
-                          const HorizontalGap(8),
-                          Text('Phone Login',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    )
-                  : OutlinedButtonWidget(
-                      onTap: () => controller.changeTab(1),
-                      buttonText: 'Phone Login',
-                      minHeight: 44,
-                      borderRadiusValue: 8,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.phone,
-                              color: AppColors.primaryText, size: 18),
-                          const HorizontalGap(8),
-                          Text('Phone Login',
-                              style: const TextStyle(
-                                  color: AppColors.primaryText,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-            ),
-          ],
-        ));
-  }
-
-  Widget _buildEmailLoginForm(LoginController controller) {
+  Widget _buildLoginForm(LoginController controller) {
     return Column(
       children: [
         TextFormFieldWidget(
-          controller: controller.emailController,
-          hintText: 'Email Address',
-          prefixIcon: const Icon(Icons.email_outlined, color: Colors.black54),
+          controller: controller.identifierController,
+          hintText: 'Email or Phone Number',
+          prefixIcon: const Icon(Icons.person_outline, color: Colors.black54),
           textInputType: TextInputType.emailAddress,
           isFilled: true,
           fillColor: const Color(0xFFE3F2FD),
@@ -234,47 +142,7 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPhoneLoginForm(LoginController controller) {
-    return Column(
-      children: [
-        PhoneNumberTextFormFieldWidget(
-          controller: controller.phoneController,
-          hintText: '01XXXXXXXXX',
-          isFilled: true,
-          fillColor: const Color(0xFFE3F2FD),
-          prefixIcon: const Icon(Icons.phone_outlined, color: Colors.black54),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-        ),
-        const VerticalGap(16),
-        Obx(() => TextFormFieldWidget(
-              controller: controller.phonePasswordController,
-              hintText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outline, color: Colors.black54),
-              isPasswordTextField: !controller.isPhonePasswordVisible.value,
-              isFilled: true,
-              fillColor: const Color(0xFFE3F2FD),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  controller.isPhonePasswordVisible.value
-                      ? Icons.visibility
-                      : Icons.visibility_off,
-                  color: Colors.black54,
-                ),
-                onPressed: controller.togglePhonePasswordVisibility,
-              ),
-            )),
-      ],
-    );
-  }
-
-  Widget _buildSocialLoginDivider() {
+/*   Widget _buildSocialLoginDivider() {
     return Row(
       children: [
         const Expanded(child: Divider(color: Colors.grey)),
@@ -291,7 +159,7 @@ class LoginPage extends StatelessWidget {
         const Expanded(child: Divider(color: Colors.grey)),
       ],
     );
-  }
+  } */
 
   Widget _buildGoogleLoginButton() {
     return Center(

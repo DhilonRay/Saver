@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:saver/components/alert.dart';
 
 /// Controller for fare negotiation between user and driver.
 /// Manages the Accept / Reject / Counter Offer flow.
@@ -26,6 +27,7 @@ class FareNegotiationController extends GetxController {
   final RxString statusMessage = ''.obs;
 
   StreamSubscription<DocumentSnapshot>? _negotiationListener;
+  bool _hasNavigated = false; // Guard to prevent multiple navigations
 
   // Service charge
   static const double serviceChargePercent = 5.0;
@@ -79,6 +81,12 @@ class FareNegotiationController extends GetxController {
       negotiationStatus.value = status;
       counterBy.value = counterByValue;
 
+      // If user sent a counter offer
+      if (counterByValue == 'user') {
+        isWaitingForDriver.value = true;
+        statusMessage.value = 'ড্রাইভার প্রতিক্রিয়ার অপেক্ষায়...';
+      }
+
       // If driver sent a counter offer
       if (counterByValue == 'driver' && counterFareValue > 0) {
         currentFare.value = counterFareValue;
@@ -87,24 +95,25 @@ class FareNegotiationController extends GetxController {
         statusMessage.value = 'ড্রাইভার নতুন ভাড়া প্রস্তাব করেছে';
       }
 
-      // If driver accepted
+      // If driver accepted user's offer but user hasn't seen it yet
       if (driverAccepted && !userAccepted) {
         isWaitingForDriver.value = false;
         statusMessage.value = 'ড্রাইভার আপনার অফার গ্রহণ করেছে! নিশ্চিত করুন।';
       }
 
       // If driver rejected
-      if (status == 'rejected') {
+      if (status == 'rejected' || data['status'] == 'cancelled' || data['status'] == 'declined') {
         isWaitingForDriver.value = false;
-        statusMessage.value = 'ড্রাইভার ভাড়া প্রত্যাখ্যান করেছে';
+        statusMessage.value = 'ড্রাইভার ভাড়া প্রত্যাখ্যান করেছে (Ride Cancelled)';
         negotiationStatus.value = 'rejected';
       }
 
-      // If both accepted → Trip Confirmed → Go to Payment
-      if (driverAccepted && userAccepted) {
+      // If both accepted → Trip Confirmed → Go to Tracking
+      if (driverAccepted && userAccepted && !_hasNavigated) {
+        _hasNavigated = true;
         negotiationStatus.value = 'confirmed';
-        statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে! পেমেন্ট পেজে যাচ্ছে...';
-        _navigateToPayment();
+        statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে! ট্র্যাকিং পেজে যাচ্ছে...';
+        _navigateToTracking(data);
       }
     });
   }
@@ -116,34 +125,38 @@ class FareNegotiationController extends GetxController {
 
       await _firestore.collection('orders').doc(requestId).update({
         'negotiation.userAccepted': true,
-        'negotiation.status': 'user_accepted',
-        'negotiation.acceptedFare': currentFare.value,
+        'negotiation.status': 'accepted', // Both are agreeing
         'negotiation.updatedAt': Timestamp.now(),
       });
 
       isUserAccepted.value = true;
 
-      // If driver already accepted, both accepted → confirmed
-      if (isDriverAccepted.value) {
+      // If driver already accepted (which they do by sending an offer), both accepted → confirmed
+      if (isDriverAccepted.value && !_hasNavigated) {
+        _hasNavigated = true;
         await _firestore.collection('orders').doc(requestId).update({
-          'status': 'confirmed',
+          'status': 'accepted', // Order status becomes accepted for ride start
           'negotiation.status': 'confirmed',
           'confirmedFare': currentFare.value,
         });
         negotiationStatus.value = 'confirmed';
-        statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে!';
-        _navigateToPayment();
-      } else {
+        statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে! ট্র্যাকিং পেজে যাচ্ছে...';
+        
+        // Fetch fresh order data to pass to tracking page
+        final orderDoc = await _firestore.collection('orders').doc(requestId).get();
+        if (orderDoc.exists) {
+          _navigateToTracking(orderDoc.data()!);
+        }
+      } else if (!isDriverAccepted.value) {
         isWaitingForDriver.value = true;
         statusMessage.value = 'ড্রাইভার প্রতিক্রিয়ার অপেক্ষায়...';
       }
     } catch (e) {
       debugPrint('❌ Error accepting fare: $e');
-      Get.snackbar(
-        'ত্রুটি',
+      Alert.info(
+      
         'ভাড়া গ্রহণ করতে সমস্যা হয়েছে',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
+     
       );
     } finally {
       isLoading.value = false;
@@ -171,11 +184,10 @@ class FareNegotiationController extends GetxController {
       Get.back();
     } catch (e) {
       debugPrint('❌ Error rejecting fare: $e');
-      Get.snackbar(
-        'ত্রুটি',
+      Alert.info(
+      
         'ভাড়া প্রত্যাখ্যান করতে সমস্যা হয়েছে',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
+     
       );
     } finally {
       isLoading.value = false;
@@ -185,11 +197,10 @@ class FareNegotiationController extends GetxController {
   /// User sends a counter offer with a new fare
   Future<void> sendCounterOffer(double newFare) async {
     if (newFare <= 0) {
-      Get.snackbar(
-        'ত্রুটি',
+      Alert.info(
+      
         'সঠিক ভাড়া লিখুন',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
+     
       );
       return;
     }
@@ -201,8 +212,8 @@ class FareNegotiationController extends GetxController {
         'negotiation.counterFare': newFare,
         'negotiation.counterBy': 'user',
         'negotiation.status': 'counter',
-        'negotiation.userAccepted': false,
-        'negotiation.driverAccepted': false,
+        'negotiation.userAccepted': true, // User agrees to their own proposal
+        'negotiation.driverAccepted': false, // Now waiting for driver to agree
         'negotiation.updatedAt': Timestamp.now(),
       });
 
@@ -215,25 +226,24 @@ class FareNegotiationController extends GetxController {
           'আপনার কাউন্টার অফার পাঠানো হয়েছে। ড্রাইভারের উত্তরের অপেক্ষায়...';
     } catch (e) {
       debugPrint('❌ Error sending counter offer: $e');
-      Get.snackbar(
-        'ত্রুটি',
+      Alert.info(
+      
         'কাউন্টার অফার পাঠাতে সমস্যা হয়েছে',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
+     
       );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Navigate to Payment Page once both parties accept
-  void _navigateToPayment() {
-    Future.delayed(const Duration(milliseconds: 800), () {
-      Get.offNamed('/payment', arguments: {
-        'requestId': requestId,
-        'driverId': driverId,
-        'fare': currentFare.value,
-      });
+  /// Navigate to Tracking Page once both parties accept
+  void _navigateToTracking(Map<String, dynamic> orderData) {
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      // Ensure we have the order ID in the arguments
+      final args = Map<String, dynamic>.from(orderData);
+      args['id'] = requestId;
+      
+      Get.offNamed('/user-tracking', arguments: args);
     });
   }
 

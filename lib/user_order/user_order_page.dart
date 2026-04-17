@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:saver/components/alert.dart';
 import 'package:shimmer/shimmer.dart';
 import 'user_order_controller.dart';
 import '../loader/loader.dart';
@@ -596,8 +597,7 @@ class OrderDetailScreen extends StatelessWidget {
                         onPressed: () {
                           // TODO: Implement order cancellation
                           Get.back();
-                          Get.snackbar(
-                              'Info', 'Trip cancellation not implemented yet');
+                          Alert.info('Trip cancellation not implemented yet');
                         },
                         child: Text('Yes', style: TextStyle(color: Colors.red)),
                       ),

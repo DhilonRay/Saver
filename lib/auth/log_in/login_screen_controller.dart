@@ -12,18 +12,14 @@ import '../sign_up/signup.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController identifierController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController phonePasswordController = TextEditingController();
 
   // Reactive Variables
   var fcmToken = ''.obs;
   var isLoadingToken = false.obs;
   var isLoading = false.obs;
-  var selectedTabIndex = 0.obs; // 0 for Email, 1 for Phone
   var isPasswordVisible = false.obs;
-  var isPhonePasswordVisible = false.obs;
   var selectedCountryCode = '+880'.obs; // Default to Bangladesh
 
   @override
@@ -35,10 +31,8 @@ class LoginController extends GetxController {
   @override
   void onClose() {
     // Removed dispose calls for TextEditingControllers to prevent "controller used after dispose" errors
-    // emailController.dispose();
+    // identifierController.dispose();
     // passwordController.dispose();
-    // phoneController.dispose();
-    // phonePasswordController.dispose();
     super.onClose();
   }
 
@@ -66,7 +60,14 @@ class LoginController extends GetxController {
   }
 
   Future<void> signIn() async {
-    if (selectedTabIndex.value == 0) {
+    final identifier = identifierController.text.trim();
+
+    if (identifier.isEmpty) {
+      Alert.error('Please enter email or phone number');
+      return;
+    }
+
+    if (identifier.contains('@')) {
       // Email Login
       await signInWithEmail();
     } else {
@@ -120,7 +121,7 @@ class LoginController extends GetxController {
   }
 
   void _navigateToPartner() {
-    Alert.success('Welcome Ambulance Partner!');
+    Alert.info('Welcome Ambulance Partner!');
     Future.delayed(const Duration(milliseconds: 500), () {
       Get.offAll(() => HomePartnerPage());
       Future.delayed(const Duration(seconds: 1), () {
@@ -130,7 +131,7 @@ class LoginController extends GetxController {
   }
 
   void _navigateToUser() {
-    Alert.success('Welcome User!');
+    Alert.info('Welcome User!');
     Future.delayed(const Duration(milliseconds: 500), () {
       Get.offAll(() => HomePage());
       Future.delayed(const Duration(seconds: 1), () {
@@ -140,7 +141,7 @@ class LoginController extends GetxController {
   }
 
   Future<void> signInWithEmail() async {
-    final email = emailController.text.trim();
+    final email = identifierController.text.trim();
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -190,8 +191,8 @@ class LoginController extends GetxController {
   }
 
   Future<void> signInWithPhone() async {
-    final phone = phoneController.text.trim();
-    final password = phonePasswordController.text.trim();
+    final phone = identifierController.text.trim();
+    final password = passwordController.text.trim();
 
     if (phone.isEmpty || password.isEmpty) {
       Alert.error('Please enter phone number and password');
@@ -265,28 +266,12 @@ class LoginController extends GetxController {
     }
   }
 
-  void changeTab(int index) {
-    selectedTabIndex.value = index;
-    // Clear fields when switching tabs
-    if (index == 0) {
-      phoneController.clear();
-      phonePasswordController.clear();
-    } else {
-      emailController.clear();
-      passwordController.clear();
-    }
-  }
-
   void goToSignUp() {
     Get.to(() => const SignUpPage());
   }
 
   void togglePasswordVisibility() {
     isPasswordVisible.value = !isPasswordVisible.value;
-  }
-
-  void togglePhonePasswordVisibility() {
-    isPhonePasswordVisible.value = !isPhonePasswordVisible.value;
   }
 
   void onCountryCodeChanged(String? countryCode) {

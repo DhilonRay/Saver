@@ -3,11 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
-import 'package:lottie/lottie.dart' as lottie hide Marker;
 
 class UserTrackingController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -27,6 +26,10 @@ class UserTrackingController extends GetxController {
   var isLoadingLocation = true.obs;
   var orderData = Rx<Map<String, dynamic>?>(null);
   var orderId = Rx<String?>('null');
+  
+  // Partner info
+  var partnerName = 'NeoSaver Partner'.obs;
+  var partnerImage = Rx<String?>(null);
 
   // Route polyline variables
   var routePoints = <LatLng>[].obs;
@@ -117,18 +120,20 @@ class UserTrackingController extends GetxController {
     if (status == 'pickup' || status == 'to_destination') {
       final destinationLat = orderData['destinationLat'];
       final destinationLng = orderData['destinationLng'];
-      
+
       if (destinationLat != null && destinationLng != null) {
         final destinationLocation = LatLng(destinationLat, destinationLng);
         userPosition.value = destinationLocation;
-        debugPrint('UserTracking: Set destination as user position for status $status: $destinationLocation');
+        debugPrint(
+            'UserTracking: Set destination as user position for status $status: $destinationLocation');
       }
     }
 
     // Process ambulance location if available
     if (status != 'completed') {
       // Try partnerLiveLocation first
-      final liveLocation = orderData['partnerLiveLocation'] as Map<String, dynamic>?;
+      final liveLocation =
+          orderData['partnerLiveLocation'] as Map<String, dynamic>?;
       if (liveLocation != null) {
         final lat = liveLocation['latitude'] as double?;
         final lng = liveLocation['longitude'] as double?;
@@ -142,11 +147,13 @@ class UserTrackingController extends GetxController {
             ambulanceLocationTrail.add(location);
           }
 
-          debugPrint('UserTracking: Processed existing ambulance live location: $location');
+          debugPrint(
+              'UserTracking: Processed existing ambulance live location: $location');
         }
       } else {
         // Fallback to partnerLocation
-        final partnerLocation = orderData['partnerLocation'] as Map<String, dynamic>?;
+        final partnerLocation =
+            orderData['partnerLocation'] as Map<String, dynamic>?;
         if (partnerLocation != null) {
           final lat = partnerLocation['latitude'] as double?;
           final lng = partnerLocation['longitude'] as double?;
@@ -160,10 +167,12 @@ class UserTrackingController extends GetxController {
               ambulanceLocationTrail.add(location);
             }
 
-            debugPrint('UserTracking: Processed existing partner location: $location');
+            debugPrint(
+                'UserTracking: Processed existing partner location: $location');
           }
         } else {
-          debugPrint('UserTracking: No ambulance location found in existing order data');
+          debugPrint(
+              'UserTracking: No ambulance location found in existing order data');
         }
       }
     }
@@ -172,18 +181,20 @@ class UserTrackingController extends GetxController {
   void _forceInitialDataCalculation() {
     debugPrint('UserTracking: Forcing initial data calculation');
 
-    final status = orderData.value?['orderStatus'] ?? orderData.value?['status'];
+    final status =
+        orderData.value?['orderStatus'] ?? orderData.value?['status'];
     debugPrint('UserTracking: Current status for initial calculation: $status');
 
     // Process destination for pickup and to_destination status
     if (status == 'pickup' || status == 'to_destination') {
       final destinationLat = orderData.value?['destinationLat'];
       final destinationLng = orderData.value?['destinationLng'];
-      
+
       if (destinationLat != null && destinationLng != null) {
         final destinationLocation = LatLng(destinationLat, destinationLng);
         userPosition.value = destinationLocation;
-        debugPrint('UserTracking: Set destination in force calculation for status $status: $destinationLocation');
+        debugPrint(
+            'UserTracking: Set destination in force calculation for status $status: $destinationLocation');
       }
     }
 
@@ -193,37 +204,44 @@ class UserTrackingController extends GetxController {
 
     // Calculate ETA if we have both positions
     if (ambulancePosition.value != null && userPosition.value != null) {
-      debugPrint('UserTracking: Both positions available - Ambulance: ${ambulancePosition.value}, Destination: ${userPosition.value}');
-      
+      debugPrint(
+          'UserTracking: Both positions available - Ambulance: ${ambulancePosition.value}, Destination: ${userPosition.value}');
+
       // For pickup or to_destination status, calculate route to destination
       if (status == 'pickup' || status == 'to_destination') {
-        debugPrint('UserTracking: Calculating initial route to destination for status: $status');
+        debugPrint(
+            'UserTracking: Calculating initial route to destination for status: $status');
         calculateRouteToDestination(userPosition.value!);
       } else {
         debugPrint('UserTracking: Calculating initial ETA');
         calculateETA();
       }
     } else {
-      debugPrint('UserTracking: Missing positions for ETA calculation - Ambulance: ${ambulancePosition.value}, User: ${userPosition.value}');
-      
+      debugPrint(
+          'UserTracking: Missing positions for ETA calculation - Ambulance: ${ambulancePosition.value}, User: ${userPosition.value}');
+
       // If pickup completed or going to destination but missing ambulance position, try to get it from order data
-      if ((status == 'pickup' || status == 'to_destination') && ambulancePosition.value == null) {
-        final partnerLocation = orderData.value?['partnerLocation'] as Map<String, dynamic>?;
+      if ((status == 'pickup' || status == 'to_destination') &&
+          ambulancePosition.value == null) {
+        final partnerLocation =
+            orderData.value?['partnerLocation'] as Map<String, dynamic>?;
         if (partnerLocation != null) {
           final lat = partnerLocation['latitude'] as double?;
           final lng = partnerLocation['longitude'] as double?;
-          
+
           if (lat != null && lng != null) {
             ambulancePosition.value = LatLng(lat, lng);
-            debugPrint('UserTracking: Got ambulance position from partnerLocation: ${ambulancePosition.value}');
-            
+            debugPrint(
+                'UserTracking: Got ambulance position from partnerLocation: ${ambulancePosition.value}');
+
             // Try to calculate route now
             if (userPosition.value != null) {
               calculateRouteToDestination(userPosition.value!);
             }
           }
         } else {
-          debugPrint('UserTracking: Status is pickup/to_destination but no ambulance position available in order data');
+          debugPrint(
+              'UserTracking: Status is pickup/to_destination but no ambulance position available in order data');
         }
       }
     }
@@ -239,8 +257,9 @@ class UserTrackingController extends GetxController {
       debugPrint('Loading custom icons for user tracking...');
 
       // User location icon (red)
-      
-      userLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+
+      userLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
 
       // Ambulance location icon (blue)
       ambulanceLocationIcon = await BitmapDescriptor.asset(
@@ -251,7 +270,8 @@ class UserTrackingController extends GetxController {
       debugPrint('User tracking custom icons loaded successfully');
     } catch (e) {
       debugPrint('Failed to load user tracking custom icons: $e');
-      ambulanceLocationIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      ambulanceLocationIcon =
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
     }
   }
 
@@ -263,7 +283,8 @@ class UserTrackingController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _showErrorDialog('Permission Denied', 'Location permission is required for tracking');
+          _showErrorDialog('Permission Denied',
+              'Location permission is required for tracking');
           isLoadingLocation.value = false;
           return;
         }
@@ -290,19 +311,21 @@ class UserTrackingController extends GetxController {
   void _updateMarkers() {
     markers.clear();
 
-    final status = orderData.value?['orderStatus'] ?? orderData.value?['status'];
+    final status =
+        orderData.value?['orderStatus'] ?? orderData.value?['status'];
     final isGoingToDestination = status == 'to_destination';
 
     // Add user location or destination marker
     if (userPosition.value != null) {
       markers.add(
         Marker(
-          markerId: MarkerId(isGoingToDestination ? 'destination_location' : 'user_location'),
+          markerId: MarkerId(
+              isGoingToDestination ? 'destination_location' : 'user_location'),
           position: userPosition.value!,
           infoWindow: InfoWindow(
             title: isGoingToDestination ? '🏁 গন্তব্য' : 'আপনার অবস্থান',
           ),
-          icon: isGoingToDestination 
+          icon: isGoingToDestination
               ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
               : userLocationIcon,
         ),
@@ -348,12 +371,14 @@ class UserTrackingController extends GetxController {
           routePoints.clear();
           _updateMarkers();
           _updatePolylines();
-          debugPrint('UserTracking: Service completed - cleared ambulance location');
+          debugPrint(
+              'UserTracking: Service completed - cleared ambulance location');
         }
 
         // Handle live location updates (only if not completed)
         if (status != 'completed') {
-          final liveLocation = data?['partnerLiveLocation'] as Map<String, dynamic>?;
+          final liveLocation =
+              data?['partnerLiveLocation'] as Map<String, dynamic>?;
           if (liveLocation != null) {
             final lat = liveLocation['latitude'] as double?;
             final lng = liveLocation['longitude'] as double?;
@@ -365,7 +390,8 @@ class UserTrackingController extends GetxController {
               ambulancePosition.value = newLocation;
 
               // Add to location trail
-              if (ambulanceLocationTrail.isEmpty || ambulanceLocationTrail.last != newLocation) {
+              if (ambulanceLocationTrail.isEmpty ||
+                  ambulanceLocationTrail.last != newLocation) {
                 ambulanceLocationTrail.add(newLocation);
 
                 // Keep only last 50 points to avoid performance issues
@@ -374,105 +400,114 @@ class UserTrackingController extends GetxController {
                 }
               }
 
-              debugPrint('UserTracking: Ambulance location updated from live location: $newLocation');
-              
+              debugPrint(
+                  'UserTracking: Ambulance location updated from live location: $newLocation');
+
               // Calculate ETA periodically (not for pickup/destination as it's handled below)
               if (status != 'pickup' && status != 'to_destination') {
                 _scheduleETAUpdate();
-              }
-
-              // Update markers and polylines
-              _updateMarkers();
-              _updatePolylines();
-
-              // Calculate ETA immediately for non-pickup/destination status
-              if (routePoints.isEmpty && userPosition.value != null && status != 'pickup' && status != 'to_destination') {
-                debugPrint('UserTracking: Calculating initial ETA for route display');
-                calculateETA();
-              }
-            }
-          } else {
-            debugPrint('UserTracking: No partnerLiveLocation in update, waiting for partner to start live tracking...');
-            // No live location data, but still update markers and polylines
-            _updateMarkers();
-            _updatePolylines();
-          }
-
-          // Handle destination route for pickup and to_destination status (consolidated logic)
-          if (status == 'pickup' || status == 'to_destination') {
-            final destinationLat = data?['destinationLat'];
-            final destinationLng = data?['destinationLng'];
-            
-            if (destinationLat != null && destinationLng != null) {
-              final destinationLocation = LatLng(destinationLat, destinationLng);
-              
-              // Update user position to destination only if changed
-              bool destinationChanged = false;
-              if (userPosition.value == null || 
-                  (userPosition.value!.latitude != destinationLat || 
-                   userPosition.value!.longitude != destinationLng)) {
-                userPosition.value = destinationLocation;
-                destinationChanged = true;
-                debugPrint('UserTracking: Updated destination to $destinationLocation');
-                
-                // Update markers when destination changes
-                _updateMarkers();
-              }
-              
-              // Calculate route only if we have ambulance position and route is needed
-              bool shouldCalculateRoute = routePoints.isEmpty || destinationChanged;
-              
-              if (ambulancePosition.value != null) {
-                if (shouldCalculateRoute) {
-                  routePoints.clear();
-                  calculateRouteToDestination(destinationLocation);
-                  debugPrint('UserTracking: Calculating route to destination (destinationChanged: $destinationChanged, routeEmpty: ${routePoints.isEmpty})');
-                }
-              } else {
-                debugPrint('UserTracking: Waiting for ambulance position to calculate destination route');
-                
-                // Try to get ambulance position from partnerLocation if partnerLiveLocation is not available
-                final partnerLocation = data?['partnerLocation'] as Map<String, dynamic>?;
-                if (partnerLocation != null) {
-                  final lat = partnerLocation['latitude'] as double?;
-                  final lng = partnerLocation['longitude'] as double?;
-                  
-                  if (lat != null && lng != null) {
-                    ambulancePosition.value = LatLng(lat, lng);
-                    debugPrint('UserTracking: Using partnerLocation for ambulance position: ${ambulancePosition.value}');
-                    
-                    // Now calculate route
-                    if (shouldCalculateRoute) {
-                      routePoints.clear();
-                      calculateRouteToDestination(destinationLocation);
-                      debugPrint('UserTracking: Calculating route using partnerLocation');
-                    }
-                  }
-                }
               }
             }
           }
         }
 
-        // Update order data (preserve the ID)
+        // --- ALWAYS UPDATE UI ON SNAPSHOT ---
+        // These calls are moved outside of liveLocation checks to ensure
+        // fallback polylines and initial details show up immediately.
+        _updateMarkers();
+        _updatePolylines();
+
+        // Calculate ETA immediately if we have both positions and it's not already calculated
+        if (ambulancePosition.value != null &&
+            userPosition.value != null &&
+            status != 'completed') {
+          // We schedule it to avoid hammering the API on every tiny snapshot change
+          _scheduleETAUpdate();
+
+          // If route is still empty, force a calculation now
+          if (routePoints.isEmpty) {
+            if (status == 'pickup' || status == 'to_destination') {
+              final destinationLat = data?['destinationLat'];
+              final destinationLng = data?['destinationLng'];
+              if (destinationLat != null && destinationLng != null) {
+                calculateRouteToDestination(
+                    LatLng(destinationLat, destinationLng));
+              }
+            } else {
+              calculateETA();
+            }
+          }
+        }
+
+        // Ensure we capture all possible fare fields with better type safety
+        final rawFare = data?['fareAmount'] ??
+            data?['confirmedFare'] ??
+            data?['totalAmount'] ??
+            data?['totalFare'];
+        final fareAmount = (rawFare is num)
+            ? rawFare.toInt()
+            : (double.tryParse(rawFare?.toString() ?? '0')?.toInt() ?? 0);
+
         final currentId = orderData.value?['id'] ?? orderId;
-        orderData.value = {'id': currentId, ...?data};
+        final updatedData = {
+          'id': currentId,
+          ...?data,
+          'fareAmount': fareAmount,
+        };
+
+        orderData.value = updatedData;
+
+        // Fetch partner details if we have partnerId and haven't fetched yet
+        final partnerId = data?['partnerId'];
+        if (partnerId != null && partnerName.value == 'NeoSaver Partner') {
+          _fetchPartnerDetails(partnerId);
+        }
       }
     });
+  }
+
+  Future<void> _fetchPartnerDetails(String partnerId) async {
+    try {
+      final partnerDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(partnerId)
+          .get();
+          
+      if (partnerDoc.exists) {
+        final data = partnerDoc.data();
+        if (data != null) {
+          partnerName.value = data['name'] ?? 'NeoSaver Partner';
+          partnerImage.value = data['profileImageUrl'];
+          debugPrint('UserTracking: Fetched partner details: ${partnerName.value}');
+        }
+      }
+    } catch (e) {
+      debugPrint('UserTracking: Error fetching partner details: $e');
+    }
   }
 
   void _updatePolylines() {
     polylines.clear();
 
-    final status = orderData.value?['orderStatus'] ?? orderData.value?['status'];
-    final isGoingToDestination = status == 'pickup' || status == 'to_destination';
+    final status =
+        (orderData.value?['orderStatus'] ?? orderData.value?['status'] ?? '')
+            .toString()
+            .toLowerCase();
+    final isGoingToDestination =
+        status == 'pickup' || status == 'to_destination';
+    final isComingToUser = status == 'accepted' ||
+        status == 'sent' ||
+        status == 'counter' ||
+        status == 'in_transit';
 
     // Add ambulance trail polyline
     if (ambulanceLocationTrail.length > 1) {
       polylines.add(
         Polyline(
           polylineId: const PolylineId('ambulance_trail'),
-          color: isGoingToDestination ? Colors.green.shade600 : Colors.blue.shade600,
+          color: isGoingToDestination
+              ? Colors.green.shade600
+              : Colors.blue.shade600,
           width: 4,
           points: ambulanceLocationTrail,
           zIndex: 2,
@@ -485,19 +520,25 @@ class UserTrackingController extends GetxController {
       polylines.add(
         Polyline(
           polylineId: const PolylineId('route_to_user'),
-          color: isGoingToDestination ? Colors.green.shade700 : Colors.blue.shade700,
-          width: 6,
+          color: isGoingToDestination
+              ? Colors.green.shade700
+              : Colors.blue.shade700,
+          width: 5, // Slightly thinner for better map visibility
           points: routePoints,
           zIndex: 1,
         ),
       );
-    } else if (ambulancePosition.value != null && userPosition.value != null) {
+    } else if (ambulancePosition.value != null &&
+        userPosition.value != null &&
+        (isGoingToDestination || isComingToUser)) {
       // Fallback to straight line if no route calculated
       polylines.add(
         Polyline(
           polylineId: const PolylineId('route_to_user'),
-          color: isGoingToDestination ? Colors.green.shade700 : Colors.blue.shade700,
-          width: 6,
+          color: isGoingToDestination
+              ? Colors.green.shade700
+              : Colors.blue.shade700,
+          width: 5,
           points: [ambulancePosition.value!, userPosition.value!],
           zIndex: 1,
         ),
@@ -523,7 +564,8 @@ class UserTrackingController extends GetxController {
 
     List<LatLng> positions = [];
     if (userPosition.value != null) positions.add(userPosition.value!);
-    if (ambulancePosition.value != null) positions.add(ambulancePosition.value!);
+    if (ambulancePosition.value != null)
+      positions.add(ambulancePosition.value!);
 
     // Include route points in bounds calculation
     positions.addAll(routePoints);
@@ -554,14 +596,12 @@ class UserTrackingController extends GetxController {
   // Calculate route to destination
   Future<void> calculateRouteToDestination(LatLng destination) async {
     if (ambulancePosition.value == null) {
-      debugPrint('UserTracking: Cannot calculate route - ambulance position unknown');
       return;
     }
 
     try {
-      debugPrint('UserTracking: Calculating route to destination');
-
-      final origin = '${ambulancePosition.value!.latitude},${ambulancePosition.value!.longitude}';
+      final origin =
+          '${ambulancePosition.value!.latitude},${ambulancePosition.value!.longitude}';
       final dest = '${destination.latitude},${destination.longitude}';
 
       final result = await _directions.directions(
@@ -590,14 +630,8 @@ class UserTrackingController extends GetxController {
         _updatePolylines();
         _updateMarkers();
         _fitBounds();
-
-        debugPrint('UserTracking: Route to destination calculated - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
-      } else {
-        debugPrint('UserTracking: Failed to get route to destination: ${result.status}');
-      }
-    } catch (e) {
-      debugPrint('UserTracking: Error calculating route to destination: $e');
-    }
+      } else {}
+    } catch (e) {}
   }
 
   // ETA Calculation
@@ -609,10 +643,11 @@ class UserTrackingController extends GetxController {
 
     try {
       isCalculatingETA.value = true;
-      debugPrint('UserTracking: Calculating ETA from ambulance to user');
 
-      final origin = '${ambulancePosition.value!.latitude},${ambulancePosition.value!.longitude}';
-      final destination = '${userPosition.value!.latitude},${userPosition.value!.longitude}';
+      final origin =
+          '${ambulancePosition.value!.latitude},${ambulancePosition.value!.longitude}';
+      final destination =
+          '${userPosition.value!.latitude},${userPosition.value!.longitude}';
 
       final result = await _directions.directions(
         origin,
@@ -641,15 +676,11 @@ class UserTrackingController extends GetxController {
 
         // Fit bounds to show the entire route
         _fitBounds();
-
-        debugPrint('UserTracking: ETA calculated - ${estimatedTime.value}, Distance: ${distanceInKm.toStringAsFixed(1)} km');
       } else {
         estimatedTime.value = 'গণনা করা যায়নি';
-        debugPrint('UserTracking: ETA calculation failed: ${result.status}');
       }
     } catch (e) {
       estimatedTime.value = 'সময় গণনায় ত্রুটি';
-      debugPrint('UserTracking: ETA calculation error: $e');
     } finally {
       isCalculatingETA.value = false;
     }
@@ -705,8 +736,6 @@ class UserTrackingController extends GetxController {
     return points;
   }
 
-
-
   void _scheduleETAUpdate() {
     // Cancel existing timer
     _etaUpdateTimer?.cancel();
@@ -721,7 +750,6 @@ class UserTrackingController extends GetxController {
 
   void startLiveTracking() {
     isLiveTracking.value = true;
-    debugPrint('UserTracking: Started live tracking');
   }
 
   void stopLiveTracking() {
@@ -730,7 +758,6 @@ class UserTrackingController extends GetxController {
     _orderSubscription = null;
     _etaUpdateTimer?.cancel();
     _etaUpdateTimer = null;
-    debugPrint('UserTracking: Stopped live tracking');
   }
 
   void _showErrorDialog(String title, String message) {

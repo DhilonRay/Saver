@@ -5,9 +5,8 @@ import 'package:lottie/lottie.dart';
 import 'package:saver/components/constants/colors.dart';
 import 'package:saver/components/ui_components.dart';
 
-
 class Alert {
-  static void success(String msg) {
+  static Future<void> success(String msg) async {
     Get.dialog(
       Center(
         child: SizedBox(
@@ -28,7 +27,7 @@ class Alert {
                       width: 150,
                       height: 150,
                       child: Lottie.asset(
-                        'assets/images/success.json',
+                        'assets/success.json',
                         repeat: false,
                       ),
                     ),
@@ -52,6 +51,12 @@ class Alert {
         ),
       ),
     );
+
+    // Automatically close the dialog after 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
+    if (Get.isDialogOpen ?? false) {
+      Get.back();
+    }
   }
 
   static void confirm(String msg, ValueGetter onConfirm) {
@@ -315,8 +320,6 @@ class Alert {
       ),
     );
   }
-
-
 }
 
 class AlertDialogWidget extends StatelessWidget {

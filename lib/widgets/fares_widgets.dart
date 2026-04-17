@@ -191,112 +191,6 @@ class FareBreakdownWidget extends StatelessWidget {
   }
 }
 
-class FareEstimationWidget extends StatelessWidget {
-  final double distance;
-  final String serviceType;
-  final Map<String, int> partnerRates;
-  final String urgency;
-
-  const FareEstimationWidget({
-    Key? key,
-    required this.distance,
-    required this.serviceType,
-    required this.partnerRates,
-    this.urgency = 'normal',
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final fareEstimate = FareCalculationService.estimateFare(
-      distanceKm: distance,
-      serviceType: serviceType,
-      partnerRates: partnerRates,
-      urgency: urgency,
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.calculate, color: Colors.blue.shade700, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Fare Estimate',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Distance and time info
-          Row(
-            children: [
-              Icon(Icons.straighten, size: 16, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(
-                '${distance.toStringAsFixed(1)} km',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(width: 16),
-              Icon(Icons.access_time, size: 16, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(
-                '~${fareEstimate.estimatedTime.toStringAsFixed(0)} min',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Estimated fare
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Estimated Total',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Text(
-                FareCalculationService.formatFare(fareEstimate.totalFare),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-          Text(
-            '* Final fare may vary based on actual route and conditions',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class FareSummaryCard extends StatelessWidget {
   final FareDetails fareDetails;
   final VoidCallback? onViewBreakdown;
@@ -502,6 +396,202 @@ class IndoorOutdoorRatesWidget extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class RideDetailsWidget extends StatelessWidget {
+  final String pickupAddress;
+  final String destinationAddress;
+  final double distance;
+  final double estimatedTime;
+
+  const RideDetailsWidget({
+    Key? key,
+    required this.pickupAddress,
+    required this.destinationAddress,
+    required this.distance,
+    required this.estimatedTime,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: const Color(0xFF1976D2), size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Ride Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1976D2),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1976D2).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Ambulance',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1976D2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Pickup
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF1976D2), width: 2),
+                    ),
+                  ),
+                  Container(
+                    width: 2,
+                    height: 35,
+                    color: Colors.grey.shade300,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pickup Location',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      pickupAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Destination
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_on, color: Colors.redAccent, size: 16),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Destination',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      destinationAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Divider(height: 1),
+          ),
+
+          // Stats
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(Icons.straighten, '${distance.toStringAsFixed(1)} KM', 'Distance'),
+              _buildStatItem(Icons.access_time, '~${estimatedTime.toStringAsFixed(0)} MIN', 'Est. Time'),
+              _buildStatItem(Icons.security, 'Safe', 'Status'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.blueGrey.shade400, size: 18),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

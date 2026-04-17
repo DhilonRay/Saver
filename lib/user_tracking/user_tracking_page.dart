@@ -106,7 +106,7 @@ class UserTrackingPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: Offset(0, 4),
                           ),
@@ -155,7 +155,7 @@ class UserTrackingPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: Offset(0, -4),
           ),
@@ -225,7 +225,7 @@ class UserTrackingPage extends StatelessWidget {
                           return Text(
                             'Thank you for using our service',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 12,
                             ),
                           );
@@ -236,7 +236,7 @@ class UserTrackingPage extends StatelessWidget {
                               Text(
                                 'Heading to destination',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontSize: 12,
                                 ),
                               ),
@@ -244,18 +244,18 @@ class UserTrackingPage extends StatelessWidget {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.access_time, color: Colors.white.withOpacity(0.9), size: 14),
+                                  Icon(Icons.access_time, color: Colors.white.withValues(alpha: 0.9), size: 14),
                                   SizedBox(width: 4),
                                   Obx(() => Text(
                                         controller.estimatedTime.value,
-                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
                                       )),
                                   SizedBox(width: 12),
-                                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 14),
+                                  Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.9), size: 14),
                                   SizedBox(width: 4),
                                   Obx(() => Text(
                                         controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
-                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
                                       )),
                                 ],
                               ),
@@ -268,7 +268,7 @@ class UserTrackingPage extends StatelessWidget {
                               Text(
                                 'Hold your location',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontSize: 12,
                                 ),
                               ),
@@ -276,18 +276,18 @@ class UserTrackingPage extends StatelessWidget {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.access_time, color: Colors.white.withOpacity(0.9), size: 14),
+                                  Icon(Icons.access_time, color: Colors.white.withValues(alpha: 0.9), size: 14),
                                   SizedBox(width: 4),
                                   Obx(() => Text(
                                         controller.estimatedTime.value,
-                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
                                       )),
                                   SizedBox(width: 12),
-                                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.9), size: 14),
+                                  Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.9), size: 14),
                                   SizedBox(width: 4),
                                   Obx(() => Text(
                                         controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
-                                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
                                       )),
                                 ],
                               ),
@@ -502,11 +502,73 @@ class UserTrackingPage extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 12),
+                    
+                    // Driver Information
+                    Obx(() {
+                      final name = controller.partnerName.value;
+                      final imageUrl = controller.partnerImage.value;
+                      
+                      return Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade100, width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Colors.blue.shade200,
+                              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                              child: imageUrl == null ? Icon(Icons.person, color: Colors.blue.shade700) : null,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Ambulance Driver',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.blue.shade700,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    name,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                // Add phone calling logic if needed
+                              },
+                              icon: Icon(Icons.phone, color: Colors.blue.shade700),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    
+                    SizedBox(height: 12),
                     // Fare Information
                     Obx(() {
                       final orderData = controller.orderData.value;
                       final fareAmount =
-                          orderData?['fareAmount'] ?? orderData?['totalFare'];
+                          orderData?['fareAmount'] ??
+                          orderData?['confirmedFare'] ??
+                          orderData?['totalAmount'] ??
+                          orderData?['totalFare'];
 
                       if (fareAmount != null) {
                         return Container(
@@ -664,7 +726,10 @@ class UserTrackingPage extends StatelessWidget {
                     Obx(() {
                       final orderData = controller.orderData.value;
                       final fareAmount =
-                          orderData?['fareAmount'] ?? orderData?['totalFare'];
+                          orderData?['fareAmount'] ??
+                          orderData?['confirmedFare'] ??
+                          orderData?['totalAmount'] ??
+                          orderData?['totalFare'];
 
                       if (fareAmount != null) {
                         return Container(
@@ -829,6 +894,8 @@ class UserTrackingPage extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'accepted':
         return 'Ambulance Accepted';
+      case 'pending':
+        return 'Waiting for Partner';
       case 'in_transit':
         return 'Delivering On the Way';
       case 'pickup':

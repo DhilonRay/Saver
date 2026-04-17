@@ -34,7 +34,7 @@ import '../services/fares_service.dart';
 import '../widgets/fares_widgets.dart';
 import 'package:saver/components/constants/alert.dart';
 
-class HomeController extends GetxController {
+class HomeController extends GetxController with WidgetsBindingObserver {
   final bool isNewSignup;
 
   HomeController({this.isNewSignup = false});
@@ -62,6 +62,7 @@ class HomeController extends GetxController {
 
   // Reactive variables
   var currentPosition = Rx<LatLng?>(null);
+  var currentAddress = 'Finding location...'.obs;
   var destinationPosition = Rx<LatLng?>(null);
   var markers = <Marker>{}.obs;
   var polylines = <Polyline>{}.obs;
@@ -261,12 +262,12 @@ class HomeController extends GetxController {
       debugPrint('Loading custom PNG icons...');
       // Load PNG files (converted from SVG)
       personIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(40, 40)),
-        'assets/markers/user.png',
+        const ImageConfiguration(size: Size(45, 45)),
+        'assets/images/pin-map.png',
       );
       ambulanceIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(32, 32)),
-        'assets/markers/ambulance.png',
+        const ImageConfiguration(size: Size(40, 40)),
+        'assets/images/ambulance.png',
       );
       hospitalIcon = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(32, 32)),
@@ -298,6 +299,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
     _loadCustomIcons();
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(
@@ -325,10 +327,18 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
     destinationController.dispose();
     _debounceTimer?.cancel();
     _locationUpdateTimer?.cancel(); // Cancel location update timer
     super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _getCurrentLocation();
+    }
   }
 
   /// Start periodic location updates every 10 seconds
@@ -368,6 +378,7 @@ class HomeController extends GetxController {
       }
 
       currentPosition.value = newPosition;
+      _getAddressFromLatLng(newPosition);
 
       // Update marker
       markers.removeWhere((m) => m.markerId.value == 'currentLocation');
@@ -488,6 +499,7 @@ class HomeController extends GetxController {
       );
 
       currentPosition.value = LatLng(position.latitude, position.longitude);
+      _getAddressFromLatLng(currentPosition.value!);
 
       // Update markers reactively
       markers.clear();
@@ -509,6 +521,7 @@ class HomeController extends GetxController {
     } catch (e) {
       // Use default position if location fails
       currentPosition.value = defaultPosition;
+      _getAddressFromLatLng(defaultPosition);
       markers.clear();
       markers.add(
         Marker(
@@ -852,6 +865,12 @@ class HomeController extends GetxController {
       // Reset typing flag when input becomes empty
       hasStartedTyping.value = false;
       placeSuggestions.clear();
+
+      // Clear map state when query is cleared
+      destinationPosition.value = null;
+      polylines.clear();
+      markers.removeWhere((marker) => marker.markerId.value == 'destination');
+
       return;
     }
 
@@ -1361,6 +1380,7 @@ class HomeController extends GetxController {
                           data['ambulanceType'] ?? 'General Ambulance';
                       final latitude = data['latitude'] as double?;
                       final longitude = data['longitude'] as double?;
+                      // ignore: unused_local_variable
                       final profileImageUrl =
                           data['profileImageUrl'] as String?;
                       final ambulanceImageUrl =
@@ -1594,11 +1614,12 @@ class HomeController extends GetxController {
                                                 .value!.longitude,
                                           );
 
-                                          return FareEstimationWidget(
+                                          return RideDetailsWidget(
+                                            pickupAddress: currentAddress.value,
+                                            destinationAddress:
+                                                destinationQuery.value,
                                             distance: distance,
-                                            serviceType: 'ambulance',
-                                            partnerRates: rates,
-                                            urgency: 'normal',
+                                            estimatedTime: (distance * 2) + 5,
                                           );
                                         },
                                       ),
@@ -1868,237 +1889,16 @@ class HomeController extends GetxController {
                 //   ),
                 // ),
 
-                // Fare Details Section
+                // Ride Details Section (Distance and Time only, no fare initially)
                 if (estimatedFare != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.blue.shade50, Colors.blue.shade100],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border:
-                          Border.all(color: Colors.blue.shade300, width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.shade100.withOpacity(0.5),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header with icon and title
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.receipt_long,
-                                color: Colors.blue.shade800,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'ভাড়ার বিবরণ',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Distance and time info in a card-like container
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              // Distance
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.straighten,
-                                        size: 20, color: Colors.blue.shade600),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${estimatedFare.distance.toStringAsFixed(1)} km',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.blue.shade800,
-                                      ),
-                                    ),
-                                    Text(
-                                      'দূরত্ব',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                height: 40,
-                                width: 1,
-                                color: Colors.grey.shade300,
-                              ),
-                              // Time
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.access_time,
-                                        size: 20, color: Colors.green.shade600),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '~${estimatedFare.estimatedTime.toStringAsFixed(0)} min',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
-                                    Text(
-                                      'সময়',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Fare breakdown in a cleaner list format
-                        Text(
-                          'চার্জের বিবরণ:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: estimatedFare.breakdown.entries
-                                .where((entry) =>
-                                    !entry.key
-                                        .toLowerCase()
-                                        .contains('subtotal') &&
-                                    !entry.key
-                                        .toLowerCase()
-                                        .contains('surge') &&
-                                    entry.value != 1.0)
-                                .map((entry) {
-                              final label = _friendlyFareKey(entry.key);
-                              String valueText;
-                              if (entry.key
-                                      .toLowerCase()
-                                      .contains('multiplier') ||
-                                  entry.key.toLowerCase().contains('urgency')) {
-                                final num rawNum = entry.value as num;
-                                valueText = '×${rawNum.toStringAsFixed(1)}';
-                              } else {
-                                valueText = _formatFare(entry.value);
-                              }
-                              return _buildBreakdownRow(label, valueText,
-                                  valueColor: entry.key
-                                              .toLowerCase()
-                                              .contains('multiplier') ||
-                                          entry.key
-                                              .toLowerCase()
-                                              .contains('surge')
-                                      ? Colors.orange.shade700
-                                      : null,
-                                  icon: entry.key
-                                          .toLowerCase()
-                                          .contains('distance')
-                                      ? Icons.straighten
-                                      : null);
-                            }).toList(),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-                        Divider(color: Colors.blue.shade300, thickness: 1),
-                        const SizedBox(height: 8),
-
-                        // Total amount in a highlighted box
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade900.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: Colors.green.shade200, width: 1.0),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '💰 আনুমানিক ভাড়া',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade800,
-                                ),
-                              ),
-                              Text(
-                                _formatFare(estimatedFare.totalFare),
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-                        Text(
-                          '* এটি আনুমানিক ভাড়া। চূড়ান্ত ভাড়া রাইড শেষে নির্ধারিত হবে।',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontStyle: FontStyle.italic,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: RideDetailsWidget(
+                      pickupAddress: currentAddress.value,
+                      destinationAddress:
+                          _selectedPlaceName ?? destinationQuery.value,
+                      distance: estimatedFare.distance,
+                      estimatedTime: estimatedFare.estimatedTime,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2473,64 +2273,6 @@ class HomeController extends GetxController {
 
                     SizedBox(height: 16),
 
-                    // Fare Estimation (if applicable)
-                    if (currentPosition.value != null &&
-                        destinationPosition.value != null) ...[
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amber.shade200),
-                        ),
-                        child: FutureBuilder<Map<String, int>>(
-                          future: _fetchPartnerRates(ambulanceData['id']),
-                          builder: (context, rateSnapshot) {
-                            if (rateSnapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return Row(
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.amber.shade600),
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Calculating fare...',
-                                    style:
-                                        TextStyle(color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              );
-                            }
-
-                            final rates =
-                                rateSnapshot.data ?? {'serviceRate': 2500};
-                            final distance =
-                                FareCalculationService.calculateDistance(
-                              currentPosition.value!.latitude,
-                              currentPosition.value!.longitude,
-                              destinationPosition.value!.latitude,
-                              destinationPosition.value!.longitude,
-                            );
-
-                            return FareEstimationWidget(
-                              distance: distance,
-                              serviceType: 'ambulance',
-                              partnerRates: rates,
-                              urgency: 'normal',
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                    ],
-
                     // Action Buttons
                     Row(
                       children: [
@@ -2709,7 +2451,7 @@ class HomeController extends GetxController {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: phoneNumber));
                         Get.back();
-                        Alert.success('Emergency number copied to clipboard');
+                        Alert.info('Emergency number copied to clipboard');
                       },
                       icon: const Icon(Icons.copy, size: 18),
                       label: const Text('Copy'),
@@ -2778,7 +2520,8 @@ class HomeController extends GetxController {
       var status = await Permission.phone.request();
       if (status.isGranted) {
         if (await canLaunchUrl(uri)) {
-          bool launched = await launchUrl(uri);
+          bool launched =
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
           if (!launched) {
             Alert.error('Unable to open the phone dialer on this device.');
           }
@@ -2853,11 +2596,8 @@ class HomeController extends GetxController {
   }) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) {
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'User not authenticated',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
       return null;
     }
@@ -2880,12 +2620,8 @@ class HomeController extends GetxController {
           .get();
 
       if (existingRequests.docs.isNotEmpty) {
-        Get.snackbar(
-          'Request Already Pending',
+        Alert.info(
           'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 5),
         );
         return null;
       }
@@ -2965,9 +2701,17 @@ class HomeController extends GetxController {
         'destinationAddress': _selectedPlaceName ?? destinationQuery.value,
         'destinationLat': destinationPosition.value?.latitude,
         'destinationLng': destinationPosition.value?.longitude,
-        'fareDetails': fareDetails?.toMap(),
-        'totalAmount': fareDetails?.totalFare ?? 0.0,
+        'totalAmount': 0.0, // Initial amount is 0 for bidding
+        'negotiation': {
+          'status': 'user_requested',
+          'driverAccepted': false,
+          'userAccepted': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
       });
+
+      // Start listening for driver offers for this specific order
+      _listenToOrderNegotiation(docRef.id, partnerId);
 
       debugPrint('✅ Order created successfully with ID: ${docRef.id}');
 
@@ -3051,13 +2795,59 @@ class HomeController extends GetxController {
       return docRef.id;
     } catch (e) {
       debugPrint('❌ Failed to create ambulance request: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to send request: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
       return null;
+    }
+  }
+
+  void _listenToOrderNegotiation(String orderId, String partnerId) {
+    debugPrint('📡 Listening for negotiation updates for order: $orderId');
+    FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data()!;
+      final negotiation = data['negotiation'] as Map<String, dynamic>? ?? {};
+      final status = negotiation['status'] as String? ?? '';
+      final counterBy = negotiation['counterBy'] as String? ?? '';
+      final counterFare =
+          (negotiation['counterFare'] as num?)?.toDouble() ?? 0.0;
+
+      // If driver sent an offer, navigate to negotiation page
+      if (status == 'counter' && counterBy == 'driver' && counterFare > 0) {
+        debugPrint(
+            '💰 Driver offered fare: $counterFare. Navigating to negotiation page...');
+
+        // Prevent multiple navigations if already on the page
+        if (Get.currentRoute != '/fare-negotiation') {
+          Get.toNamed('/fare-negotiation', arguments: {
+            'requestId': orderId,
+            'driverId': partnerId,
+            'fare': counterFare,
+          });
+        }
+      }
+    });
+  }
+
+  Future<void> _getAddressFromLatLng(LatLng position) async {
+    try {
+      List<geocoding.Placemark> placemarks = await geocoding
+          .placemarkFromCoordinates(position.latitude, position.longitude);
+      if (placemarks.isNotEmpty) {
+        geocoding.Placemark place = placemarks[0];
+        currentAddress.value =
+            "${place.street}, ${place.subLocality}, ${place.locality}";
+        debugPrint('📍 Resolved address: ${currentAddress.value}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error resolving address: $e');
+      currentAddress.value = "Unknown Location";
     }
   }
 
@@ -4406,11 +4196,8 @@ class HomeController extends GetxController {
         controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to set destination: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     }
   }
@@ -4516,39 +4303,8 @@ class HomeController extends GetxController {
       );
 
       if (response.statusCode == 200) {
-        print('✅ Push notification sent successfully to driver: $driverId');
-        print('📱 FCM Response: ${response.body}');
-
-        /*    // Show success message to user
-        Get.snackbar(
-          'সফল',
-          'ড্রাইভারের কাছে আপনার রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 3),
-        ); */
-      } else {
-        print('❌ Failed to send push notification: ${response.statusCode}');
-        print('📱 FCM Error Response: ${response.body}');
-
-        /*  Get.snackbar(
-          'ত্রুটি',
-          'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 3),
-        ); */
-      }
-    } catch (e) {
-      print('❌ Error sending push notification: $e');
-      /*   Get.snackbar(
-        'ত্রুটি',
-        'নোটিফিকেশন পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-        duration: const Duration(seconds: 3),
-      ); */
-    }
+      } else {}
+    } catch (e) {}
   }
 
   /// Sends notification to multiple drivers based on proximity
@@ -4606,20 +4362,10 @@ class HomeController extends GetxController {
       }
 
       if (notificationsSent > 0) {
-        print('✅ Sent notifications to $notificationsSent nearby drivers');
-        /*  Get.snackbar(
-          'সফল',
-          '$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 4),
-        ); */
       } else {
-        print('⚠️ No nearby drivers found');
         Alert.info('আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি');
       }
     } catch (e) {
-      print('❌ Error sending notifications to nearby drivers: $e');
       Alert.error('আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে');
     }
   }
@@ -4634,7 +4380,6 @@ class HomeController extends GetxController {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-        /*   Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন'); */
         return;
       }
 
@@ -4645,7 +4390,6 @@ class HomeController extends GetxController {
           .get();
 
       if (!driverDoc.exists) {
-        /*  Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি'); */
         return;
       }
 
@@ -4653,10 +4397,8 @@ class HomeController extends GetxController {
       final fcmToken = driverData?['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
-        /* Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি'); */
         return;
       }
-
       // Create ride request data
       final requestData = {
         'requestId': DateTime.now().millisecondsSinceEpoch.toString(),

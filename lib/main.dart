@@ -14,7 +14,8 @@ import 'package:saver/admin/admin_dashboard/admin_dashboard.dart';
 import 'package:saver/admin/admin_setup_screen.dart';
 import 'package:saver/admin/easy_admin_creator.dart';
 import 'package:saver/fare_negotiation/fare_negotiation_page.dart';
-import 'package:saver/payment/payment_page.dart';
+import 'package:saver/user_tracking/user_tracking_page.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,7 +96,7 @@ class MyApp extends StatelessWidget {
         GetPage(
             name: '/terms-conditions', page: () => const TermsConditionPage()),
         GetPage(name: '/fare-negotiation', page: () => FareNegotiationPage()),
-        GetPage(name: '/payment', page: () => PaymentPage()),
+        GetPage(name: '/user-tracking', page: () => const UserTrackingPage()),
       ],
     );
   }

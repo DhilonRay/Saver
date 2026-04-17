@@ -20,7 +20,6 @@ import '../accept_maps/accept_maps.dart';
 
 import '../../services/notification_service.dart';
 import '../../services/fares_service.dart';
-import 'package:intl/intl.dart';
 import '../../components/alert.dart';
 
 class HomePartnerController extends GetxController {
@@ -80,6 +79,7 @@ class HomePartnerController extends GetxController {
   final TextEditingController _fareInputController = TextEditingController();
 
   // Timer for periodic location updates (10 seconds)
+  StreamSubscription? _activeNegotiationSubscription;
   Timer? _locationUpdateTimer;
 
   // Helper function to format address display
@@ -101,31 +101,22 @@ class HomePartnerController extends GetxController {
 
   Future<void> _initializeFCM() async {
     try {
-      debugPrint('🔧 Initializing FCM for partner...');
       final token = await NotificationService.initializeFCMToken();
       if (token != null) {
-        debugPrint(
-            '✅ Partner FCM token initialized: ${token.substring(0, 10)}...');
-      } else {
-        debugPrint('❌ Failed to initialize Partner FCM token');
-      }
-    } catch (e) {
-      debugPrint('❌ Error initializing Partner FCM status: $e');
-    }
+      } else {}
+    } catch (e) {}
   }
 
   Future<void> _loadCustomIcons() async {
     try {
       debugPrint('Loading custom PNG icons for partner...');
       currentLocationIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(40, 40)),
-        'assets/markers/ambulance.png',
+        const ImageConfiguration(size: Size(45, 45)),
+        'assets/images/ambulance.png',
       );
       userLocationIcon =
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-      debugPrint('Partner custom icons loaded successfully');
     } catch (e) {
-      debugPrint('Failed to load partner custom icons: $e');
       currentLocationIcon =
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
       userLocationIcon =
@@ -152,24 +143,17 @@ class HomePartnerController extends GetxController {
 
           // Also set serviceRate for legacy support
           serviceRate.value = data['serviceRate'] ?? defaultServiceRate;
-
-          debugPrint(
-              '✅ Loaded partner rates: Indoor=${indoorRate.value}, Outdoor=${outdoorRate.value}');
         } else {
           indoorRate.value = defaultServiceRate;
           outdoorRate.value = defaultServiceRate;
           serviceRate.value = defaultServiceRate;
-          debugPrint('ℹ️ Using default rates for new partner');
         }
       }, onError: (e) {
-        debugPrint('❌ Error loading partner rates: $e');
         indoorRate.value = defaultServiceRate;
         outdoorRate.value = defaultServiceRate;
         serviceRate.value = defaultServiceRate;
       });
-    } catch (e) {
-      debugPrint('❌ Error setting up partner rates listener: $e');
-    }
+    } catch (e) {}
   }
 
   void _loadPartnerName() {
@@ -187,19 +171,14 @@ class HomePartnerController extends GetxController {
           final data = doc.data()!;
           partnerName.value =
               data['name'] ?? user.displayName ?? 'NeoSaver Partner';
-          debugPrint('✅ Loaded partner name: ${partnerName.value}');
         } else {
           partnerName.value = user.displayName ?? 'NeoSaver Partner';
-          debugPrint('ℹ️ Using display name or default for partner name');
         }
       }, onError: (e) {
-        debugPrint('❌ Error loading partner name: $e');
         partnerName.value =
             _auth.currentUser?.displayName ?? 'NeoSaver Partner';
       });
-    } catch (e) {
-      debugPrint('❌ Error setting up partner name listener: $e');
-    }
+    } catch (e) {}
   }
 
   void _loadProfileImage() {
@@ -216,22 +195,14 @@ class HomePartnerController extends GetxController {
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
           profileImageUrl.value = data['profileImageUrl'];
-          debugPrint(
-              '✅ Loaded profile image: ${profileImageUrl.value != null ? 'Yes' : 'No'}');
         }
-      }, onError: (e) {
-        debugPrint('❌ Error loading profile image: $e');
-      });
-    } catch (e) {
-      debugPrint('❌ Error setting up profile image listener: $e');
-    }
+      }, onError: (e) {});
+    } catch (e) {}
   }
 
   // Profile Image Methods
   Future<void> pickAndUploadProfileImage() async {
     try {
-      debugPrint('🖼️ Starting gallery image selection');
-
       // Request photo library permissions (different for iOS/Android)
       PermissionStatus status;
 
@@ -267,23 +238,16 @@ class HomePartnerController extends GetxController {
       );
 
       if (image != null) {
-        debugPrint('📁 Image selected from gallery: ${image.path}');
-        // Check file size and compress further if needed
         final compressedImage = await _ultraFastCompress(File(image.path));
         await uploadProfileImage(compressedImage);
-      } else {
-        debugPrint('❌ No image selected from gallery');
-      }
+      } else {}
     } catch (e) {
-      debugPrint('❌ Error picking image from gallery: $e');
       Alert.info('Failed to pick image from gallery. Please try again.');
     }
   }
 
   Future<void> pickAndUploadProfileImageFromCamera() async {
     try {
-      debugPrint('📷 Starting camera image capture');
-
       // Request camera permission first
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
@@ -300,15 +264,11 @@ class HomePartnerController extends GetxController {
       );
 
       if (image != null) {
-        debugPrint('📸 Image captured from camera: ${image.path}');
         // Check file size and compress further if needed
         final compressedImage = await _ultraFastCompress(File(image.path));
         await uploadProfileImage(compressedImage);
-      } else {
-        debugPrint('❌ No image captured from camera');
-      }
+      } else {}
     } catch (e) {
-      debugPrint('❌ Error taking photo: $e');
       Alert.info('Failed to take photo. Please try again.');
     }
   }
@@ -337,8 +297,6 @@ class HomePartnerController extends GetxController {
           .ref()
           .child('profile_images/${user.uid}/$fileName');
 
-      debugPrint('📤 Starting profile image upload: $fileName');
-
       // Upload the file with progress monitoring
       final uploadTask = storageRef.putFile(imageFile);
 
@@ -346,8 +304,6 @@ class HomePartnerController extends GetxController {
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         uploadProgress.value = progress;
-        debugPrint(
-            '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
       });
 
       final snapshot = await uploadTask
@@ -373,16 +329,13 @@ class HomePartnerController extends GetxController {
         // Update local state
         profileImageUrl.value = downloadUrl;
 
-        debugPrint('✅ Profile image updated successfully');
         if (Get.context != null) {
-          Alert.success('Your profile image has been updated successfully!');
+          Alert.info('Your profile image has been updated successfully!');
         }
       } else {
         throw 'Upload failed with state: ${snapshot.state}';
       }
     } catch (e) {
-      debugPrint('❌ Error uploading profile image: $e');
-
       // Provide more specific error messages
       String errorMessage = 'Failed to upload profile image. Please try again.';
       if (e.toString().contains('network') ||
@@ -411,7 +364,6 @@ class HomePartnerController extends GetxController {
   }
 
   void showProfileImageOptions() {
-    debugPrint('🔄 Opening profile image options bottom sheet');
     if (Get.context != null) {
       Get.bottomSheet(
         Container(
@@ -566,15 +518,13 @@ class HomePartnerController extends GetxController {
 
       debugPrint('🗑️ Profile image removed successfully');
       if (Get.context != null) {
-        Alert.success('Your profile image has been removed successfully!');
+        Alert.info('Your profile image has been removed successfully!');
       }
     } catch (e) {
       debugPrint('❌ Error removing profile image: $e');
       if (Get.context != null) {
-        Get.snackbar(
-          'Error',
+        Alert.info(
           'Failed to remove profile image. Please try again.',
-          snackPosition: SnackPosition.BOTTOM,
         );
       }
     }
@@ -612,19 +562,11 @@ class HomePartnerController extends GetxController {
             '${tempDir.path}/ultra_fast_${DateTime.now().millisecondsSinceEpoch}.jpg');
         await tempFile.writeAsBytes(compressedBytes);
 
-        final originalSize = await imageFile.length();
-        final compressedSize = await tempFile.length();
-        final compressionRatio =
-            ((originalSize - compressedSize) / originalSize * 100);
-        debugPrint(
-            '✅ Ultra-fast compression: ${compressionRatio.toStringAsFixed(1)}% size reduction');
-
         return tempFile;
       }
 
       return imageFile; // Return original if compression fails
     } catch (e) {
-      debugPrint('❌ Error in ultra-fast compression: $e');
       return imageFile; // Return original on error
     }
   }
@@ -660,12 +602,8 @@ class HomePartnerController extends GetxController {
       outdoorRate.value = newOutdoorRate;
       serviceRate.value = newIndoorRate;
 
-      debugPrint(
-          '✅ Partner rates updated: Indoor=$newIndoorRate, Outdoor=$newOutdoorRate');
-
       return true;
     } catch (e) {
-      debugPrint('❌ Error updating partner rates: $e');
       Alert.info('Failed to update rates: $e');
       return false;
     }
@@ -804,7 +742,7 @@ class HomePartnerController extends GetxController {
                             Future.delayed(const Duration(milliseconds: 300),
                                 () {
                               if (Get.context != null) {
-                                Alert.success(
+                                Alert.info(
                                     'Your service rates have been updated successfully!');
                               }
                             });
@@ -850,8 +788,6 @@ class HomePartnerController extends GetxController {
   }
 
   Future<void> _initializeController() async {
-    debugPrint('🚀 Starting HomePartnerController initialization...');
-
     // Load custom icons first
     await _loadCustomIcons();
 
@@ -883,12 +819,11 @@ class HomePartnerController extends GetxController {
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (Get.context != null) {
-          Alert.success(
+          Alert.info(
               'Your driver account has been created successfully. You can now start accepting ambulance requests.');
         }
       });
     }
-    debugPrint('✅ HomePartnerController initialization sequence started');
   }
 
   @override
@@ -911,7 +846,6 @@ class HomePartnerController extends GetxController {
     _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _updateCurrentLocation();
     });
-    debugPrint('📍 Started location update timer (10 second interval)');
   }
 
   /// Update current location silently (without loading indicators)
@@ -958,12 +892,7 @@ class HomePartnerController extends GetxController {
       if (isOnline.value) {
         await _updatePartnerLocation();
       }
-
-      debugPrint(
-          '📍 Location updated: ${position.latitude}, ${position.longitude}');
-    } catch (e) {
-      debugPrint('❌ Error updating location: $e');
-    }
+    } catch (e) {}
   }
 
   /// Reset shown requests (useful when driver logs out and logs back in)
@@ -981,11 +910,8 @@ class HomePartnerController extends GetxController {
         final key = 'declined_requests_${user.uid}';
         final declinedIds = prefs.getStringList(key) ?? [];
         declinedRequestIds.addAll(declinedIds);
-        debugPrint('✅ Loaded ${declinedIds.length} declined request IDs');
       }
-    } catch (e) {
-      debugPrint('❌ Error loading declined request IDs: $e');
-    }
+    } catch (e) {}
   }
 
   /// Save declined request IDs to shared preferences
@@ -996,92 +922,8 @@ class HomePartnerController extends GetxController {
       if (user != null) {
         final key = 'declined_requests_${user.uid}';
         await prefs.setStringList(key, declinedRequestIds.toList());
-        debugPrint('✅ Saved ${declinedRequestIds.length} declined request IDs');
       }
-    } catch (e) {
-      debugPrint('❌ Error saving declined request IDs: $e');
-    }
-  }
-
-  // Format a fare value to localized currency string (no decimal places)
-  String _formatFare(dynamic value) {
-    try {
-      double val;
-      if (value is num) {
-        val = value.toDouble();
-      } else if (value is String) {
-        val = double.tryParse(value) ?? 0.0;
-      } else {
-        return value?.toString() ?? '';
-      }
-
-      final fmt =
-          NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
-      return fmt.format(val);
-    } catch (e) {
-      return value?.toString() ?? '';
-    }
-  }
-
-  // Convert internal fare breakdown keys to simple Bengali labels for normal users
-  String _friendlyFareKey(String key) {
-    final k = key.toLowerCase();
-
-    if (k.contains('distance')) return 'দূরত্বভিত্তিক চার্জ';
-    if (k.contains('time')) return 'সময়ভিত্তিক চার্জ';
-    if (k.contains('base')) return 'বেস ভাড়া';
-    if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
-    if (k.contains('urgency')) return 'জরুরি গুণক';
-    if (k.contains('additional') || k.contains('extra'))
-      return 'অতিরিক্ত চার্জ';
-    if (k.contains('subtotal')) return 'সাবটোটাল';
-    if (k.contains('total')) return 'মোট';
-
-    // Fallback - return key as-is, but capitalized nicely
-    return key[0].toUpperCase() + key.substring(1);
-  }
-
-  // Helper to build a labeled row for fare breakdown with consistent styling
-  Widget _buildBreakdownRow(String label, String value,
-      {Color? valueColor, IconData? icon}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 14, color: Colors.grey.shade600),
-                  const SizedBox(width: 6),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: valueColor ?? Colors.black87,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
+    } catch (e) {}
   }
 
   Future<void> _getCurrentLocation() async {
@@ -1160,99 +1002,68 @@ class HomePartnerController extends GetxController {
           'isOnline': isOnline.value, // Use the observable value
         });
       }
-    } catch (e) {
-      debugPrint('Failed to update partner location: $e');
-    }
+    } catch (e) {}
   }
 
   void _listenForRequests() {
-    debugPrint('🚀 _listenForRequests() method called - Starting setup...');
-
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        debugPrint('❌ No authenticated user for listening to requests');
         return;
       }
-
-      debugPrint('🔍 Setting up request listener for partner: ${user.uid}');
-      debugPrint(
-          '🔍 Querying orders collection with: type=ambulance, status=pending, partnerId=${user.uid}');
 
       _requestsSubscription = FirebaseFirestore.instance
           .collection('orders')
           .where('type', isEqualTo: 'ambulance')
-          .where('status', isEqualTo: 'pending')
+          .where('status', whereIn: ['pending', 'counter'])
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
-        debugPrint(
-            '📡 Request listener triggered - found ${snapshot.docs.length} documents');
+            // Log each document for debugging
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              debugPrint(
+                  '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
+            }
 
-        // Log each document for debugging
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          debugPrint(
-              '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
-        }
+            // Filter out declined requests
+            final allRequests = snapshot.docs
+                .map((doc) {
+                  return {
+                    'id': doc.id,
+                    ...doc.data(),
+                  };
+                })
+                .where((request) => !declinedRequestIds.contains(request['id']))
+                .toList();
 
-        // Filter out declined requests
-        final allRequests = snapshot.docs
-            .map((doc) {
-              return {
-                'id': doc.id,
-                ...doc.data(),
-              };
-            })
-            .where((request) => !declinedRequestIds.contains(request['id']))
-            .toList();
+            pendingRequests.value = allRequests;
 
-        pendingRequests.value = allRequests;
-        debugPrint(
-            '📋 Filtered pending requests: ${allRequests.length} (after excluding ${declinedRequestIds.length} declined)');
+            // Show bottom sheet if there are pending requests that haven't been shown yet and aren't declined
+            final newRequests = pendingRequests
+                .where((request) =>
+                    !shownRequestIds.contains(request['id']) &&
+                    !declinedRequestIds.contains(request['id']))
+                .toList();
 
-        // Show bottom sheet if there are pending requests that haven't been shown yet and aren't declined
-        final newRequests = pendingRequests
-            .where((request) =>
-                !shownRequestIds.contains(request['id']) &&
-                !declinedRequestIds.contains(request['id']))
-            .toList();
+            if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
+              final firstNewRequest = newRequests.first;
+              shownRequestIds.add(firstNewRequest['id']); // Mark as shown
+              showRequestBottomSheet.value = true;
+              
+              // Start listening to THIS specific request to detect when user accepts
+              _startActiveNegotiationListener(firstNewRequest);
 
-        debugPrint('🆕 New requests to show: ${newRequests.length}');
-        debugPrint(
-            '🚫 Already shown: ${shownRequestIds.length}, Declined: ${declinedRequestIds.length}');
-        debugPrint(
-            '📱 Bottom sheet currently showing: ${showRequestBottomSheet.value}');
-
-        if (newRequests.isNotEmpty && !showRequestBottomSheet.value) {
-          final firstNewRequest = newRequests.first;
-          shownRequestIds.add(firstNewRequest['id']); // Mark as shown
-          showRequestBottomSheet.value = true;
-          debugPrint(
-              '🔔 Showing bottom sheet for new request: ${firstNewRequest['id']}');
-          debugPrint(
-              '👤 Patient: ${firstNewRequest['patientName']}, Phone: ${firstNewRequest['phone']}');
-          _showRequestBottomSheet(firstNewRequest);
-        } else if (newRequests.isEmpty) {
-          debugPrint('ℹ️ No new requests to show');
-        } else {
-          debugPrint('⏳ Bottom sheet already showing, queuing request');
-        }
-      }, onError: (error) {
-        debugPrint('❌ Error in request listener: $error');
-        debugPrint('❌ Error type: ${error.runtimeType}');
-
-        // Check for network connectivity issues
-        if (error.toString().contains('UNAVAILABLE') ||
-            error.toString().contains('firestore.googleapis.com') ||
-            error.toString().contains('Unable to resolve host')) {
-          debugPrint(
-              '🌐 Network connectivity issue detected. Firestore offline mode will handle sync when connection returns.');
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ Failed to set up request listener: $e');
-    }
+              _showRequestBottomSheet(firstNewRequest);
+            } else if (newRequests.isEmpty) {
+            } else {}
+          }, onError: (error) {
+            // Check for network connectivity issues
+            if (error.toString().contains('UNAVAILABLE') ||
+                error.toString().contains('firestore.googleapis.com') ||
+                error.toString().contains('Unable to resolve host')) {}
+          });
+    } catch (e) {}
   }
 
   void _showRequestBottomSheet(Map<String, dynamic> request) {
@@ -1287,7 +1098,7 @@ class HomePartnerController extends GetxController {
                   borderRadius: BorderRadius.circular(15),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.shade200.withOpacity(0.3),
+                      color: Colors.red.shade200.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: Offset(0, 4),
                     ),
@@ -1338,7 +1149,7 @@ class HomePartnerController extends GetxController {
                   border: Border.all(color: Colors.blue.shade200, width: 1),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.blue.shade100.withOpacity(0.3),
+                      color: Colors.blue.shade100.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: Offset(0, 3),
                     ),
@@ -1412,7 +1223,7 @@ class HomePartnerController extends GetxController {
                   border: Border.all(color: Colors.blue.shade200, width: 1),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.blue.shade100.withOpacity(0.3),
+                      color: Colors.blue.shade100.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: Offset(0, 3),
                     ),
@@ -1469,7 +1280,7 @@ class HomePartnerController extends GetxController {
                     border: Border.all(color: Colors.blue.shade200, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blue.shade100.withOpacity(0.3),
+                        color: Colors.blue.shade100.withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: Offset(0, 3),
                       ),
@@ -1520,680 +1331,6 @@ class HomePartnerController extends GetxController {
                 ),
 
               SizedBox(height: 16),
-
-              // Fare Information Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade50, Colors.blue.shade100],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.blue.shade300, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.shade100.withOpacity(0.5),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.receipt_long,
-                            color: Colors.blue.shade800,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'ভাড়ার বিবরণ',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    // CRITICAL: Always show the exact stored amount that was agreed upon
-                    // Do not recalculate - this causes fare mismatches
-                    Builder(
-                      builder: (context) {
-                        // First priority: Check if we have stored totalAmount from user's booking
-                        // Try multiple possible field names for the fare amount
-                        final storedTotalAmount =
-                            request['totalAmount'] as double? ??
-                                request['fareAmount'] as double? ??
-                                (request['fareAmount'] as int?)?.toDouble();
-                        final storedFareDetails =
-                            request['fareDetails'] as Map<String, dynamic>?;
-
-                        // Debug: Print all available fields to understand data structure
-                        debugPrint(
-                            '🔍 Request data fields: ${request.keys.toList()}');
-                        debugPrint('💰 totalAmount: ${request['totalAmount']}');
-                        debugPrint('💰 fareAmount: ${request['fareAmount']}');
-                        debugPrint('💰 fareDetails: ${request['fareDetails']}');
-                        debugPrint(
-                            '💰 Final storedTotalAmount: $storedTotalAmount');
-
-                        // PRIORITY 1: Check fareDetails first (this contains user's original calculation)
-                        if (storedFareDetails != null) {
-                          final fareFromDetails =
-                              storedFareDetails['totalFare'] as double? ??
-                                  storedFareDetails['totalAmount'] as double? ??
-                                  (storedFareDetails['totalFare'] as int?)
-                                      ?.toDouble() ??
-                                  (storedFareDetails['totalAmount'] as int?)
-                                      ?.toDouble();
-
-                          debugPrint(
-                              '🎯 Fare from fareDetails: $fareFromDetails');
-
-                          if (fareFromDetails != null && fareFromDetails > 0) {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Distance info if available
-                                  if (storedFareDetails['distance'] != null)
-                                    Row(
-                                      children: [
-                                        Icon(Icons.straighten,
-                                            size: 16, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${(storedFareDetails['distance'] as double).toStringAsFixed(1)} km',
-                                          style: const TextStyle(
-                                              fontSize: 14, color: Colors.grey),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Icon(Icons.access_time,
-                                            size: 16, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '~${(storedFareDetails['estimatedTime'] as double? ?? 0).toStringAsFixed(0)} min',
-                                          style: const TextStyle(
-                                              fontSize: 14, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  if (storedFareDetails['distance'] != null)
-                                    const SizedBox(height: 12),
-
-                                  // Fare breakdown if available
-                                  if (storedFareDetails['breakdown'] !=
-                                      null) ...[
-                                    const Text(
-                                      'মূল ভাড়ার বিবরণ:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ...((storedFareDetails['breakdown']
-                                            as Map<String, dynamic>)
-                                        .entries
-                                        // Remove subtotal, surge, and multiplier entries for clarity
-                                        .where((entry) =>
-                                            !entry.key
-                                                .toLowerCase()
-                                                .contains('subtotal') &&
-                                            !entry.key
-                                                .toLowerCase()
-                                                .contains('surge') &&
-                                            !entry.key
-                                                .toLowerCase()
-                                                .contains('multiplier'))
-                                        .map((entry) {
-                                      final label = _friendlyFareKey(entry.key);
-                                      String valueText;
-                                      // For multiplier-like entries, show a simple × multiplier with note for normal
-                                      if (entry.key
-                                              .toLowerCase()
-                                              .contains('multiplier') ||
-                                          entry.key
-                                              .toLowerCase()
-                                              .contains('surge') ||
-                                          entry.key
-                                              .toLowerCase()
-                                              .contains('urgency')) {
-                                        final num? rawNum = entry.value is num
-                                            ? entry.value as num
-                                            : num.tryParse(
-                                                entry.value?.toString() ?? '');
-
-                                        if (rawNum != null) {
-                                          valueText =
-                                              '×${rawNum.toStringAsFixed(1)}';
-                                          if (rawNum == 1.0)
-                                            valueText += ' (নিয়মিত)';
-                                        } else {
-                                          valueText =
-                                              entry.value?.toString() ?? '';
-                                        }
-                                      } else {
-                                        valueText = _formatFare(entry.value);
-                                      }
-
-                                      // Use standardized breakdown row style
-                                      return _buildBreakdownRow(
-                                          label, valueText,
-                                          valueColor: entry.key
-                                                      .toLowerCase()
-                                                      .contains('multiplier') ||
-                                                  entry.key
-                                                      .toLowerCase()
-                                                      .contains('surge')
-                                              ? Colors.orange.shade700
-                                              : null,
-                                          icon: entry.key
-                                                  .toLowerCase()
-                                                  .contains('distance')
-                                              ? Icons.straighten
-                                              : null);
-                                    }).toList()),
-                                    // Add per-km rate if we can compute it (distance cost / distance)
-                                    if (storedFareDetails['distance'] != null)
-                                      (() {
-                                        try {
-                                          final distance =
-                                              (storedFareDetails['distance']
-                                                      as num)
-                                                  .toDouble();
-                                          // Try find a distance charge key
-                                          final distanceEntries =
-                                              (storedFareDetails['breakdown']
-                                                      as Map<String, dynamic>)
-                                                  .entries
-                                                  .where((e) =>
-                                                      e.key
-                                                          .toLowerCase()
-                                                          .contains(
-                                                              'distance') &&
-                                                      (e.value is num ||
-                                                          double.tryParse(e
-                                                                      .value
-                                                                      ?.toString() ??
-                                                                  '') !=
-                                                              null))
-                                                  .toList();
-
-                                          if (distanceEntries.isNotEmpty &&
-                                              distance > 0) {
-                                            final distanceEntry =
-                                                distanceEntries.first;
-                                            final distCharge = distanceEntry
-                                                    .value is num
-                                                ? (distanceEntry.value as num)
-                                                    .toDouble()
-                                                : double.tryParse(distanceEntry
-                                                        .value
-                                                        .toString()) ??
-                                                    0.0;
-                                            final ratePerKm =
-                                                distCharge / distance;
-
-                                            return _buildBreakdownRow(
-                                              'প্রতি কিমি মূল্য',
-                                              '${_formatFare(ratePerKm)}/কিমি',
-                                              valueColor: Colors.green.shade700,
-                                              icon: Icons.straighten,
-                                            );
-                                          }
-                                        } catch (_) {}
-                                        return const SizedBox.shrink();
-                                      }()),
-                                    const SizedBox(height: 8),
-                                    const Divider(),
-                                    const SizedBox(height: 8),
-                                  ],
-
-                                  // Total amount from fareDetails - EXACT USER AMOUNT
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: Colors.blue.shade200),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: const Text(
-                                            '💰 সম্মত ভাড়া',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF1976D2),
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatFare(fareFromDetails),
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1976D2),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        }
-
-                        // PRIORITY 2: Check direct totalAmount/fareAmount fields
-                        if (storedTotalAmount != null &&
-                            storedTotalAmount > 0) {
-                          // We have the exact amount the user was quoted - USE THIS!
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Distance info if available
-                                if (storedFareDetails != null &&
-                                    storedFareDetails['distance'] != null)
-                                  Row(
-                                    children: [
-                                      Icon(Icons.straighten,
-                                          size: 16, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${(storedFareDetails['distance'] as double).toStringAsFixed(1)} km',
-                                        style: const TextStyle(
-                                            fontSize: 14, color: Colors.grey),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Icon(Icons.access_time,
-                                          size: 16, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '~${(storedFareDetails['estimatedTime'] as double? ?? 0).toStringAsFixed(0)} min',
-                                        style: const TextStyle(
-                                            fontSize: 14, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                if (storedFareDetails != null &&
-                                    storedFareDetails['distance'] != null)
-                                  const SizedBox(height: 12),
-
-                                // Fare breakdown if available
-                                if (storedFareDetails != null &&
-                                    storedFareDetails['breakdown'] != null) ...[
-                                  const Text(
-                                    'ভাড়ার বিবরণ:',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ...((storedFareDetails['breakdown']
-                                          as Map<String, dynamic>)
-                                      .entries
-                                      // Hide subtotal, surge, and multiplier keys for clarity
-                                      .where((entry) =>
-                                          !entry.key
-                                              .toLowerCase()
-                                              .contains('subtotal') &&
-                                          !entry.key
-                                              .toLowerCase()
-                                              .contains('surge') &&
-                                          !entry.key
-                                              .toLowerCase()
-                                              .contains('multiplier'))
-                                      .map((entry) {
-                                    final label = _friendlyFareKey(entry.key);
-                                    String valueText;
-                                    if (entry.key
-                                            .toLowerCase()
-                                            .contains('multiplier') ||
-                                        entry.key
-                                            .toLowerCase()
-                                            .contains('surge') ||
-                                        entry.key
-                                            .toLowerCase()
-                                            .contains('urgency')) {
-                                      final num? rawNum = entry.value is num
-                                          ? entry.value as num
-                                          : num.tryParse(
-                                              entry.value?.toString() ?? '');
-
-                                      if (rawNum != null) {
-                                        valueText =
-                                            '×${rawNum.toStringAsFixed(1)}';
-                                        if (rawNum == 1.0)
-                                          valueText += ' (নিয়মিত)';
-                                      } else {
-                                        valueText =
-                                            entry.value?.toString() ?? '';
-                                      }
-                                    } else {
-                                      valueText = _formatFare(entry.value);
-                                    }
-
-                                    return _buildBreakdownRow(label, valueText,
-                                        valueColor: entry.key
-                                                    .toLowerCase()
-                                                    .contains('multiplier') ||
-                                                entry.key
-                                                    .toLowerCase()
-                                                    .contains('surge')
-                                            ? Colors.orange.shade700
-                                            : null,
-                                        icon: entry.key
-                                                .toLowerCase()
-                                                .contains('distance')
-                                            ? Icons.straighten
-                                            : null);
-                                  }).toList()),
-                                  // Add per-km rate if we can compute it (distance cost / distance)
-                                  if (storedFareDetails['distance'] != null)
-                                    (() {
-                                      try {
-                                        final distance =
-                                            (storedFareDetails['distance']
-                                                    as num)
-                                                .toDouble();
-                                        final distanceEntries =
-                                            (storedFareDetails['breakdown']
-                                                    as Map<String, dynamic>)
-                                                .entries
-                                                .where((e) =>
-                                                    e.key
-                                                        .toLowerCase()
-                                                        .contains('distance') &&
-                                                    (e.value is num ||
-                                                        double.tryParse(e.value
-                                                                    ?.toString() ??
-                                                                '') !=
-                                                            null))
-                                                .toList();
-
-                                        if (distanceEntries.isNotEmpty &&
-                                            distance > 0) {
-                                          final distanceEntry =
-                                              distanceEntries.first;
-                                          final distCharge =
-                                              distanceEntry.value is num
-                                                  ? (distanceEntry.value as num)
-                                                      .toDouble()
-                                                  : double.tryParse(
-                                                          distanceEntry.value
-                                                              .toString()) ??
-                                                      0.0;
-                                          final ratePerKm =
-                                              distCharge / distance;
-
-                                          return _buildBreakdownRow(
-                                              'প্রতি কিমি মূল্য',
-                                              '${_formatFare(ratePerKm)}/কিমি',
-                                              valueColor: Colors.green.shade700,
-                                              icon: Icons.straighten);
-                                        }
-                                      } catch (_) {}
-                                      return const SizedBox.shrink();
-                                    }()),
-                                  const SizedBox(height: 8),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                ],
-
-                                // THE CRITICAL FIX: Always show the stored total amount
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border:
-                                        Border.all(color: Colors.blue.shade200),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: const Text(
-                                          '💰 সম্মত ভাড়া',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1976D2),
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatFare(storedTotalAmount),
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1976D2),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                        color: Colors.amber.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.info,
-                                          size: 16,
-                                          color: Colors.amber.shade700),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'এটাই ইউজারের কাছে চার্জ করা হয়েছে - পুনরায় গণনা করবেন না',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.amber.shade800,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        // PRIORITY 3: Try to calculate fare if no stored amount exists
-                        debugPrint(
-                            '⚠️ No stored fare amount found, attempting calculation...');
-
-                        // Try to get distance for calculation
-                        final storedDistance = request['distance'] as double?;
-                        double? calculatedDistance;
-
-                        if (storedDistance != null) {
-                          calculatedDistance = storedDistance;
-                        } else if (request['destinationLat'] != null &&
-                            request['destinationLng'] != null &&
-                            request['pickupLat'] != null &&
-                            request['pickupLng'] != null) {
-                          calculatedDistance =
-                              FareCalculationService.calculateDistance(
-                            request['pickupLat'] as double,
-                            request['pickupLng'] as double,
-                            request['destinationLat'] as double,
-                            request['destinationLng'] as double,
-                          );
-                        }
-
-                        if (calculatedDistance != null &&
-                            calculatedDistance > 0) {
-                          // Calculate fare using base rates
-                          final fareDetails =
-                              FareCalculationService.estimateFare(
-                            distanceKm: calculatedDistance,
-                            serviceType: 'ambulance',
-                            partnerRates: {
-                              'serviceRate': 2500
-                            }, // Use default base rate
-                            urgency: request['urgency'] ?? 'normal',
-                          );
-
-                          debugPrint(
-                              '📊 Calculated fare: ${_formatFare(fareDetails.totalFare)}');
-
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue.shade200),
-                            ),
-                            child: Column(
-                              children: [
-                                Icon(Icons.calculate,
-                                    color: Colors.blue.shade700, size: 32),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'আনুমানিক ভাড়া',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade800,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _formatFare(fareDetails.totalFare),
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade900,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${calculatedDistance.toStringAsFixed(1)} কিমি এর জন্য গণনা করা',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border:
-                                        Border.all(color: Colors.red.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.warning,
-                                          size: 16, color: Colors.red.shade700),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'সংরক্ষিত ইউজার ভাড়া পাওয়া যায়নি - ইউজারের সাথে পরিমাণ নিশ্চিত করুন',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.red.shade800,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        // Final fallback - no fare data available at all
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(Icons.error,
-                                  color: Colors.blue.shade700, size: 32),
-                              const SizedBox(height: 8),
-                              Text(
-                                'ভাড়ার তথ্য পাওয়া যায়নি',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'এই রিকুয়েস্ট গ্রহণ করার আগে ইউজারের সাথে ভাড়ার পরিমাণ নিশ্চিত করুন',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blue.shade700,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 16),
               if (request['destinationAddress'] != null &&
                   request['destinationAddress'].toString().isNotEmpty)
                 Container(
@@ -2204,7 +1341,7 @@ class HomePartnerController extends GetxController {
                     border: Border.all(color: Colors.blue.shade200, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blue.shade100.withOpacity(0.3),
+                        color: Colors.blue.shade100.withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: Offset(0, 3),
                       ),
@@ -2250,7 +1387,7 @@ class HomePartnerController extends GetxController {
                   border: Border.all(color: Colors.green.shade300, width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.shade100.withOpacity(0.3),
+                      color: Colors.green.shade100.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: Offset(0, 3),
                     ),
@@ -2265,7 +1402,9 @@ class HomePartnerController extends GetxController {
                             color: Colors.green.shade700, size: 24),
                         SizedBox(width: 12),
                         Text(
-                          'ভাড়া নির্ধারণ করুন',
+                          request['negotiation']?['counterBy'] == 'user'
+                              ? 'ইউজার একটি ভাড়া প্রস্তাব করেছেন'
+                              : 'ভাড়া নির্ধারণ করুন',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -2276,7 +1415,9 @@ class HomePartnerController extends GetxController {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'দূরত্ব ও রুট দেখে ভাড়া লিখুন। এই ভাড়া ইউজারের কাছে পাঠানো হবে।',
+                      request['negotiation']?['counterBy'] == 'user'
+                          ? 'ইউজারের প্রস্তাবিত ভাড়া নিচে দেখুন। আপনি চাইলে এটি গ্রহণ করতে পারেন বা নতুন ভাড়া প্রস্তাব করতে পারেন।'
+                          : 'দূরত্ব ও রুট দেখে ভাড়া লিখুন। এই ভাড়া ইউজারের কাছে পাঠানো হবে।',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.green.shade700,
@@ -2327,6 +1468,7 @@ class HomePartnerController extends GetxController {
               // Action Buttons
               Row(
                 children: [
+                  // Cancel/Decline Button
                   Expanded(
                     child: Container(
                       height: 50,
@@ -2340,7 +1482,9 @@ class HomePartnerController extends GetxController {
                         label: Text(
                           'প্রত্যাখ্যান',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
@@ -2354,7 +1498,43 @@ class HomePartnerController extends GetxController {
                       ),
                     ),
                   ),
-                  SizedBox(width: 16),
+                  SizedBox(width: 8),
+
+                  // Accept Button (Only if user has countered)
+                  if (request['negotiation']?['counterBy'] == 'user') ...[
+                    Expanded(
+                      child: Container(
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _fareInputController.clear();
+                            Get.back();
+                            acceptRequest(request['id']);
+                          },
+                          icon: Icon(Icons.check_circle, size: 24),
+                          label: Text(
+                            'গ্রহণ করুন',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                            elevation: 3,
+                            shadowColor: Colors.blue.shade200,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                  ],
+
+                  // Bid/Counter Button
                   Expanded(
                     child: Container(
                       height: 50,
@@ -2378,9 +1558,13 @@ class HomePartnerController extends GetxController {
                         },
                         icon: Icon(Icons.send, size: 24),
                         label: Text(
-                          'ভাড়া পাঠান',
+                          request['negotiation']?['counterBy'] == 'user'
+                              ? 'নতুন ভাড়া'
+                              : 'ভাড়া পাঠান',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
@@ -2409,7 +1593,7 @@ class HomePartnerController extends GetxController {
                     border: Border.all(color: Colors.blue.shade200, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blue.shade100.withOpacity(0.3),
+                        color: Colors.blue.shade100.withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: Offset(0, 3),
                       ),
@@ -2451,7 +1635,65 @@ class HomePartnerController extends GetxController {
       ),
       isDismissible: false,
       enableDrag: false,
-    );
+    ).then((_) {
+      // When the bottom sheet is closed manually or otherwise, stop the listener
+      _stopActiveNegotiationListener();
+      showRequestBottomSheet.value = false;
+    });
+  }
+
+  void _startActiveNegotiationListener(Map<String, dynamic> request) {
+    _stopActiveNegotiationListener(); // Cancel any existing one
+    
+    final requestId = request['id'];
+    if (requestId == null) return;
+
+    debugPrint('HomePartner: Starting active negotiation listener for $requestId');
+    
+    _activeNegotiationSubscription = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(requestId)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists) {
+        final data = doc.data();
+        if (data == null) return;
+
+        final status = data['status']?.toString().toLowerCase();
+        final negotiationStatus = data['negotiation']?['status']?.toString().toLowerCase();
+
+        debugPrint('HomePartner: Active negotiation update. status: $status, negStatus: $negotiationStatus');
+
+        if (status == 'accepted' || negotiationStatus == 'confirmed') {
+          debugPrint('HomePartner: Ride confirmed! Navigating to AcceptMapsPage...');
+          
+          _stopActiveNegotiationListener();
+          
+          // Close the bottom sheet if it's open
+          if (Get.isBottomSheetOpen == true) {
+            Get.back();
+          }
+          
+          // Prepare fresh data for navigation
+          final updatedRequest = {'id': requestId, ...data};
+          
+          Get.to(() => AcceptMapsPage(), arguments: {
+            'request': updatedRequest,
+            'serviceRate': serviceRate.value
+          });
+        }
+      }
+    }, onError: (e) {
+      debugPrint('HomePartner: Active negotiation listener error: $e');
+    });
+  }
+
+  void _stopActiveNegotiationListener() {
+    if (_activeNegotiationSubscription != null) {
+      debugPrint('HomePartner: Stopping active negotiation listener');
+      _activeNegotiationSubscription?.cancel();
+      _activeNegotiationSubscription = null;
+    }
   }
 
   Widget _buildInfoRow(
@@ -2512,6 +1754,11 @@ class HomePartnerController extends GetxController {
         'status': 'accepted',
         'acceptedBy': user.uid,
         'acceptedAt': Timestamp.now(),
+        // Update negotiation map to show mutual agreement
+        'negotiation.status': 'confirmed',
+        'negotiation.driverAccepted': true,
+        'negotiation.userAccepted': true,
+        'negotiation.updatedAt': Timestamp.now(),
       };
 
       // Add partner's current location if available
@@ -2678,12 +1925,7 @@ class HomePartnerController extends GetxController {
       debugPrint('❌ Request declined and saved: $requestId');
 
       if (Get.context != null) {
-        Get.snackbar(
-          'Success',
-          'Request declined',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-        );
+        Alert.info('Request declined');
       }
     } catch (e) {
       debugPrint('❌ Error declining request: $e');
@@ -2698,15 +1940,19 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      // Update Firestore order with proposed fare
+      // Update Firestore order with proposed fare in the negotiation map
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(requestId)
           .update({
-        'status': 'fare_proposed',
-        'driverFare': fareAmount,
-        'fareProposedAt': Timestamp.now(),
-        'fareProposedBy': user.uid,
+        'status': 'pending', // Keep pending until both agree
+        'negotiation.status': 'counter',
+        'negotiation.counterFare': fareAmount,
+        'negotiation.counterBy': 'driver',
+        'negotiation.userAccepted': false,
+        'negotiation.driverAccepted':
+            true, // Driver agrees to their own proposal
+        'negotiation.updatedAt': FieldValue.serverTimestamp(),
         'driverName': partnerName.value,
       });
 
@@ -2768,9 +2014,10 @@ class HomePartnerController extends GetxController {
       final data = doc.data();
       final status = data?['status'];
 
-      if (status == 'accepted') {
+      if (status == 'confirmed' ||
+          data?['negotiation']?['status'] == 'confirmed') {
         _fareResponseSubscription?.cancel();
-        debugPrint('✅ User accepted fare for order $orderId');
+        debugPrint('✅ Negotiation confirmed for order $orderId');
 
         Alert.info(
             '✅ ভাড়া গৃহীত! ইউজার আপনার ভাড়া গ্রহণ করেছেন। ট্রিপ শুরু করুন।');
@@ -2781,13 +2028,30 @@ class HomePartnerController extends GetxController {
           'request': updatedRequest,
           'serviceRate': serviceRate.value,
         });
-      } else if (status == 'fare_rejected') {
+      } else if (data?['negotiation']?['status'] == 'counter' &&
+          data?['negotiation']?['counterBy'] == 'user') {
+        // User sent a counter offer! Show the bottom sheet again for the driver to respond
+        final counterFare =
+            (data?['negotiation']?['counterFare'] as num?)?.toDouble() ?? 0.0;
+        debugPrint('💰 User sent a counter offer: ৳$counterFare');
+
+        // Mark as NOT shown so the main listener (or this one) can trigger the UI
+        shownRequestIds.remove(orderId);
+
+        // Update the input field with the user's offer to make it easy for the driver to accept or counter back
+        _fareInputController.text = counterFare.toStringAsFixed(0);
+
+        // Show the bottom sheet if not already showing
+        if (!showRequestBottomSheet.value) {
+          final requestData = {'id': orderId, ...data!};
+          _showRequestBottomSheet(requestData);
+        }
+      } else if (status == 'cancelled' ||
+          data?['negotiation']?['status'] == 'rejected') {
         _fareResponseSubscription?.cancel();
-        debugPrint('❌ User rejected fare for order $orderId');
+        debugPrint('❌ Negotiation rejected for order $orderId');
 
-        Alert.info(
-            '❌ ভাড়া প্রত্যাখ্যাত: ইউজার আপনার প্রস্তাবিত ভাড়া প্রত্যাখ্যান করেছেন।');
-
+        Alert.info('❌ ভাড়া প্রত্যাখ্যাত বা ট্রিপ বাতিল করা হয়েছে।');
         showRequestBottomSheet.value = false;
       }
     }, onError: (error) {
@@ -2820,11 +2084,8 @@ class HomePartnerController extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error fetching request $orderId: $e');
-      Get.snackbar(
-        'Error',
+      Alert.info(
         'Failed to load request details: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     }
   }
@@ -2966,12 +2227,8 @@ class HomePartnerController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        Get.snackbar(
-          'ত্রুটি',
+        Alert.info(
           'অনুগ্রহ করে লগইন করুন',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade800,
         );
         return;
       }
@@ -3018,7 +2275,7 @@ class HomePartnerController extends GetxController {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton(
-                    onPressed: () => Get.back(result: false),
+                    onPressed: () => Navigator.of(Get.context!).pop(false),
                     // ignore: sort_child_properties_last
                     child: Text('Cancel'),
                     style: TextButton.styleFrom(
@@ -3031,7 +2288,7 @@ class HomePartnerController extends GetxController {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => Get.back(result: true),
+                    onPressed: () => Navigator.of(Get.context!).pop(true),
                     style: TextButton.styleFrom(
                       backgroundColor: Colors.orange.shade600,
                       foregroundColor: Colors.white,
@@ -3165,18 +2422,12 @@ class HomePartnerController extends GetxController {
         controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
       }
 
-      Get.snackbar(
-        'Route Updated',
+      Alert.info(
         'Patient location has been marked on the map',
-        backgroundColor: Colors.blue.shade100,
-        colorText: Colors.blue.shade800,
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
+      Alert.info(
         'Failed to show route to user: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
       );
     }
   }

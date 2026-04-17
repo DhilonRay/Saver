@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:saver/components/alert.dart';
 
 class FeedbackController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -47,7 +48,7 @@ class FeedbackController extends GetxController {
     if (!formKey.currentState!.validate()) return;
 
     if (rating.value == 0) {
-      Get.snackbar('Error', 'Please select a rating');
+      Alert.info('Please select a rating');
       return;
     }
 
@@ -70,10 +71,10 @@ class FeedbackController extends GetxController {
       feedbackController.clear();
       rating.value = 0;
 
-      Get.snackbar('Success', 'Thank you for your feedback!');
+      await Alert.success('Thank you for your feedback!');
       Get.back(); // Go back to previous screen
     } catch (e) {
-      Get.snackbar('Error', 'Failed to submit feedback: $e');
+      Alert.info('Failed to submit feedback: $e');
     } finally {
       isSubmitting.value = false;
     }
