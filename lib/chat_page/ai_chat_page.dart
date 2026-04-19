@@ -77,7 +77,7 @@ class AIChatPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Image.asset(
-              AppImages.robotPng,
+              'assets/images/nutritionist.png',
               fit: BoxFit.contain,
             ),
           ),
@@ -86,7 +86,7 @@ class AIChatPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'স্বাস্থ্য বন্ধু',
+                'Nirva',
                 style: AppTextStyles.bodyLargeSemibold,
               ),
               Text(
@@ -309,7 +309,7 @@ class AIChatPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Image.asset(
-                AppImages.robotPng,
+                'assets/images/nutritionist.png',
                 fit: BoxFit.contain,
               ),
             ),
@@ -394,7 +394,7 @@ class AIChatPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Image.asset(
-              AppImages.robotPng,
+              'assets/images/nutritionist.png',
               fit: BoxFit.contain,
             ),
           ),

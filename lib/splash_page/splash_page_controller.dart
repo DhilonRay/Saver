@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/get_started/get_started_page.dart';
 import '../home_user/home_user.dart';
@@ -18,7 +19,6 @@ class SplashPageController {
       if (user != null) {
         try {
           // Priority Check: Active Order Persistence
-          // We check for active orders where this user is involved
           final activeUserOrder = await FirebaseFirestore.instance
               .collection('orders')
               .where('userId', isEqualTo: user.uid)
@@ -26,31 +26,45 @@ class SplashPageController {
 
           final activePartnerOrder = await FirebaseFirestore.instance
               .collection('orders')
-              .where('acceptedBy', isEqualTo: user.uid)
+              .where('partnerId', isEqualTo: user.uid)
               .get();
 
-          // ─── USER PERSISTENCE ───
+          // Check for active user orders
           if (activeUserOrder.docs.isNotEmpty) {
-            // Find the most recent active order
             final docs = activeUserOrder.docs
-                .where((d) => !['completed', 'cancelled', 'rejected']
-                    .contains(d.data()['status']))
+                .where((d) => ![
+                      'completed',
+                      'cancelled',
+                      'rejected',
+                      'declined'
+                    ].contains(d.data()['status']?.toString().toLowerCase()))
                 .toList();
 
             if (docs.isNotEmpty) {
-              docs.sort((a, b) => (b.data()['createdAt'] as Timestamp)
-                  .compareTo(a.data()['createdAt'] as Timestamp));
+              // Safe sorting
+              docs.sort((a, b) {
+                final aTime =
+                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final bTime =
+                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                return bTime.compareTo(aTime);
+              });
+
               final orderDoc = docs.first;
               final orderData = orderDoc.data();
-              final status = orderData['status'];
+              final status = orderData['status']?.toString().toLowerCase();
 
-              if (status == 'sent' || status == 'counter') {
+              if (status == 'sent' ||
+                  status == 'counter' ||
+                  status == 'pending') {
                 final negotiation =
                     orderData['negotiation'] as Map<String, dynamic>? ?? {};
                 Get.offAll(() => FareNegotiationPage(), arguments: {
                   'requestId': orderDoc.id,
-                  'driverId':
-                      orderData['driverId'] ?? negotiation['driverId'] ?? '',
+                  'driverId': orderData['driverId'] ??
+                      negotiation['driverId'] ??
+                      orderData['partnerId'] ??
+                      '',
                   'fare': (negotiation['counterFare'] as num?)?.toDouble() ??
                       (orderData['fare'] as num?)?.toDouble() ??
                       0.0,
@@ -59,7 +73,7 @@ class SplashPageController {
                 return;
               } else if (['accepted', 'pickup', 'in_transit', 'to_destination']
                   .contains(status)) {
-                orderData['id'] = orderDoc.id; // Ensure ID is present
+                orderData['id'] = orderDoc.id;
                 Get.offAll(() => const UserTrackingPage(),
                     arguments: orderData);
                 _initializeFCMDelayed();
@@ -68,38 +82,58 @@ class SplashPageController {
             }
           }
 
-          // ─── PARTNER PERSISTENCE (ACCEPTED RIDE) ───
+          // Check for active partner orders
           if (activePartnerOrder.docs.isNotEmpty) {
-            final docs = activePartnerOrder.docs
-                .where((d) =>
-                    !['completed', 'cancelled'].contains(d.data()['status']))
-                .toList();
+            final docs = activePartnerOrder.docs.where((d) {
+              final data = d.data();
+              final status = data['status']?.toString().toLowerCase();
+              final negStatus =
+                  data['negotiation']?['status']?.toString().toLowerCase();
+              return [
+                    'accepted',
+                    'confirmed',
+                    'pickup',
+                    'in_transit',
+                    'to_destination'
+                  ].contains(status) ||
+                  ['accepted', 'confirmed'].contains(negStatus);
+            }).toList();
 
             if (docs.isNotEmpty) {
-              docs.sort((a, b) => (b.data()['createdAt'] as Timestamp)
-                  .compareTo(a.data()['createdAt'] as Timestamp));
+              // Safe sorting
+              docs.sort((a, b) {
+                final aTime =
+                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final bTime =
+                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                return bTime.compareTo(aTime);
+              });
+
               final orderDoc = docs.first;
               final orderData = orderDoc.data();
-              orderData['id'] = orderDoc.id; // Ensure ID is present
+              orderData['id'] = orderDoc.id;
+
+              final fare = (orderData['fareAmount'] as num?)?.toInt() ??
+                  (orderData['finalFare'] as num?)?.toInt() ??
+                  (orderData['confirmedFare'] as num?)?.toInt() ??
+                  (orderData['negotiation']?['counterFare'] as num?)?.toInt() ??
+                  (orderData['negotiation']?['finalFare'] as num?)?.toInt() ??
+                  2500;
 
               Get.offAll(() => const AcceptMapsPage(), arguments: {
                 'request': orderData,
-                'serviceRate': (orderData['finalFare'] as num?)?.toInt() ??
-                    (orderData['confirmedFare'] as num?)?.toInt() ??
-                    2500,
+                'serviceRate': fare,
               });
               _initializeFCMDelayed();
               return;
             }
           }
 
-          // ─── STANDARD ROLE-BASED REDIRECT ───
-          // Priority 1: Check Partners/Drivers Collection for home landing
+          // Standard role-based redirect
           final partnerDoc = await FirebaseFirestore.instance
               .collection('partners')
               .doc(user.uid)
               .get();
-
           if (partnerDoc.exists) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
@@ -110,18 +144,16 @@ class SplashPageController {
               .collection('drivers')
               .doc(user.uid)
               .get();
-
           if (driverDoc.exists) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
             return;
           }
 
-          // Priority 3: Check Users Collection (Default)
           Get.offAll(() => HomePage());
           _initializeFCMDelayed();
         } catch (e) {
-          print('Error in splash redirection: $e');
+          debugPrint('Error in splash redirection: $e');
           Get.offAll(() => HomePage());
         }
       } else {

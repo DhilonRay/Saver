@@ -5,8 +5,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:saver/feedback/feedback.dart';
 import 'package:saver/loader/loader.dart';
 import 'home_user_controller.dart';
-import '../widgets/fares_widgets.dart';
-import '../services/fares_service.dart';
 import '../user_notification/user_notification.dart';
 import '../user_notification/user_notification_controller.dart';
 import '../chat_page/ai_chat_page.dart';
@@ -47,7 +45,9 @@ class HomePage extends StatelessWidget {
             decoration: BoxDecoration(),
             child: Scaffold(
               key: _scaffoldKey,
+              extendBodyBehindAppBar: true,
               appBar: AppBar(
+                backgroundColor: Colors.transparent,
                 elevation: 0,
                 leading: IconButton(
                   icon: Icon(
@@ -175,66 +175,16 @@ class HomePage extends StatelessWidget {
 
                             // AI Chat Assistant
                             _buildDrawerItem(
-                              icon: Icons.smart_toy,
-                              title: 'AI Assistant',
+                              imagePath: 'assets/images/nutritionist.png',
+                              title: 'Nirva',
                               onTap: () {
                                 Get.back();
                                 Get.to(() => const AIChatPage());
                               },
                             ),
 
-                            // Quick access: available/online ambulances (live list)
-                            _buildDrawerItem(
-                              imagePath: 'assets/images/availabeAmbulances.png',
-                              icon: Icons.local_hospital,
-                              title: 'Available Ambulances',
-                              onTap: controller.navigateToAmbulanceServices,
-                            ),
-
-                            Obx(() {
-                              final online = controller.onlineAmbulances;
-                              if (online.isEmpty) return SizedBox.shrink();
-
-                              // show up to 2 providers as quick links
-                              final displayItems =
-                                  online.length > 2 ? 2 : online.length;
-                              return Column(
-                                children: [
-                                  for (var i = 0; i < displayItems; i++)
-                                    InkWell(
-                                      onTap: () => controller
-                                          .viewAmbulanceDetails(online[i]),
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 20, vertical: 10),
-                                        child: Row(
-                                          children: [
-                                            SizedBox(width: 8),
-                                            Text(
-                                              '${i + 1}.${online[i]['name']?.toString() ?? 'Ambulance'}',
-                                              style: TextStyle(
-                                                color: Colors.blueGrey.shade700,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            Spacer(),
-                                            Icon(
-                                              Icons.chevron_right,
-                                              color: Colors.grey.shade400,
-                                              size: 18,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            }),
-
                             Divider(
-                                height: 30,
-                                thickness: 1,
-                                color: Colors.grey.shade200),
+                                height: 30, thickness: 1, color: Colors.grey),
                             _buildDrawerItem(
                               icon: Icons.info_outline,
                               title: 'About Us',
@@ -384,76 +334,67 @@ class HomePage extends StatelessWidget {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: TextField(
-                                          controller:
-                                              controller.destinationController,
-                                          style: TextStyle(
-                                            color: Colors.blueGrey.shade800,
-                                            fontSize: 16,
-                                          ),
-                                          onChanged: controller
-                                              .onDestinationTextChanged,
-                                          decoration: InputDecoration(
-                                            hintText: 'Enter destination',
-                                            hintStyle: TextStyle(
-                                              color: Colors.blueGrey.shade400,
-                                              fontSize: 16,
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        child: Theme(
+                                          data: Theme.of(context).copyWith(
+                                            textSelectionTheme: TextSelectionThemeData(
+                                              cursorColor: primaryBlue,
+                                              selectionColor: primaryBlue.withValues(alpha: 0.3),
+                                              selectionHandleColor: primaryBlue,
                                             ),
-                                            prefixIcon: Container(
-                                              margin: EdgeInsets.all(12),
-                                              child: Icon(
+                                          ),
+                                          child: TextField(
+                                            controller: controller.destinationController,
+                                            style: const TextStyle(
+                                              color: Colors.black, // Force black text
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            cursorColor: primaryBlue,
+                                            onChanged: controller.onDestinationTextChanged,
+                                            decoration: InputDecoration(
+                                              hintText: 'Enter destination...',
+                                              hintStyle: TextStyle(
+                                                color: Colors.blueGrey.shade300,
+                                                fontSize: 16,
+                                              ),
+                                              prefixIcon: Icon(
                                                 Icons.location_on_outlined,
                                                 color: primaryBlue,
                                                 size: 24,
                                               ),
-                                            ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                              borderSide: BorderSide(
-                                                color: primaryBlue,
-                                                width: 2,
+                                              filled: true,
+                                              fillColor: Colors.white,
+                                              contentPadding: const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 16,
                                               ),
-                                            ),
-                                            filled: true,
-                                            fillColor: Colors.grey.shade50,
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 14,
-                                            ),
-                                            suffixIcon: Obx(() {
-                                              if (controller.destinationQuery
-                                                  .value.isEmpty) {
-                                                return SizedBox.shrink();
-                                              }
-                                              return IconButton(
-                                                icon: Icon(Icons.cancel,
-                                                    color: Colors.grey.shade400,
-                                                    size: 20),
-                                                onPressed: () {
-                                                  controller
-                                                      .destinationController
-                                                      .clear();
-                                                  controller
-                                                      .onDestinationTextChanged(
-                                                          '');
-                                                  FocusScope.of(context)
-                                                      .unfocus();
-                                                },
-                                              );
-                                            }),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: BorderSide(color: Colors.grey.shade200),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: BorderSide(color: Colors.grey.shade200),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: const BorderSide(color: primaryBlue, width: 2),
+                                              ),
+                                              suffixIcon: Obx(() {
+                                                if (controller.destinationQuery.value.isEmpty) {
+                                                  return const SizedBox.shrink();
+                                                }
+                                                return IconButton(
+                                                  icon: Icon(Icons.cancel, color: Colors.grey.shade400, size: 20),
+                                                  onPressed: () {
+                                                    controller.destinationController.clear();
+                                                    controller.onDestinationTextChanged('');
+                                                    FocusScope.of(context).unfocus();
+                                                  },
+                                                );
+                                              }),
+                                            )
                                           ),
                                         ),
                                       ),
@@ -814,13 +755,6 @@ class HomePage extends StatelessWidget {
                 imagePath,
                 width: 24,
                 height: 24,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    icon ?? Icons.circle,
-                    color: primaryBlue,
-                    size: 20,
-                  );
-                },
               )
             else
               Icon(

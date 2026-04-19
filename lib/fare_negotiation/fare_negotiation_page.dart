@@ -261,30 +261,45 @@ class FareNegotiationPage extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.shade300),
+        border: Border.all(color: Colors.green.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.shade900.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(Icons.check_circle, size: 48, color: Colors.green.shade700),
-          const SizedBox(height: 12),
-          Text(
+          const Icon(Icons.check_circle, size: 64, color: Colors.green),
+          const SizedBox(height: 16),
+          const Text(
             '🎉 ট্রিপ নিশ্চিত হয়েছে!',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.green.shade800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'পেমেন্ট পেজে নিয়ে যাচ্ছে...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.green.shade600,
+              color: Color(0xFF1B5E20),
             ),
           ),
           const SizedBox(height: 12),
-          const CircularProgressIndicator(strokeWidth: 2),
+          const Text(
+            'অ্যাম্বুলেন্স ট্র্যাকিং শুরু হচ্ছে...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF2E7D32),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade700),
+            ),
+          ),
         ],
       ),
     );

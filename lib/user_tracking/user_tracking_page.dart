@@ -12,31 +12,52 @@ class UserTrackingPage extends StatelessWidget {
       init: UserTrackingController(),
       builder: (controller) {
         return Scaffold(
+          extendBodyBehindAppBar: true,
           appBar: AppBar(
-            title: Text(
-              'Ambulance Tracking',
+            title: const Text(
+              'অ্যাম্বুলেন্স ট্র্যাকিং',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
+                letterSpacing: 0.5,
               ),
             ),
-            backgroundColor: Colors.blue.shade700,
+            backgroundColor: Colors.blue.shade800.withOpacity(0.9),
             elevation: 0,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: controller.goBack,
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back,
+                      color: Colors.blue, size: 20),
+                  onPressed: controller.goBack,
+                ),
+              ),
             ),
             actions: [
               // Zoom controls
-              IconButton(
-                icon: Icon(Icons.add, color: Colors.white),
-                onPressed: controller.zoomIn,
-                tooltip: 'Zoom In',
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    onPressed: controller.zoomIn,
+                    tooltip: 'Zoom In',
+                  ),
+                ),
               ),
-              IconButton(
-                icon: Icon(Icons.remove, color: Colors.white),
-                onPressed: controller.zoomOut,
-                tooltip: 'Zoom Out',
+              Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: IconButton(
+                    icon: const Icon(Icons.remove, color: Colors.white),
+                    onPressed: controller.zoomOut,
+                    tooltip: 'Zoom Out',
+                  ),
+                ),
               ),
             ],
           ),
@@ -53,9 +74,9 @@ class UserTrackingPage extends StatelessWidget {
                           valueColor: AlwaysStoppedAnimation<Color>(
                               Colors.blue.shade700),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Text(
-                          'Loading location...',
+                          'লোকেশন লোড হচ্ছে...',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.blue.shade700,
@@ -84,31 +105,34 @@ class UserTrackingPage extends StatelessWidget {
                 );
               }),
 
-              // ETA and Status Information Panel
+              // Map Overlay Elements
               Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _buildInfoPanel(controller),
+                top: 100,
+                left: 16,
+                right: 16,
+                child: _buildTopStatusCard(controller),
               ),
+
+              // ETA and Status Information Panel
+              BottomDraggablePanel(controller: controller),
 
               // Loading overlay for ETA calculation
               Obx(() {
                 if (controller.isCalculatingETA.value) {
                   return Positioned(
-                    top: 100,
+                    top: 160,
                     right: 16,
                     child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade700,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 8,
-                            offset: Offset(0, 4),
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -116,21 +140,21 @@ class UserTrackingPage extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: 14,
+                            height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.blue.shade700),
                             ),
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Calculating time...',
+                          const SizedBox(width: 8),
+                          const Text(
+                            'সময় গণনা করা হচ্ছে...',
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -138,7 +162,7 @@ class UserTrackingPage extends StatelessWidget {
                     ),
                   );
                 }
-                return SizedBox.shrink();
+                return const SizedBox.shrink();
               }),
             ],
           ),
@@ -147,767 +171,442 @@ class UserTrackingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoPanel(UserTrackingController controller) {
-    return Container(
-      margin: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade700,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+  Widget _buildTopStatusCard(UserTrackingController controller) {
+    return Obx(() {
+      final orderData = controller.orderData.value;
+      final status =
+          orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
+      final isCompleted = status.toLowerCase() == 'completed';
+
+      String statusTitle;
+      Color statusColor;
+      IconData statusIcon;
+
+      if (isCompleted) {
+        statusTitle = 'সার্ভিস সম্পন্ন হয়েছে';
+        statusColor = Colors.green.shade600;
+        statusIcon = Icons.check_circle;
+      } else if (status.toLowerCase() == 'pickup' ||
+          status.toLowerCase() == 'to_destination') {
+        statusTitle = 'অ্যাম্বুলেন্স আপনার গন্তব্যে যাচ্ছে';
+        statusColor = Colors.teal.shade600;
+        statusIcon = Icons.flag;
+      } else {
+        statusTitle = 'অ্যাম্বুলেন্স আপনার দিকে আসছে';
+        statusColor = Colors.orange.shade700;
+        statusIcon = Icons.local_shipping;
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(statusIcon, color: statusColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    statusTitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  if (!isCompleted)
+                    Obx(() => Text(
+                          'অনুমানিক দূরত্ব: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} কিমি' : 'গণনা হচ্ছে...'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        )),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.local_shipping,
-                  color: Colors.white,
-                  size: 24,
+            if (!isCompleted)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                child: Text(
+                  'লাইভ',
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class BottomDraggablePanel extends StatelessWidget {
+  final UserTrackingController controller;
+  const BottomDraggablePanel({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.35,
+      minChildSize: 0.25,
+      maxChildSize: 0.6,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // ETA and Arrival Info
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Obx(() {
-                        final orderData = controller.orderData.value;
-                        final status = orderData?['orderStatus'] ??
-                            orderData?['status'] ??
-                            'unknown';
-                        final isCompleted = status.toLowerCase() == 'completed';
-                        final isPickedUp = status.toLowerCase() == 'pickup';
-
-                        String titleText;
-
-                        if (isCompleted) {
-                          titleText = 'Service Completed';
-                        } else if (isPickedUp) {
-                          titleText = 'Safe Journey!';
-                        } else {
-                          titleText = 'Ambulance is Coming';
-                        }
-
-                        return Text(
-                          titleText,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      }),
-                      Obx(() {
-                        final orderData = controller.orderData.value;
-                        final status = orderData?['orderStatus'] ??
-                            orderData?['status'] ??
-                            'unknown';
-                        final isCompleted = status.toLowerCase() == 'completed';
-                        final isPickedUp = status.toLowerCase() == 'pickup';
-
-                        if (isCompleted) {
-                          return Text(
-                            'Thank you for using our service',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 12,
-                            ),
-                          );
-                        } else if (isPickedUp) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Heading to destination',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.access_time, color: Colors.white.withValues(alpha: 0.9), size: 14),
-                                  SizedBox(width: 4),
-                                  Obx(() => Text(
-                                        controller.estimatedTime.value,
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                                      )),
-                                  SizedBox(width: 12),
-                                  Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.9), size: 14),
-                                  SizedBox(width: 4),
-                                  Obx(() => Text(
-                                        controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                                      )),
-                                ],
-                              ),
-                            ],
-                          );
-                        } else {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Hold your location',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.access_time, color: Colors.white.withValues(alpha: 0.9), size: 14),
-                                  SizedBox(width: 4),
-                                  Obx(() => Text(
-                                        controller.estimatedTime.value,
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                                      )),
-                                  SizedBox(width: 12),
-                                  Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.9), size: 14),
-                                  SizedBox(width: 4),
-                                  Obx(() => Text(
-                                        controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km',
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                                      )),
-                                ],
-                              ),
-                            ],
-                          );
-                        }
-                      }),
-                    ],
-                  ),
-                ),
-                Obx(() {
-                  final orderData = controller.orderData.value;
-                  final status = orderData?['orderStatus'] ??
-                      orderData?['status'] ??
-                      'unknown';
-                  final isCompleted = status.toLowerCase() == 'completed';
-
-                  if (isCompleted) {
-                    return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade500,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'DONE',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade500,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.circle,
-                            color: Colors.white,
-                            size: 8,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'LIVE',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                }),
-              ],
-            ),
-          ),
-
-          // ETA Information (only show if not completed)
-          Obx(() {
-            final orderData = controller.orderData.value;
-            final status =
-                orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
-            final isCompleted = status.toLowerCase() == 'completed';
-            final isPickedUp = status.toLowerCase() == 'pickup';
-
-            if (isCompleted) {
-              return Padding(
-                padding: EdgeInsets.all(16),
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade200, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green.shade600,
-                        size: 24,
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Your ambulance service has been completed successfully. Thank you for choosing our service!',
-                          style: TextStyle(
-                            color: Colors.green.shade700,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            } else if (isPickedUp) {
-              // Show destination information when picked up
-              return Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.purple.shade200, width: 1),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.flag,
-                                color: Colors.purple.shade600,
-                                size: 24,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Destination',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.purple.shade800,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      orderData?['destinationAddress'] ?? 'Destination not specified',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.purple.shade700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.access_time, color: Colors.purple.shade600, size: 16),
-                                    SizedBox(width: 8),
-                                    Flexible(
-                                      child: Obx(() => Text(
-                                            'Time: ${controller.estimatedTime.value}',
-                                            style: TextStyle(
-                                              color: Colors.purple.shade700,
-                                              fontSize: 14,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          )),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.location_on, color: Colors.purple.shade600, size: 16),
-                                    SizedBox(width: 8),
-                                    Flexible(
-                                      child: Obx(() => Text(
-                                            'Distance: ${controller.estimatedDistance.value > 0 ? '${controller.estimatedDistance.value.toStringAsFixed(1)} km' : '-- km'}',
-                                            style: TextStyle(
-                                              color: Colors.purple.shade700,
-                                              fontSize: 14,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          )),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    
-                    // Driver Information
-                    Obx(() {
-                      final name = controller.partnerName.value;
-                      final imageUrl = controller.partnerImage.value;
-                      
-                      return Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade100, width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.blue.shade200,
-                              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-                              child: imageUrl == null ? Icon(Icons.person, color: Colors.blue.shade700) : null,
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Ambulance Driver',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.blue.shade700,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    name,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                // Add phone calling logic if needed
-                              },
-                              icon: Icon(Icons.phone, color: Colors.blue.shade700),
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    
-                    SizedBox(height: 12),
-                    // Fare Information
-                    Obx(() {
-                      final orderData = controller.orderData.value;
-                      final fareAmount =
-                          orderData?['fareAmount'] ??
-                          orderData?['confirmedFare'] ??
-                          orderData?['totalAmount'] ??
-                          orderData?['totalFare'];
-
-                      if (fareAmount != null) {
-                        return Container(
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: Colors.orange.shade200, width: 1),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.attach_money,
-                                color: Colors.orange.shade600,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Service Charge',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange.shade800,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      '৳${fareAmount.toString()}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.orange.shade700,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'PAID',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.orange.shade800,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return SizedBox.shrink();
-                      }
-                    }),
-                  ],
-                ),
-              );
-            } else {
-              return Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    // OTP Display for Pickup (only show when in_transit and OTP is available)
-                    Obx(() {
-                      final orderData = controller.orderData.value;
-                      final status = orderData?['orderStatus'] ?? orderData?['status'] ?? 'unknown';
-                      final pickupOTP = orderData?['pickupOTP'];
-
-                      if (status.toLowerCase() == 'in_transit' && pickupOTP != null && pickupOTP.isNotEmpty) {
-                        return Container(
-                          padding: EdgeInsets.all(16),
-                          margin: EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.red.shade200, width: 2),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.security,
-                                    color: Colors.red.shade600,
-                                    size: 24,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Pickup Verification Code',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 12),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.red.shade300, width: 1),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      pickupOTP,
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red.shade700,
-                                        letterSpacing: 4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Show this code to the ambulance driver for pickup verification',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red.shade600,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return SizedBox.shrink();
-                      }
-                    }),
-
-                   
-
-                    // Fare Information
-                    Obx(() {
-                      final orderData = controller.orderData.value;
-                      final fareAmount =
-                          orderData?['fareAmount'] ??
-                          orderData?['confirmedFare'] ??
-                          orderData?['totalAmount'] ??
-                          orderData?['totalFare'];
-
-                      if (fareAmount != null) {
-                        return Container(
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: Colors.orange.shade200, width: 1),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.attach_money,
-                                color: Colors.orange.shade600,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Service Charge',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange.shade800,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      '৳${fareAmount.toString()}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.orange.shade700,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'PAID',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.orange.shade800,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        return SizedBox.shrink();
-                      }
-                    }),
-                  ],
-                ),
-              );
-            }
-          }),
-
-          // Status Information
-          Obx(() {
-            final orderData = controller.orderData.value;
-            if (orderData != null) {
-              final status =
-                  orderData['orderStatus'] ?? orderData['status'] ?? 'unknown';
-              return Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _getStatusIcon(status),
-                      color: _getStatusColor(status),
-                      size: 16,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getStatusText(status),
+                      const Text(
+                        'পৌঁছাতে সময় লাগবে',
                         style: TextStyle(
-                          color: _getStatusColor(status),
-                          fontSize: 12,
+                          fontSize: 14,
+                          color: Colors.grey,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Obx(() => Text(
+                            controller.estimatedTime.value,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade800,
+                            ),
+                          )),
+                    ],
+                  ),
+                ],
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(),
+              ),
+
+              // Driver Information
+              Obx(() {
+                final name = controller.partnerName.value;
+                final imageUrl = controller.partnerImage.value;
+
+                return Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.blue.shade100,
+                      backgroundImage:
+                          imageUrl != null ? NetworkImage(imageUrl) : null,
+                      child: imageUrl == null
+                          ? Icon(Icons.person,
+                              color: Colors.blue.shade700, size: 30)
+                          : null,
                     ),
-                    Text(
-                      'Order ID: ${controller.orderId.value?.substring(0, 8) ?? 'N/A'}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 10,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'আপনার অ্যাম্বুলেন্স চালক',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
+                );
+              }),
+
+              const SizedBox(height: 14),
+
+              // Trip details container
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey),
                 ),
-              );
-            }
-            return SizedBox.shrink();
-          }),
-        ],
-      ),
+                child: Column(
+                  children: [
+                    _buildTripDetailRow(
+                        Icons.location_on,
+                        Colors.red.shade400,
+                        'পিকআপ লোকেশন',
+                        controller.orderData.value?['pickupAddress'] ??
+                            'লোকেশন পাওয়া যায়নি'),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1),
+                    ),
+                    _buildTripDetailRow(
+                        Icons.flag,
+                        Colors.green.shade600,
+                        'গন্তব্য',
+                        controller.orderData.value?['destinationAddress'] ??
+                            'গন্তব্য সেট করা নেই'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Fare Info
+              Obx(() {
+                final orderData = controller.orderData.value;
+                final rawFare = orderData?['fareAmount'];
+                final fare = (rawFare != null && rawFare != 0)
+                    ? rawFare
+                    : (orderData?['confirmedFare'] ??
+                        orderData?['counterFare'] ??
+                        orderData?['negotiation']?['counterFare'] ??
+                        '---');
+
+                String toBengaliDigits(String input) {
+                  const english = [
+                    '0',
+                    '1',
+                    '2',
+                    '3',
+                    '4',
+                    '5',
+                    '6',
+                    '7',
+                    '8',
+                    '9'
+                  ];
+                  const bengali = [
+                    '০',
+                    '১',
+                    '২',
+                    '৩',
+                    '৪',
+                    '৫',
+                    '৬',
+                    '৭',
+                    '৮',
+                    '৯'
+                  ];
+                  for (int i = 0; i < english.length; i++) {
+                    input = input.replaceAll(english[i], bengali[i]);
+                  }
+                  return input;
+                }
+
+                // Dynamic Status Mapping
+                String getStatusText(String? status) {
+                  switch (status?.toLowerCase()) {
+                    case 'accepted':
+                    case 'in_transit':
+                      return 'অ্যাম্বুলেন্স আসছে';
+                    case 'pickup':
+                      return 'পিকআপ সম্পন্ন';
+                    case 'to_destination':
+                      return 'গন্তব্যের দিকে';
+                    case 'completed':
+                      return 'সম্পন্ন';
+                    case 'cancelled':
+                      return 'বাতিল';
+                    default:
+                      return 'নিশ্চিত';
+                  }
+                }
+
+                Color getStatusColor(String? status) {
+                  switch (status?.toLowerCase()) {
+                    case 'accepted':
+                    case 'in_transit':
+                      return Colors.blue.shade100;
+                    case 'pickup':
+                      return Colors.orange.shade100;
+                    case 'to_destination':
+                      return Colors.green.shade100;
+                    case 'completed':
+                      return Colors.teal.shade100;
+                    case 'cancelled':
+                      return Colors.red.shade100;
+                    default:
+                      return Colors.green.shade100;
+                  }
+                }
+
+                Color getStatusTextColor(String? status) {
+                  switch (status?.toLowerCase()) {
+                    case 'accepted':
+                    case 'in_transit':
+                      return Colors.blue.shade800;
+                    case 'pickup':
+                      return Colors.orange.shade800;
+                    case 'to_destination':
+                      return Colors.green.shade800;
+                    case 'completed':
+                      return Colors.teal.shade800;
+                    case 'cancelled':
+                      return Colors.red.shade800;
+                    default:
+                      return Colors.green.shade800;
+                  }
+                }
+
+                final currentStatus =
+                    orderData?['status'] ?? orderData?['orderStatus'];
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'সার্ভিস চার্জ',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Text(
+                            fare != '---'
+                                ? '৳${toBengaliDigits(fare.toString())}'
+                                : '৳০',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: getStatusColor(currentStatus),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          getStatusText(currentStatus),
+                          style: TextStyle(
+                            color: getStatusTextColor(currentStatus),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  IconData _getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'accepted':
-        return Icons.check_circle;
-      case 'in_transit':
-        return Icons.local_shipping;
-      case 'pickup':
-        return Icons.people;
-      case 'to_destination':
-        return Icons.flag;
-      case 'completed':
-        return Icons.done_all;
-      case 'cancelled':
-        return Icons.cancel;
-      default:
-        return Icons.info;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'accepted':
-        return Colors.blue.shade600;
-      case 'in_transit':
-        return Colors.orange.shade600;
-      case 'pickup':
-        return Colors.purple.shade600;
-      case 'to_destination':
-        return Colors.teal.shade600;
-      case 'completed':
-        return Colors.green.shade600;
-      case 'cancelled':
-        return Colors.red.shade600;
-      default:
-        return Colors.grey.shade600;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status.toLowerCase()) {
-      case 'accepted':
-        return 'Ambulance Accepted';
-      case 'pending':
-        return 'Waiting for Partner';
-      case 'in_transit':
-        return 'Delivering On the Way';
-      case 'pickup':
-        return 'Patient Picked Up';
-      case 'to_destination':
-        return 'Heading to Destination';
-      case 'completed':
-        return 'Service Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return 'Status: $status';
-    }
+  Widget _buildTripDetailRow(
+      IconData icon, Color iconColor, String title, String subtitle) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: iconColor, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

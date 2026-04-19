@@ -20,7 +20,6 @@ import 'package:saver/compo/success_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
 import '../auth/log_in/login_screen.dart';
@@ -75,6 +74,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   var partnerLocationTrail = <LatLng>[].obs;
   var isTrackingPartner = false.obs;
   StreamSubscription<DocumentSnapshot>? _orderSubscription;
+  StreamSubscription<QuerySnapshot>? _partnersSubscription;
   var currentTrackingOrderId = Rx<String?>(null);
 
   // Currently online ambulance providers cached as simple maps so UI can show a list
@@ -89,7 +89,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   var destinationQuery = ''.obs;
 
   // Ambulance visibility control
-  var showAmbulances = true.obs; // Show ambulances by default
+  var showAmbulances = false.obs; // Hide ambulances by default
 
   // User name
   var userName = 'NeoSaver'.obs;
@@ -159,14 +159,25 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     if (currentPosition.value == null) return;
 
     try {
-      debugPrint('🔍 Setting up real-time ambulance providers listener...');
+      debugPrint('🔍 Updating ambulance providers markers (showAmbulances: ${showAmbulances.value})...');
 
-      // Clear existing markers first
+      // Cancel existing subscription if any
+      await _partnersSubscription?.cancel();
+      _partnersSubscription = null;
+
+      // Clear existing markers regardless (to ensure we don't have artifacts)
       markers.removeWhere(
           (marker) => marker.markerId.value.startsWith('ambulance_'));
+      onlineAmbulances.clear();
+
+      // IF showAmbulances is false, we just stay cleared and return
+      if (!showAmbulances.value) {
+        debugPrint('🚑 showAmbulances is false - markers cleared.');
+        return;
+      }
 
       // Set up real-time listener for ambulance providers
-      FirebaseFirestore.instance
+      _partnersSubscription = FirebaseFirestore.instance
           .collection('partners')
           .where('isOnline', isEqualTo: true) // Only show online partners
           .snapshots()
@@ -181,71 +192,64 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         // Build a simple list of online ambulances for UI (drawer quick-access)
         final List<Map<String, dynamic>> onlineList = [];
 
-        // Only add ambulance markers if showAmbulances is true
-        if (showAmbulances.value) {
-          for (var doc in partnersSnapshot.docs) {
-            final data = doc.data();
-            final latitude = data['latitude'] as double?;
-            final longitude = data['longitude'] as double?;
-            final name = data['companyName'] as String? ?? 'Ambulance Provider';
-            final phone = data['contact'] as String?;
-            final address = data['coverageArea'] as String?;
-            final ambulanceType = data['ambulanceType'] as String?;
-            final isOnline = data['isOnline'] as bool? ?? false;
+        for (var doc in partnersSnapshot.docs) {
+          final data = doc.data();
+          final latitude = data['latitude'] as double?;
+          final longitude = data['longitude'] as double?;
+          final name = data['companyName'] as String? ?? 'Ambulance Provider';
+          final phone = data['contact'] as String?;
+          final address = data['coverageArea'] as String?;
+          final ambulanceType = data['ambulanceType'] as String?;
+          final isOnline = data['isOnline'] as bool? ?? false;
 
-            // Only show online partners with valid location
-            if (latitude != null && longitude != null && isOnline) {
-              debugPrint(
-                  '🚑 Adding online ambulance provider: $name at ($latitude, $longitude)');
+          // Only show online partners with valid location
+          if (latitude != null && longitude != null && isOnline) {
+            // Create a custom ambulance data object to pass to details
+            final ambulanceData = {
+              'id': doc.id,
+              'name': name,
+              'phone': phone ?? '+8801581822846',
+              'address': address ?? 'Coverage area not specified',
+              'ambulanceType': ambulanceType ?? 'General Ambulance',
+              'latitude': latitude,
+              'longitude': longitude,
+              'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
+              'profileImageUrl': data['profileImageUrl'] as String?,
+              'isOnline': isOnline,
+            };
 
-              // Create a custom ambulance data object to pass to details
-              final ambulanceData = {
-                'id': doc.id,
-                'name': name,
-                'phone': phone ?? '+8801581822846',
-                'address': address ?? 'Coverage area not specified',
-                'ambulanceType': ambulanceType ?? 'General Ambulance',
-                'latitude': latitude,
-                'longitude': longitude,
-                'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
-                'profileImageUrl': data['profileImageUrl'] as String?,
-                'isOnline': isOnline,
-              };
+            // Add a compact representation to the list visible in drawer
+            onlineList.add({
+              'id': doc.id,
+              'name': name,
+              'phone': phone ?? '+8801793399913',
+              'address': address ?? 'Coverage area not specified',
+              'ambulanceType': ambulanceType ?? 'General Ambulance',
+              'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
+              'profileImageUrl': data['profileImageUrl'] as String?,
+              'latitude': latitude,
+              'longitude': longitude,
+              'isOnline': isOnline,
+            });
 
-              // Add a compact representation to the list visible in drawer (include image if present)
-              onlineList.add({
-                'id': doc.id,
-                'name': name,
-                'phone': phone ?? '+8801793399913',
-                'address': address ?? 'Coverage area not specified',
-                'ambulanceType': ambulanceType ?? 'General Ambulance',
-                'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
-                'profileImageUrl': data['profileImageUrl'] as String?,
-                'latitude': latitude,
-                'longitude': longitude,
-                'isOnline': isOnline,
-              });
-
-              markers.add(
-                Marker(
-                  markerId: MarkerId('ambulance_${doc.id}'),
-                  position: LatLng(latitude, longitude),
-                  infoWindow: InfoWindow(
-                    title: '$name (Online)',
-                    snippet: '🚑 $ambulanceType • Tap for details',
-                    onTap: () => _showAmbulanceProviderDetails(ambulanceData),
-                  ),
-                  icon: ambulanceIcon,
+            markers.add(
+              Marker(
+                markerId: MarkerId('ambulance_${doc.id}'),
+                position: LatLng(latitude, longitude),
+                infoWindow: InfoWindow(
+                  title: '$name (Online)',
+                  snippet: '🚑 $ambulanceType • Tap for details',
                   onTap: () => _showAmbulanceProviderDetails(ambulanceData),
                 ),
-              );
-            }
+                icon: ambulanceIcon,
+                onTap: () => _showAmbulanceProviderDetails(ambulanceData),
+              ),
+            );
           }
-
-          // Update the reactive list so UI elements (drawer) can show it
-          onlineAmbulances.assignAll(onlineList);
         }
 
+        // Update the reactive list
+        onlineAmbulances.assignAll(onlineList);
         debugPrint('✅ Real-time ambulance providers updated successfully');
       });
     } catch (e) {
@@ -301,6 +305,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     _loadCustomIcons();
+    // Watch for ambulance visibility toggle
+    ever(showAmbulances, (_) => _addNearbyMarkers());
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(
         apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
@@ -658,6 +664,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       ),
     );
 
+    // After setting destination, show ambulances
+    showAmbulances.value = true;
+
     // Get directions from Google
     try {
       final directionsResponse = await _directions.directions(
@@ -950,6 +959,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
     // Get place details to get coordinates
     getPlaceDetails(placeId);
+
+    // Dismiss keyboard
+    if (Get.context != null) {
+      FocusScope.of(Get.context!).unfocus();
+    }
   }
 
   // Search History Methods
@@ -981,6 +995,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     destinationQuery.value = historyItem;
     // Reset typing flag since user selected from history
     hasStartedTyping.value = false;
+
+    // Dismiss keyboard
+    if (Get.context != null) {
+      FocusScope.of(Get.context!).unfocus();
+    }
   }
 
   Future<String?> getAmbulancePhoneNumber(String placeId) async {
@@ -1602,8 +1621,6 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                                             );
                                           }
 
-                                          final rates = rateSnapshot.data ??
-                                              {'serviceRate': 2500};
                                           final distance =
                                               FareCalculationService
                                                   .calculateDistance(
@@ -4121,6 +4138,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     destinationQuery.value = '';
     placeSuggestions.clear();
     _selectedPlaceName = null;
+    showAmbulances.value = false;
 
     // Re-add current location marker if available
     if (currentPosition.value != null) {
@@ -4950,88 +4968,6 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // Helper methods for fare display
-  String _formatFare(dynamic value) {
-    try {
-      double val;
-      if (value is num) {
-        val = value.toDouble();
-      } else if (value is String) {
-        val = double.tryParse(value) ?? 0.0;
-      } else {
-        return value?.toString() ?? '';
-      }
-
-      final fmt =
-          NumberFormat.currency(locale: 'bn_BD', symbol: '৳', decimalDigits: 0);
-      return fmt.format(val);
-    } catch (e) {
-      return value?.toString() ?? '';
-    }
-  }
-
-  // Convert internal fare breakdown keys to simple Bengali labels for normal users
-  String _friendlyFareKey(String key) {
-    final k = key.toLowerCase();
-
-    if (k.contains('distance')) return 'দূরত্বভিত্তিক চার্জ';
-    if (k.contains('time')) return 'সময়ভিত্তিক চার্জ';
-    if (k.contains('base')) return 'বেস ভাড়া';
-    if (k.contains('surge') || k.contains('multiplier')) return 'সার্জ (গুণক)';
-    if (k.contains('urgency')) return 'জরুরি গুণক';
-    if (k.contains('additional') || k.contains('extra'))
-      return 'অতিরিক্ত চার্জ';
-    if (k.contains('subtotal')) return 'সাবটোটাল';
-    if (k.contains('total')) return 'মোট';
-
-    // Fallback - return key as-is, but capitalized nicely
-    return key[0].toUpperCase() + key.substring(1);
-  }
-
-  // Helper to build a labeled row for fare breakdown with consistent styling
-  Widget _buildBreakdownRow(String label, String value,
-      {Color? valueColor, IconData? icon}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 14, color: Colors.grey.shade600),
-                  const SizedBox(width: 6),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: valueColor ?? Colors.black87,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method to call ambulance
   void _callAmbulance(String? phoneNumber) {
     if (phoneNumber != null && phoneNumber.isNotEmpty) {
       final Uri launchUri = Uri(

@@ -16,6 +16,7 @@ class GetStartedPage extends StatelessWidget {
         return Scaffold(
           body: Container(
             width: double.infinity,
+            height: double.infinity,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -31,7 +32,7 @@ class GetStartedPage extends StatelessWidget {
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   children: [
-                    // Top Row (Language Support)
+                    /*    // Top Row (Language Support)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
@@ -101,7 +102,7 @@ class GetStartedPage extends StatelessWidget {
                       ),
                     ),
 
-                    const VerticalGap(20),
+                    const VerticalGap(20), */
 
                     // Logo Circle
                     Center(
@@ -158,53 +159,6 @@ class GetStartedPage extends StatelessWidget {
 
                     const VerticalGap(20),
 
-                    // Privacy Policy Text
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'By using this app you agree to',
-                            style:
-                                TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: controller.navigateToPrivacyPolicy,
-                                child: const Text(
-                                  'Privacy policies',
-                                  style: TextStyle(
-                                    color: Color(0xFFAEDFF7),
-                                    fontSize: 12,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: Color(0xFFAEDFF7),
-                                  ),
-                                ),
-                              ),
-                              const Text(
-                                ' and ',
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 12),
-                              ),
-                              GestureDetector(
-                                onTap: controller.navigateToTerms,
-                                child: const Text(
-                                  'Terms',
-                                  style: TextStyle(
-                                    color: Color(0xFFAEDFF7),
-                                    fontSize: 12,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: Color(0xFFAEDFF7),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),

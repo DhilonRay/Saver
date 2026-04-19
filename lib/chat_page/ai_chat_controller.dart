@@ -44,8 +44,12 @@ class AIChatController extends GetxController {
 - সাধারণ স্বাস্থ্য সচেতনতা (Basic health awareness)
 
 ২. NeoSaver সংক্রান্ত প্রশ্ন (NeoSaver related questions):
-- অ্যাম্বুলেন্স বুকিং পদ্ধতি (How to book ambulance)
-- পেমেন্ট প্রক্রিয়া (Payment process)
+- অ্যাম্বুলেন্স বুকিং পদ্ধতি (How to book ambulance):
+   ১. NeoSaver অ্যাপ খুলুন।
+   ২. আপনার লোকেশন দিন।
+   ৩. আপনার প্রয়োজন অনুযায়ী অ্যাম্বুলেন্সের ধরন নির্বাচন করুন।
+   ৪. ড্রাইভারের সাথে মোট পেমেন্ট আলোচনা করুন এবং রাইড প্রসেস শুরু করুন।
+- পেমেন্ট প্রক্রিয়া (ড্রাইভারের সাথে আলোচনা করুন)
 - নিরাপত্তা ও সেবা সংক্রান্ত তথ্য (Safety & service info)
 - অ্যাপ ব্যবহারের নিয়ম (App usage help)
 
@@ -59,8 +63,12 @@ You are a helpful AI assistant for the NeoSaver app. You ONLY respond to the fol
 - Basic health awareness
 
 2. NeoSaver-related questions:
-- How to book an ambulance
-- Payment process
+- How to book an ambulance:
+   1. Open the NeoSaver app.
+   2. Enter your location.
+   3. Select the type of ambulance according to your needs.
+   4. Discuss the total payment with the driver and start the ride process.
+- Payment process (Discuss with driver)
 - Safety & service info
 - App usage help
 
@@ -87,7 +95,7 @@ DO NOT answer any other topics (politics, personal chat, general knowledge, or a
   void _addWelcomeMessage() {
     messages.add(AIChatMessage(
       text:
-          '🤖 স্বাগতম! আমি NeoSaver AI সহকারী।\n\nআমাকে যেকোনো প্রশ্ন করতে পারেন:\n• জরুরি চিকিৎসা সংক্রান্ত তথ্য\n• অ্যাম্বুলেন্স বুকিং সাহায্য\n• প্রাথমিক চিকিৎসা পরামর্শ\n• অ্যাপ ব্যবহার গাইড\n\nWelcome! I am NeoSaver AI Assistant. Feel free to ask me anything!',
+          'স্বাগতম! আমি Nirva।\n\nআমাকে যেকোনো প্রশ্ন করতে পারেন:\n• জরুরি চিকিৎসা সংক্রান্ত তথ্য\n• অ্যাম্বুলেন্স বুকিং সাহায্য\n• প্রাথমিক চিকিৎসা পরামর্শ\n• অ্যাপ ব্যবহার গাইড\n\nWelcome! I am Nirva. Feel free to ask me anything!',
       isUser: false,
     ));
   }
@@ -221,7 +229,7 @@ DO NOT answer any other topics (politics, personal chat, general knowledge, or a
         'parts': [
           {
             'text':
-                'বুঝেছি। আমি NeoSaver AI সহকারী হিসেবে সাহায্য করতে প্রস্তুত।'
+                'বুঝেছি। আমি Nirva সহকারী হিসেবে সাহায্য করতে প্রস্তুত।'
           }
         ]
       });
@@ -305,20 +313,18 @@ DO NOT answer any other topics (politics, personal chat, general knowledge, or a
         lowerQuery.contains('book')) {
       return '''🚑 **অ্যাম্বুলেন্স বুক করার পদ্ধতি:**
 
-1️⃣ হোম পেজে গিয়ে গন্তব্য (Destination) লিখুন
-2️⃣ "Available Ambulances" এ ক্লিক করুন
-3️⃣ পছন্দের অ্যাম্বুলেন্স সিলেক্ট করুন
-4️⃣ "Book Now" বাটনে ক্লিক করুন
-5️⃣ অর্ডার কনফার্ম হলে ট্র্যাক করুন
+1️⃣ NeoSaver অ্যাপ খুলুন
+2️⃣ আপনার লোকেশন দিন
+3️⃣ আপনার প্রয়োজন অনুযায়ী অ্যাম্বুলেন্সের ধরন নির্বাচন করুন
+4️⃣ ড্রাইভারের সাথে মোট পেমেন্ট আলোচনা করুন এবং রাইড শুরু করুন
 
 📞 জরুরি হেল্পলাইন: +8801793399913
 
 **How to book an ambulance:**
-1. Enter destination on home page
-2. Click "Available Ambulances"
-3. Select your preferred ambulance
-4. Click "Book Now"
-5. Track your order once confirmed''';
+1. Open the NeoSaver app
+2. Enter your location
+3. Select ambulance type based on your needs
+4. Discuss total payment with driver and start ride''';
     }
 
     // Emergency numbers
@@ -439,11 +445,11 @@ DO NOT answer any other topics (politics, personal chat, general knowledge, or a
         lowerQuery.contains('হ্যালো') ||
         lowerQuery.contains('hi') ||
         lowerQuery.contains('hello')) {
-      return '''👋 হ্যালো! আমি NeoSaver AI সহকারী।
+      return '''👋 হ্যালো! আমি Nirva সহকারী।
 
 আমি শুধুমাত্র স্বাস্থ্য সংক্রান্ত এবং NeoSaver অ্যাপ সংক্রান্ত তথ্য দিতে পারি। আপনাকে কিভাবে সাহায্য করতে পারি?
 
-Hello! I'm NeoSaver AI Assistant. I can only help with health-related or NeoSaver-related questions. How can I help you today?''';
+Hello! I'm Nirva AI Assistant. I can only help with health-related or NeoSaver-related questions. How can I help you today?''';
     }
 
     // Out of scope detection for local response

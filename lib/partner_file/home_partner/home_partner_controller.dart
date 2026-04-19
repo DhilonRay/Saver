@@ -69,6 +69,8 @@ class HomePartnerController extends GetxController {
       <String>{}.obs; // Track requests that have already been shown
   var declinedRequestIds =
       <String>{}.obs; // Track declined requests to prevent showing again
+  var interactedRequestIds =
+      <String>{}.obs; // Track requests already responded to or accepted
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
   StreamSubscription<DocumentSnapshot>? _nameSubscription;
   StreamSubscription<DocumentSnapshot>? _imageSubscription;
@@ -792,7 +794,7 @@ class HomePartnerController extends GetxController {
     await _loadCustomIcons();
 
     // Load previously declined requests BEFORE listening to requests (Fixes race condition)
-    await _loadDeclinedRequestIds();
+    await _loadHandledRequestIds();
 
     // Start listening for requests
     _listenForRequests();
@@ -806,6 +808,20 @@ class HomePartnerController extends GetxController {
 
     // Initialize FCM token specifically for this partner
     _initializeFCM();
+    
+    // Check for initial request from notifications (Deep-linking)
+    if (Get.arguments != null && Get.arguments['initialRequest'] != null) {
+      final request = Map<String, dynamic>.from(Get.arguments['initialRequest']);
+      // Ensure it has an ID field that the bottom sheet expects
+      final String? reqId = request['id'] ?? request['orderId'];
+      
+      if (reqId != null) {
+        request['id'] = reqId; // Normalize to 'id'
+        Future.delayed(const Duration(milliseconds: 800), () {
+          _showRequestBottomSheet(request);
+        });
+      }
+    }
 
     // Debug: Check for existing orders after a delay
     Future.delayed(const Duration(seconds: 3), () {
@@ -901,29 +917,42 @@ class HomePartnerController extends GetxController {
     showRequestBottomSheet.value = false;
   }
 
-  /// Load declined request IDs from shared preferences
-  Future<void> _loadDeclinedRequestIds() async {
+  /// Load handled request IDs from shared preferences
+  Future<void> _loadHandledRequestIds() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final user = _auth.currentUser;
       if (user != null) {
-        final key = 'declined_requests_${user.uid}';
-        final declinedIds = prefs.getStringList(key) ?? [];
+        // Load declined IDs (legacy)
+        final declinedKey = 'declined_requests_${user.uid}';
+        final declinedIds = prefs.getStringList(declinedKey) ?? [];
         declinedRequestIds.addAll(declinedIds);
+        
+        // Load interacted IDs (new)
+        final interactedKey = 'interacted_requests_${user.uid}';
+        final interactedIds = prefs.getStringList(interactedKey) ?? [];
+        interactedRequestIds.addAll(interactedIds);
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('❌ Error loading handled request IDs: $e');
+    }
   }
 
-  /// Save declined request IDs to shared preferences
-  Future<void> _saveDeclinedRequestIds() async {
+  /// Save handled request IDs to shared preferences
+  Future<void> _saveHandledRequestIds() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final user = _auth.currentUser;
       if (user != null) {
-        final key = 'declined_requests_${user.uid}';
-        await prefs.setStringList(key, declinedRequestIds.toList());
+        final declinedKey = 'declined_requests_${user.uid}';
+        await prefs.setStringList(declinedKey, declinedRequestIds.toList());
+        
+        final interactedKey = 'interacted_requests_${user.uid}';
+        await prefs.setStringList(interactedKey, interactedRequestIds.toList());
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('❌ Error saving handled request IDs: $e');
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -1019,14 +1048,24 @@ class HomePartnerController extends GetxController {
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
-            // Log each document for debugging
+             // Log each document and handle state recovery
             for (var doc in snapshot.docs) {
               final data = doc.data();
               debugPrint(
                   '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
+              
+              // If user sent a counter offer, we MUST show it again even if driver previously interacted
+              final negotiation = data['negotiation'] as Map<String, dynamic>? ?? {};
+              if (negotiation['status'] == 'counter' && negotiation['counterBy'] == 'user') {
+                if (interactedRequestIds.contains(doc.id)) {
+                  interactedRequestIds.remove(doc.id);
+                  _saveHandledRequestIds();
+                  debugPrint('♻️ Order ${doc.id} removed from interacted set due to user counter-offer');
+                }
+              }
             }
 
-            // Filter out declined requests
+            // Filter out declined and interacted requests
             final allRequests = snapshot.docs
                 .map((doc) {
                   return {
@@ -1034,7 +1073,9 @@ class HomePartnerController extends GetxController {
                     ...doc.data(),
                   };
                 })
-                .where((request) => !declinedRequestIds.contains(request['id']))
+                .where((request) => 
+                    !declinedRequestIds.contains(request['id']) &&
+                    !interactedRequestIds.contains(request['id']))
                 .toList();
 
             pendingRequests.value = allRequests;
@@ -1664,27 +1705,46 @@ class HomePartnerController extends GetxController {
 
         debugPrint('HomePartner: Active negotiation update. status: $status, negStatus: $negotiationStatus');
 
-        if (status == 'accepted' || negotiationStatus == 'confirmed') {
-          debugPrint('HomePartner: Ride confirmed! Navigating to AcceptMapsPage...');
-          
-          _stopActiveNegotiationListener();
-          
-          // Close the bottom sheet if it's open
-          if (Get.isBottomSheetOpen == true) {
-            Get.back();
-          }
-          
-          // Prepare fresh data for navigation
-          final updatedRequest = {'id': requestId, ...data};
-          
-          Get.to(() => AcceptMapsPage(), arguments: {
-            'request': updatedRequest,
-            'serviceRate': serviceRate.value
-          });
+        if (status == 'accepted' || status == 'confirmed' || 
+            negotiationStatus == 'confirmed' || negotiationStatus == 'accepted') {
+          _handleRideConfirmed(requestId!, data);
         }
       }
     }, onError: (e) {
       debugPrint('HomePartner: Active negotiation listener error: $e');
+    });
+  }
+
+  /// Centralized method to handle transition to active ride map
+  void _handleRideConfirmed(String orderId, Map<String, dynamic> data) {
+    // Prevent multiple navigation attempts
+    if (Get.currentRoute == '/AcceptMapsPage') return;
+
+    debugPrint('🏁 HomePartner: Processing ride start for order $orderId');
+
+    // Stop all relevant listeners
+    _stopActiveNegotiationListener();
+    _fareResponseSubscription?.cancel();
+    _fareResponseSubscription = null;
+
+    // Small delay to ensure any closing bottom sheets or UI states are settled
+    Future.delayed(const Duration(milliseconds: 300), () {
+      // Close any open bottom sheets
+      if (Get.isBottomSheetOpen == true) {
+        Get.back();
+      }
+
+      Alert.info(
+          '✅ ভাড়া গৃহীত! ইউজার আপনার ভাড়া গ্রহণ করেছেন। ট্রিপ শুরু করুন।');
+
+      // Prepare fresh data for navigation
+      final updatedRequest = {'id': orderId, ...data};
+
+      // Use offAll to match SplashPageController behavior for stable redirection
+      Get.offAll(() => const AcceptMapsPage(), arguments: {
+        'request': updatedRequest,
+        'serviceRate': serviceRate.value,
+      });
     });
   }
 
@@ -1741,6 +1801,10 @@ class HomePartnerController extends GetxController {
         Get.back();
         return;
       }
+
+      // Add to handled list and save to preferences to prevent reappearing as a "new" request
+      interactedRequestIds.add(requestId);
+      await _saveHandledRequestIds();
 
       // Get the request data before updating status (since it will be filtered out)
       final request =
@@ -1887,7 +1951,7 @@ class HomePartnerController extends GetxController {
 
       // Add to declined list and save to preferences
       declinedRequestIds.add(requestId);
-      await _saveDeclinedRequestIds();
+      await _saveHandledRequestIds();
 
       // Update status to declined
       await FirebaseFirestore.instance
@@ -1956,6 +2020,10 @@ class HomePartnerController extends GetxController {
         'driverName': partnerName.value,
       });
 
+      // Add to interacted list so it doesn't show in the pending list until user counters
+      interactedRequestIds.add(requestId);
+      await _saveHandledRequestIds();
+
       debugPrint('✅ Fare proposed: ৳$fareAmount for order $requestId');
 
       // Send FCM notification to user
@@ -2012,22 +2080,14 @@ class HomePartnerController extends GetxController {
         .listen((doc) {
       if (!doc.exists) return;
       final data = doc.data();
-      final status = data?['status'];
+      final status = data?['status']?.toString().toLowerCase();
+      final negStatus = data?['negotiation']?['status']?.toString().toLowerCase();
 
-      if (status == 'confirmed' ||
-          data?['negotiation']?['status'] == 'confirmed') {
-        _fareResponseSubscription?.cancel();
-        debugPrint('✅ Negotiation confirmed for order $orderId');
-
-        Alert.info(
-            '✅ ভাড়া গৃহীত! ইউজার আপনার ভাড়া গ্রহণ করেছেন। ট্রিপ শুরু করুন।');
-
-        // Navigate to accept maps page
-        final updatedRequest = {'id': orderId, ...data!};
-        Get.to(() => AcceptMapsPage(), arguments: {
-          'request': updatedRequest,
-          'serviceRate': serviceRate.value,
-        });
+      // Broad triggers to catch ride start regardless of update order
+      if (status == 'confirmed' || status == 'accepted' || 
+          negStatus == 'confirmed' || negStatus == 'accepted') {
+        debugPrint('✅ Negotiation confirmed/accepted for order $orderId');
+        _handleRideConfirmed(orderId, data!);
       } else if (data?['negotiation']?['status'] == 'counter' &&
           data?['negotiation']?['counterBy'] == 'user') {
         // User sent a counter offer! Show the bottom sheet again for the driver to respond
@@ -2037,6 +2097,12 @@ class HomePartnerController extends GetxController {
 
         // Mark as NOT shown so the main listener (or this one) can trigger the UI
         shownRequestIds.remove(orderId);
+        
+        // Remove from interacted list list so it reappears for responding
+        if (interactedRequestIds.contains(orderId)) {
+          interactedRequestIds.remove(orderId);
+          _saveHandledRequestIds();
+        }
 
         // Update the input field with the user's offer to make it easy for the driver to accept or counter back
         _fareInputController.text = counterFare.toStringAsFixed(0);

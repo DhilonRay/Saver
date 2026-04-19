@@ -256,17 +256,6 @@ class HomePartnerPage extends StatelessWidget {
                                   Get.toNamed('/partner-profile');
                                 },
                               ),
-                              _buildDrawerItem(
-                                icon: Icons.attach_money,
-                                title: 'Change Rates',
-                                onTap: () {
-                                  /*   // Close the drawer and show rate change dialog
-                              try {
-                                Get.back();
-                              } catch (_) {} */
-                                  controller.showRateChangeDialog();
-                                },
-                              ),
                               Divider(height: 8, thickness: 1),
                               _buildDrawerItem(
                                 icon: Icons.info_outline,

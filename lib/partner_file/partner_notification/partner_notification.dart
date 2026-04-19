@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:saver/partner_file/home_partner/home_partner.dart';
 import 'partner_notification_controller.dart';
 
 class PartnerNotificationPage extends StatelessWidget {
@@ -381,8 +382,11 @@ class PartnerNotificationPage extends StatelessWidget {
       final userId = data['userId'];
 
       if (type == 'ambulance_request') {
-        // Show detailed ambulance request information
-        _showAmbulanceRequestDetails(data);
+        // Navigate to Home map and auto-open the request
+        Get.offAll(() => HomePartnerPage(), arguments: {
+          'initialRequest': data,
+          'isFromNotification': true,
+        });
       } else if (orderId != null) {
         // Navigate to order details
         Get.toNamed('/partner-orders', arguments: {'orderId': orderId});
@@ -393,172 +397,6 @@ class PartnerNotificationPage extends StatelessWidget {
     }
   }
 
-  void _showAmbulanceRequestDetails(Map<String, dynamic> data) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          constraints: BoxConstraints(maxHeight: Get.height * 0.8),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      Icon(Icons.emergency, color: Colors.red, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'অ্যাম্বুলেন্স অনুরোধ',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red[700],
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Get.back(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
 
-                  // Patient Information
-                  _buildSectionHeader('রোগীর তথ্য'),
-                  _buildInfoRow('নাম', data['patientName'] ?? 'N/A'),
-                  _buildInfoRow('বয়স', data['patientAge'] ?? 'N/A'),
-                  _buildInfoRow('লিঙ্গ', data['patientGender'] ?? 'N/A'),
-                  _buildInfoRow('ওজন', data['patientWeight'] ?? 'N/A'),
-                  _buildInfoRow('রক্তের গ্রুপ', data['bloodGroup'] ?? 'N/A'),
 
-                  const SizedBox(height: 16),
-
-                  // Contact Information
-                  _buildSectionHeader('যোগাযোগের তথ্য'),
-                  _buildInfoRow('ফোন নম্বর', data['phoneNumber'] ?? 'N/A'),
-                  _buildInfoRow('ইমেইল', data['email'] ?? 'N/A'),
-                  _buildInfoRow('জরুরী যোগাযোগ', data['emergencyContact'] ?? 'N/A'),
-
-                  const SizedBox(height: 16),
-
-                  // Medical Information
-                  _buildSectionHeader('চিকিৎসা তথ্য'),
-                  _buildInfoRow('চিকিৎসা ইতিহাস', data['medicalHistory'] ?? 'N/A'),
-                  _buildInfoRow('বর্তমান অসুস্থতা', data['currentCondition'] ?? 'N/A'),
-                  _buildInfoRow('অ্যালার্জি', data['allergies'] ?? 'N/A'),
-                  _buildInfoRow('ওষুধ', data['medications'] ?? 'N/A'),
-
-                  const SizedBox(height: 16),
-
-                  // Location Information
-                  _buildSectionHeader('অবস্থান তথ্য'),
-                  _buildInfoRow('অবস্থান', data['location'] ?? 'N/A'),
-                  _buildInfoRow('বিস্তারিত ঠিকানা', data['detailedAddress'] ?? 'N/A'),
-                  _buildInfoRow('ল্যাটিটিউড', data['latitude']?.toString() ?? 'N/A'),
-                  _buildInfoRow('লংগিটিউড', data['longitude']?.toString() ?? 'N/A'),
-
-                  const SizedBox(height: 16),
-
-                  // Additional Information
-                  _buildSectionHeader('অতিরিক্ত তথ্য'),
-                  _buildInfoRow('অনুরোধের সময়', data['requestTime'] ?? 'N/A'),
-                  _buildInfoRow('অগ্রাধিকার', data['priority'] ?? 'N/A'),
-                  _buildInfoRow('বিশেষ নির্দেশনা', data['specialInstructions'] ?? 'N/A'),
-
-                  const SizedBox(height: 24),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Get.back();
-                            // Navigate to accept the request
-                            Get.toNamed('/accept-maps', arguments: {
-                              'requestData': data,
-                              'isFromNotification': true,
-                            });
-                          },
-                          icon: const Icon(Icons.check),
-                          label: const Text('গ্রহণ করুন'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => Get.back(),
-                          icon: const Icon(Icons.close),
-                          label: const Text('বাতিল করুন'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

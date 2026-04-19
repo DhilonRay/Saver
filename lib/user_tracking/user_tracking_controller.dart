@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../home_user/home_user.dart';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -26,7 +27,7 @@ class UserTrackingController extends GetxController {
   var isLoadingLocation = true.obs;
   var orderData = Rx<Map<String, dynamic>?>(null);
   var orderId = Rx<String?>('null');
-  
+
   // Partner info
   var partnerName = 'NeoSaver Partner'.obs;
   var partnerImage = Rx<String?>(null);
@@ -35,9 +36,11 @@ class UserTrackingController extends GetxController {
   var routePoints = <LatLng>[].obs;
 
   // ETA variables
-  var estimatedTime = Rx<String>('অনুমানিক সময়');
+  var estimatedTime = Rx<String>('গণনা হচ্ছে...');
   var estimatedDistance = Rx<double>(0.0);
   var isCalculatingETA = false.obs;
+  
+  bool _isNavigatingHome = false;
 
   // Live tracking variables
   var isLiveTracking = false.obs;
@@ -258,13 +261,15 @@ class UserTrackingController extends GetxController {
 
       // User location icon (red)
 
-      userLocationIcon =
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      userLocationIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(50, 50)),
+        'assets/images/pin-map.png',
+      );
 
       // Ambulance location icon (blue)
       ambulanceLocationIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(40, 40)),
-        'assets/markers/ambulance.png',
+        const ImageConfiguration(size: Size(60, 60)),
+        'assets/images/ambulance.png',
       );
 
       debugPrint('User tracking custom icons loaded successfully');
@@ -283,8 +288,6 @@ class UserTrackingController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _showErrorDialog('Permission Denied',
-              'Location permission is required for tracking');
           isLoadingLocation.value = false;
           return;
         }
@@ -294,14 +297,21 @@ class UserTrackingController extends GetxController {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      userPosition.value = LatLng(position.latitude, position.longitude);
+      final status =
+          orderData.value?['orderStatus'] ?? orderData.value?['status'];
+      // Only set userPosition if we're not heading to a fixed destination
+      if (status != 'pickup' && status != 'to_destination') {
+        userPosition.value = LatLng(position.latitude, position.longitude);
+      }
 
       // Update markers
       _updateMarkers();
 
       isLoadingLocation.value = false;
     } catch (e) {
-      userPosition.value = defaultPosition;
+      if (userPosition.value == null) {
+        userPosition.value = defaultPosition;
+      }
       _updateMarkers();
       isLoadingLocation.value = false;
       debugPrint('Error getting user location: $e');
@@ -312,34 +322,45 @@ class UserTrackingController extends GetxController {
     markers.clear();
 
     final status =
-        orderData.value?['orderStatus'] ?? orderData.value?['status'];
-    final isGoingToDestination = status == 'to_destination';
+        (orderData.value?['orderStatus'] ?? orderData.value?['status'] ?? '')
+            .toString()
+            .toLowerCase();
+    final isGoingToDestination =
+        status == 'pickup' || status == 'to_destination';
 
-    // Add user location or destination marker
+    // Add user/destination marker
     if (userPosition.value != null) {
       markers.add(
         Marker(
-          markerId: MarkerId(
-              isGoingToDestination ? 'destination_location' : 'user_location'),
+          markerId: MarkerId(isGoingToDestination ? 'destination' : 'user'),
           position: userPosition.value!,
           infoWindow: InfoWindow(
-            title: isGoingToDestination ? '🏁 গন্তব্য' : 'আপনার অবস্থান',
+            title: isGoingToDestination ? 'গন্তব্য' : 'আপনার অবস্থান',
+            snippet: isGoingToDestination
+                ? 'পেশেন্ট এখানে যাচ্ছে'
+                : 'অ্যাম্বুলেন্স এখানে আসছে',
           ),
           icon: isGoingToDestination
               ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-              : userLocationIcon,
+              : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     }
 
-    // Add ambulance location marker
+    // Add ambulance marker
     if (ambulancePosition.value != null) {
       markers.add(
         Marker(
-          markerId: MarkerId('ambulance_location'),
+          markerId: const MarkerId('ambulance'),
           position: ambulancePosition.value!,
-          infoWindow: InfoWindow(title: '🚑 অ্যাম্বুলেন্স (লাইভ)'),
+          infoWindow: const InfoWindow(
+            title: 'অ্যাম্বুলেন্স (লাইভ)',
+            snippet: 'রিয়েল-টাইম ট্র্যাকিং হচ্ছে',
+          ),
           icon: ambulanceLocationIcon,
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
+          rotation: 0, // Could be improved with actual bearing if available
         ),
       );
     }
@@ -411,42 +432,79 @@ class UserTrackingController extends GetxController {
           }
         }
 
-        // --- ALWAYS UPDATE UI ON SNAPSHOT ---
-        // These calls are moved outside of liveLocation checks to ensure
-        // fallback polylines and initial details show up immediately.
+    
         _updateMarkers();
         _updatePolylines();
 
-        // Calculate ETA immediately if we have both positions and it's not already calculated
+      
+        if (status == 'completed') {
+          debugPrint('UserTracking: Ride completed. Preparing to go home.');
+          _handleRideCompletion();
+        }
+
+       
         if (ambulancePosition.value != null &&
             userPosition.value != null &&
             status != 'completed') {
+                    final prevStatus =
+              orderData.value?['orderStatus'] ?? orderData.value?['status'];
+          if (status != prevStatus &&
+              (status == 'pickup' || status == 'to_destination')) {
+            debugPrint(
+                'UserTracking: Status changed to $status - updating destination coordinates');
+            
+            final destLat = data?['destinationLat'];
+            final destLng = data?['destinationLng'];
+            if (destLat != null && destLng != null) {
+              userPosition.value = LatLng(destLat, destLng);
+              debugPrint('UserTracking: Target destination updated to: ${userPosition.value}');
+            }
+            routePoints.clear();
+          }
+
           // We schedule it to avoid hammering the API on every tiny snapshot change
           _scheduleETAUpdate();
 
-          // If route is still empty, force a calculation now
-          if (routePoints.isEmpty) {
-            if (status == 'pickup' || status == 'to_destination') {
-              final destinationLat = data?['destinationLat'];
-              final destinationLng = data?['destinationLng'];
-              if (destinationLat != null && destinationLng != null) {
-                calculateRouteToDestination(
-                    LatLng(destinationLat, destinationLng));
-              }
-            } else {
+          // Force an immediate calculation if the route is empty or status just changed
+          if (routePoints.isEmpty || (status != prevStatus && (status == 'pickup' || status == 'to_destination'))) {
+            if ((status == 'pickup' || status == 'to_destination') && userPosition.value != null) {
+              calculateRouteToDestination(userPosition.value!);
+            } else if (status != 'completed') {
               calculateETA();
             }
           }
         }
 
-        // Ensure we capture all possible fare fields with better type safety
-        final rawFare = data?['fareAmount'] ??
-            data?['confirmedFare'] ??
-            data?['totalAmount'] ??
-            data?['totalFare'];
+        // Improved fare extraction: prioritize non-zero values from all possible fields
+        dynamic getValidFare(Map<String, dynamic>? data) {
+          final fields = [
+            data?['fareAmount'],
+            data?['confirmedFare'],
+            data?['counterFare'],
+            data?['totalAmount'],
+            data?['totalFare'],
+            data?['fare'],
+            data?['negotiation']?['counterFare'],
+            data?['negotiation']?['finalFare'],
+            data?['negotiation']?['currentFare'],
+            data?['negotiation']?['driverFare'],
+          ];
+
+          for (var field in fields) {
+            if (field != null && field != 0 && field != '0') {
+              return field;
+            }
+          }
+          return null;
+        }
+
+        final rawFare = getValidFare(data);
+
         final fareAmount = (rawFare is num)
             ? rawFare.toInt()
-            : (double.tryParse(rawFare?.toString() ?? '0')?.toInt() ?? 0);
+            : (int.tryParse(rawFare?.toString() ?? '0') ??
+                double.tryParse(rawFare?.toString() ?? '0')?.toInt() ??
+                0);
 
         final currentId = orderData.value?['id'] ?? orderId;
         final updatedData = {
@@ -457,28 +515,92 @@ class UserTrackingController extends GetxController {
 
         orderData.value = updatedData;
 
-        // Fetch partner details if we have partnerId and haven't fetched yet
-        final partnerId = data?['partnerId'];
-        if (partnerId != null && partnerName.value == 'NeoSaver Partner') {
+        // Fetch partner details if we have partnerId/acceptedBy and haven't fetched yet
+        final partnerId =
+            data?['partnerId'] ?? data?['acceptedBy'] ?? data?['driverId'];
+
+        // Use driverName from order data if available immediately
+        if (data?['driverName'] != null) {
+          partnerName.value = data!['driverName'];
+        }
+
+        if (partnerId != null &&
+            (partnerName.value == 'NeoSaver Partner' ||
+                partnerImage.value == null)) {
           _fetchPartnerDetails(partnerId);
         }
       }
     });
   }
 
+  void _handleRideCompletion() async {
+    if (_isNavigatingHome) return;
+    _isNavigatingHome = true;
+
+    // Show completion UI for a few seconds before going home
+    await Future.delayed(const Duration(seconds: 4));
+
+    // Navigate back to home
+    Get.offAll(() => HomePage());
+  }
+
   Future<void> _fetchPartnerDetails(String partnerId) async {
     try {
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('users')
+      debugPrint('UserTracking: Fetching details for partner: $partnerId');
+
+      // 1. Try to fetch Name from "drivers" collection (matching HomePartnerController logic)
+      final driverDoc = await FirebaseFirestore.instance
+          .collection('drivers')
           .doc(partnerId)
           .get();
-          
+
+      if (driverDoc.exists) {
+        final data = driverDoc.data();
+        if (data != null && data['name'] != null) {
+          partnerName.value = data['name'];
+          debugPrint(
+              'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
+        }
+      }
+
+      // 2. Try to fetch Profile Image from "partners" collection
+      final partnerDoc = await FirebaseFirestore.instance
+          .collection('partners')
+          .doc(partnerId)
+          .get();
+
       if (partnerDoc.exists) {
         final data = partnerDoc.data();
         if (data != null) {
-          partnerName.value = data['name'] ?? 'NeoSaver Partner';
-          partnerImage.value = data['profileImageUrl'];
-          debugPrint('UserTracking: Fetched partner details: ${partnerName.value}');
+          if (data['profileImageUrl'] != null) {
+            partnerImage.value = data['profileImageUrl'];
+            debugPrint('UserTracking: Fetched image from partners collection');
+          }
+          // If name wasn't in drivers, try partners
+          if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
+            partnerName.value = data['name'];
+          }
+        }
+      }
+
+      // 3. Fallback to "users" collection if still missing
+      if (partnerName.value == 'NeoSaver Partner' ||
+          partnerImage.value == null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(partnerId)
+            .get();
+
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          if (data != null) {
+            if (partnerName.value == 'NeoSaver Partner') {
+              partnerName.value = data['name'] ?? 'NeoSaver Partner';
+            }
+            if (partnerImage.value == null) {
+              partnerImage.value = data['profileImageUrl'];
+            }
+          }
         }
       }
     } catch (e) {
@@ -687,18 +809,37 @@ class UserTrackingController extends GetxController {
   }
 
   String _formatDuration(int minutes) {
+    String toBengaliDigits(String input) {
+      const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+      for (int i = 0; i < english.length; i++) {
+        input = input.replaceAll(english[i], bengali[i]);
+      }
+      return input;
+    }
+
     if (minutes < 1) {
       return '১ মিনিটের কম';
     } else if (minutes < 60) {
-      return '$minutes মিনিট';
+      return '${toBengaliDigits(minutes.toString())} মিনিট';
     } else {
       final hours = minutes ~/ 60;
       final remainingMinutes = minutes % 60;
       if (remainingMinutes == 0) {
-        return '$hours ঘণ্টা';
+        return '${toBengaliDigits(hours.toString())} ঘণ্টা';
       } else {
-        return '$hours ঘণ্টা $remainingMinutes মিনিট';
+        return '${toBengaliDigits(hours.toString())} ঘণ্টা ${toBengaliDigits(remainingMinutes.toString())} মিনিট';
       }
+    }
+  }
+
+  void callPartner() async {
+    final phone = orderData.value?['partnerPhone'] ?? orderData.value?['phone'];
+    if (phone != null) {
+      final url = 'tel:$phone';
+      // Use url_launcher or similar here if available
+      debugPrint('UserTracking: Calling partner at $url');
+      // For now, it's just a log/placeholder if url_launcher is not imported
     }
   }
 
@@ -737,12 +878,15 @@ class UserTrackingController extends GetxController {
   }
 
   void _scheduleETAUpdate() {
-    // Cancel existing timer
-    _etaUpdateTimer?.cancel();
+    // Throttling: If the timer is already active, don't restart it or hammer the API.
+    // This allows the current timer to finish and run calculateETA() correctly.
+    if (_etaUpdateTimer?.isActive == true) {
+      return;
+    }
 
-    // Schedule ETA update
+    // If it's the first time or enough time has passed, schedule the next update
     _etaUpdateTimer = Timer(_etaUpdateInterval, () {
-      if (isLiveTracking.value) {
+      if (isLiveTracking.value || ambulancePosition.value != null) {
         calculateETA();
       }
     });
@@ -758,21 +902,6 @@ class UserTrackingController extends GetxController {
     _orderSubscription = null;
     _etaUpdateTimer?.cancel();
     _etaUpdateTimer = null;
-  }
-
-  void _showErrorDialog(String title, String message) {
-    Get.dialog(
-      AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   // Navigation methods

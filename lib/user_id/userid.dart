@@ -192,7 +192,7 @@ class UserIdPage extends StatelessWidget {
                           Icons.calendar_today,
                           'Created At',
                           controller.userData.value?['createdAt'] != null
-                              ? DateFormat('yyyy-MM-dd – kk:mm').format(
+                              ? DateFormat('d MMM yyyy . h:mm a').format(
                                   (controller.userData.value!['createdAt']
                                           as Timestamp)
                                       .toDate())

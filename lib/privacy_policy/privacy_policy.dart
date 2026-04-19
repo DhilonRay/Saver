@@ -302,7 +302,7 @@ class PrivacyPolicyPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Email: neosaver@gmail.com',
+            'Email: contact.neosaver@gmail.com',
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,

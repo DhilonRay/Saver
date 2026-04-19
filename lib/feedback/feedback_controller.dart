@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:saver/components/alert.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FeedbackController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -56,6 +57,7 @@ class FeedbackController extends GetxController {
 
     try {
       final user = _auth.currentUser;
+      // 1. Save to feedback collection (for records)
       await _firestore.collection('feedback').add({
         'name': nameController.text.trim(),
         'email': emailController.text.trim(),
@@ -64,6 +66,26 @@ class FeedbackController extends GetxController {
         'userId': user?.uid,
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      // 2. Open Mail App with pre-filled content (Guarantees delivery)
+      final Uri emailUri = Uri(
+        scheme: 'mailto',
+        path: 'contact.neosaver@gmail.com',
+        queryParameters: {
+          'subject': '✨ NeoSaver Feedback: ${nameController.text.trim()}',
+          'body': 'Name: ${nameController.text.trim()}\n'
+              'Email: ${emailController.text.trim()}\n'
+              'Rating: ${rating.value} / 5 Stars\n\n'
+              'Message:\n${feedbackController.text.trim()}\n\n'
+              '-- Sent via NeoSaver App Feedback --',
+        },
+      );
+
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+      } else {
+        debugPrint('Could not launch email app');
+      }
 
       // Clear form
       nameController.clear();

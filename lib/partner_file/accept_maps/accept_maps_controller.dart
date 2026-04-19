@@ -87,37 +87,121 @@ class AcceptMapsController extends GetxController {
       // Get request data from arguments first
       final args = Get.arguments;
       if (args != null && args is Map<String, dynamic>) {
-        requestData.value = args['request'];
+        final initialRequest = args['request'];
+        requestData.value = initialRequest;
+
+        final status = initialRequest?['status']?.toString().toLowerCase();
+        final negStatus =
+            initialRequest?['negotiation']?['status']?.toString().toLowerCase();
+
         showSlidePanel.value = args['fromActivityTab'] == true ||
-            args['request']?['status'] == 'in_transit' ||
-            args['request']?['status'] == 'accepted' ||
-            args['request']?['status'] == 'pickup' ||
-            args['request']?['status'] == 'to_destination';
-        serviceRate.value = args['request']?['totalAmount']?.toInt() ??
-            args['serviceRate'] ??
-            2500;
-        debugPrint(
-            'AcceptMaps: Received request data with ID: ${args['request']?['id']}');
-        debugPrint(
-            'AcceptMaps: Received serviceRate from arguments: ${serviceRate.value}');
-        debugPrint('AcceptMaps: Request status: ${args['request']?['status']}');
-        debugPrint(
-            'AcceptMaps: showSlidePanel set to: ${showSlidePanel.value}');
-        if (args['request']?['pickupLat'] != null &&
-            args['request']?['pickupLng'] != null) {
-          userPosition.value = LatLng(
-              args['request']['pickupLat'], args['request']['pickupLng']);
+            status == 'in_transit' ||
+            status == 'accepted' ||
+            status == 'confirmed' ||
+            status == 'pickup' ||
+            status == 'to_destination' ||
+            negStatus == 'accepted' ||
+            negStatus == 'confirmed';
+
+        // Extract initial fare
+        serviceRate.value =
+            _extractFare(initialRequest) ?? args['serviceRate'] ?? 2500;
+
+        final requestId = initialRequest?['id'];
+        if (requestId != null) {
+          _listenToOrderUpdates(requestId);
+        }
+
+        if (initialRequest?['pickupLat'] != null &&
+            initialRequest?['pickupLng'] != null) {
+          userPosition.value =
+              LatLng(initialRequest['pickupLat'], initialRequest['pickupLng']);
         }
       }
 
       // Get current location and then calculate ETA
       _getCurrentLocation();
     } catch (e) {
-      debugPrint('❌ Error initializing AcceptMapsController: $e');
       // Set default values if initialization fails
       serviceRate.value = 2500;
       showSlidePanel.value = false;
     }
+  }
+
+  int? _extractFare(Map<String, dynamic>? data) {
+    if (data == null) return null;
+
+    final fields = [
+      data['fareAmount'],
+      data['confirmedFare'],
+      data['counterFare'],
+      data['totalAmount'],
+      data['totalFare'],
+      data['fare'],
+      data['negotiation']?['counterFare'],
+      data['negotiation']?['finalFare'],
+      data['negotiation']?['currentFare'],
+      data['negotiation']?['driverFare'],
+    ];
+
+    for (var field in fields) {
+      if (field != null && field != 0 && field != '0') {
+        if (field is num) return field.toInt();
+        return int.tryParse(field.toString()) ??
+            double.tryParse(field.toString())?.toInt();
+      }
+    }
+    return null;
+  }
+
+  StreamSubscription? _orderSubscription;
+
+  void _listenToOrderUpdates(String orderId) {
+    _orderSubscription?.cancel();
+    _orderSubscription = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) {
+        // Order deleted, return to home
+        _orderSubscription?.cancel();
+        Get.offAll(() => HomePartnerPage());
+        return;
+      }
+
+      final data = snapshot.data();
+      if (data != null) {
+        final status = data['status']?.toString().toLowerCase();
+
+        // If order is cancelled or completed, return to home
+        if (status == 'cancelled' || status == 'completed') {
+          _orderSubscription?.cancel();
+          Get.offAll(() => HomePartnerPage());
+          return;
+        }
+
+        requestData.value = {'id': orderId, ...data};
+
+        final updatedFare = _extractFare(data);
+        if (updatedFare != null && updatedFare > 0) {
+          serviceRate.value = updatedFare;
+        }
+
+        final negStatus =
+            data['negotiation']?['status']?.toString().toLowerCase();
+
+        if (['accepted', 'confirmed', 'pickup', 'in_transit', 'to_destination']
+                .contains(status) ||
+            ['accepted', 'confirmed'].contains(negStatus)) {
+          showSlidePanel.value = true;
+        }
+      } else {
+        // No data, return to home
+        _orderSubscription?.cancel();
+        Get.offAll(() => HomePartnerPage());
+      }
+    });
   }
 
   void _initializeDirections() {
@@ -125,26 +209,20 @@ class AcceptMapsController extends GetxController {
       // Initialize Google Maps Directions API
       _directions = directions.GoogleMapsDirections(
           apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
-      debugPrint('✅ Google Maps Directions API initialized');
-    } catch (e) {
-      debugPrint('❌ Failed to initialize Google Maps Directions: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadCustomIcons() async {
     try {
-      debugPrint('Loading custom icons for accept maps...');
       partnerLocationIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(40, 40)),
-        'assets/markers/ambulance.png',
+        const ImageConfiguration(size: Size(60, 60)),
+        'assets/images/ambulance.png',
       );
       userLocationIcon = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(50, 50)),
-        'assets/markers/user.png',
+        'assets/images/pin-map.png',
       );
-      debugPrint('Accept maps custom icons loaded successfully');
     } catch (e) {
-      debugPrint('Failed to load accept maps custom icons: $e');
       partnerLocationIcon =
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
       userLocationIcon =
@@ -225,9 +303,6 @@ class AcceptMapsController extends GetxController {
   Future<void> _createRoutePolyline() async {
     if (partnerPosition.value != null && userPosition.value != null) {
       try {
-        debugPrint(
-            'Creating route polyline from ${partnerPosition.value} to ${userPosition.value}');
-
         final origin =
             '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
         final destination =
@@ -264,15 +339,8 @@ class AcceptMapsController extends GetxController {
 
           polylines.clear();
           polylines.add(polyline);
-
-          debugPrint(
-              'Route polyline created with ${polylinePoints.length} points');
-        } else {
-          debugPrint('Failed to get directions: ${result.status}');
-        }
-      } catch (e) {
-        debugPrint('Error creating route polyline: $e');
-      }
+        } else {}
+      } catch (e) {}
     }
   }
 
@@ -378,17 +446,14 @@ class AcceptMapsController extends GetxController {
 
   // ETA Calculation
   Future<void> calculateETA() async {
-    debugPrint('AcceptMaps: Starting ETA calculation...');
     if (partnerPosition.value == null || userPosition.value == null) {
       estimatedTime.value = 'অনুমানিক সময়';
-      debugPrint('AcceptMaps: Cannot calculate ETA - missing positions');
+
       return;
     }
 
     try {
       isCalculatingETA.value = true;
-      debugPrint(
-          'AcceptMaps: Calculating ETA from ${partnerPosition.value} to ${userPosition.value}');
 
       final origin =
           '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
@@ -412,16 +477,11 @@ class AcceptMapsController extends GetxController {
 
         estimatedDistance.value = distanceInKm;
         estimatedTime.value = _formatDuration(durationInMinutes);
-
-        debugPrint(
-            'AcceptMaps: ETA calculated successfully - ${estimatedTime.value}, Distance: ${distanceInKm.toStringAsFixed(1)} km');
       } else {
         estimatedTime.value = 'গণনা করা যায়নি';
-        debugPrint('AcceptMaps: ETA calculation failed: ${result.status}');
       }
     } catch (e) {
       estimatedTime.value = 'সময় গণনায় ত্রুটি';
-      debugPrint('AcceptMaps: ETA calculation error: $e');
     } finally {
       isCalculatingETA.value = false;
     }
@@ -448,8 +508,6 @@ class AcceptMapsController extends GetxController {
       if (requestData.value != null) {
         final requestId = requestData.value!['id'];
         final userId = requestData.value!['userId'];
-        debugPrint(
-            'AcceptMaps: Completing ride with request ID: $requestId and fare: $fareAmount');
 
         // Update order status and fare
         await FirebaseFirestore.instance
@@ -482,8 +540,6 @@ class AcceptMapsController extends GetxController {
                 'fareAmount': fareAmount.toString(),
               },
             );
-            debugPrint(
-                '✅ Completion notification sent with fare: ৳$fareAmount');
           }
         }
 
@@ -498,7 +554,6 @@ class AcceptMapsController extends GetxController {
             'currentOrderId': null,
             'status': 'available',
           });
-          debugPrint('Partner status updated to available');
         }
 
         // Stop live tracking if active
@@ -519,15 +574,11 @@ class AcceptMapsController extends GetxController {
   // Send notification to user when order status changes
   Future<void> _sendStatusChangeNotification(String status) async {
     if (requestData.value == null) {
-      debugPrint('❌ Cannot send status notification: requestData is null');
       return;
     }
 
     final requestId = requestData.value!['id'];
     final userId = requestData.value!['userId'];
-
-    debugPrint(
-        '📤 Attempting to send status change notification for status: $status, userId: $userId, requestId: $requestId');
 
     try {
       // Get user's FCM token
@@ -537,13 +588,10 @@ class AcceptMapsController extends GetxController {
           .get();
 
       if (!userDoc.exists) {
-        debugPrint('❌ User document not found for userId: $userId');
         return;
       }
 
       final fcmToken = userDoc.data()?['fcmToken'];
-      debugPrint(
-          '📱 FCM Token retrieved: ${fcmToken != null ? 'YES (${fcmToken.substring(0, 20)}...)' : 'NO'}');
 
       if (fcmToken != null && fcmToken.isNotEmpty) {
         String title = 'Order Status Update';
@@ -585,18 +633,9 @@ class AcceptMapsController extends GetxController {
         );
 
         if (success) {
-          debugPrint(
-              '✅ Status change notification sent successfully for status: $status');
-        } else {
-          debugPrint(
-              '⚠️ Failed to send notification - user may have uninstalled app or token expired');
-        }
-      } else {
-        debugPrint('❌ FCM token not found or empty for user: $userId');
-      }
-    } catch (e) {
-      debugPrint('❌ Error sending status change notification: $e');
-    }
+        } else {}
+      } else {}
+    } catch (e) {}
   }
 
   // Live tracking functions
@@ -604,7 +643,6 @@ class AcceptMapsController extends GetxController {
     if (isLiveTracking.value) return;
 
     isLiveTracking.value = true;
-    debugPrint('Starting live location tracking...');
 
     // Update order status to in_transit
     if (requestData.value != null) {
@@ -616,16 +654,14 @@ class AcceptMapsController extends GetxController {
             .update({
           'status': 'in_transit',
         });
-        debugPrint('Updated order status to in_transit');
+
         // Update local data
         requestData.value!['status'] = 'in_transit';
         requestData.refresh();
 
         // Send notification to user
         await _sendStatusChangeNotification('in_transit');
-      } catch (e) {
-        debugPrint('Failed to update order status: $e');
-      }
+      } catch (e) {}
     }
 
     // Start listening to position changes with optimized timing
@@ -653,13 +689,9 @@ class AcceptMapsController extends GetxController {
         _scheduleETAUpdate();
 
         // Reduce debug print frequency (only every 10th update)
-        if (DateTime.now().millisecondsSinceEpoch % 10000 < 1000) {
-          debugPrint(
-              'Live tracking: Updated position to ${position.latitude}, ${position.longitude}');
-        }
+        if (DateTime.now().millisecondsSinceEpoch % 10000 < 1000) {}
       },
       onError: (error) {
-        debugPrint('❌ Location stream error: $error');
         // Continue tracking even if there's an error
       },
     );
@@ -695,9 +727,7 @@ class AcceptMapsController extends GetxController {
             },
           });
           _lastFirestorePosition = position;
-          debugPrint('Firestore location updated');
         } catch (e) {
-          debugPrint('Failed to update live location: $e');
           // Retry after delay if failed
           Future.delayed(
               Duration(seconds: 2), () => _scheduleFirestoreUpdate(position));
@@ -768,8 +798,6 @@ class AcceptMapsController extends GetxController {
     _cameraUpdateTimer = null;
     _etaUpdateTimer?.cancel();
     _etaUpdateTimer = null;
-
-    debugPrint('Stopped live location tracking');
   }
 
   void _animateCameraToPosition(LatLng position) async {
@@ -816,11 +844,7 @@ class AcceptMapsController extends GetxController {
         controller.animateCamera(
           CameraUpdate.newLatLngBounds(bounds, 100), // 100 pixels padding
         );
-
-        debugPrint('✅ Camera animated to show destination route');
-      } catch (e) {
-        debugPrint('❌ Error animating camera to route: $e');
-      }
+      } catch (e) {}
     }
   }
 
@@ -852,7 +876,6 @@ class AcceptMapsController extends GetxController {
     try {
       if (requestData.value != null) {
         final requestId = requestData.value!['id'];
-        debugPrint('AcceptMaps: Cancelling ride with request ID: $requestId');
 
         // Stop live tracking if active
         if (isLiveTracking.value) {
@@ -922,16 +945,14 @@ class AcceptMapsController extends GetxController {
             .collection('orders')
             .doc(requestId)
             .update({'status': status});
-        debugPrint('Updated order status to $status');
+
         // Update local data
         requestData.value!['status'] = status;
         requestData.refresh();
 
         // Send notification to user about status change
         await _sendStatusChangeNotification(status);
-      } catch (e) {
-        debugPrint('Failed to update order status: $e');
-      }
+      } catch (e) {}
     }
   }
 
@@ -944,7 +965,6 @@ class AcceptMapsController extends GetxController {
     try {
       // Generate 4-digit OTP
       final otp = (1000 + Random().nextInt(9000)).toString();
-      debugPrint('Generated OTP: $otp for order: $requestId');
 
       // Store OTP in order document
       await FirebaseFirestore.instance
@@ -959,8 +979,6 @@ class AcceptMapsController extends GetxController {
       requestData.value!['pickupOTP'] = otp;
       requestData.value!['otpGeneratedAt'] = Timestamp.now();
       requestData.refresh();
-
-      debugPrint('✅ OTP stored in Firestore and local data updated');
 
       // Get user's FCM token
       final userDoc = await FirebaseFirestore.instance
@@ -984,78 +1002,10 @@ class AcceptMapsController extends GetxController {
         );
 
         if (success) {
-          debugPrint('✅ Pickup OTP notification sent successfully');
-        } else {
-          debugPrint('❌ Failed to send pickup OTP notification');
-        }
-      } else {
-        debugPrint('⚠️ User FCM token not found, cannot send OTP notification');
-      }
-    } catch (e) {
-      debugPrint('❌ Error generating/sending pickup OTP: $e');
-    }
+        } else {}
+      } else {}
+    } catch (e) {}
   }
-
-  /* Future<void> generateAndSendDestinationOTP() async {
-    if (requestData.value == null) return;
-
-    final requestId = requestData.value!['id'];
-    final userId = requestData.value!['userId'];
-
-    try {
-      // Generate 4-digit OTP
-      final otp = (1000 + Random().nextInt(9000)).toString();
-      debugPrint('Generated destination OTP: $otp for order: $requestId');
-
-      // Store OTP in order document
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .update({
-        'destinationOTP': otp,
-        'destinationOTPGeneratedAt': Timestamp.now(),
-      });
-
-      // Update local data with the generated OTP
-      requestData.value!['destinationOTP'] = otp;
-      requestData.value!['destinationOTPGeneratedAt'] = Timestamp.now();
-      requestData.refresh();
-
-      debugPrint('✅ Destination OTP stored in Firestore and local data updated');
-
-      // Get user's FCM token
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      final fcmToken = userDoc.data()?['fcmToken'] as String?;
-
-      if (fcmToken != null && fcmToken.isNotEmpty) {
-        // Send notification with OTP
-        final success = await NotificationService.sendFCMNotification(
-          token: fcmToken,
-          title: 'Destination OTP',
-          body: 'Your ambulance has started heading to destination. OTP for arrival confirmation: $otp',
-          data: {
-            'type': 'destination_otp',
-            'orderId': requestId,
-            'otp': otp,
-          },
-        );
-
-        if (success) {
-          debugPrint('✅ Destination OTP notification sent successfully');
-        } else {
-          debugPrint('❌ Failed to send destination OTP notification');
-        }
-      } else {
-        debugPrint('⚠️ User FCM token not found, cannot send destination OTP notification');
-      }
-    } catch (e) {
-      debugPrint('❌ Error generating/sending destination OTP: $e');
-    }
-  } */
 
   Future<bool> confirmPickupOTP(String enteredOTP) async {
     if (requestData.value == null) return false;
@@ -1070,7 +1020,6 @@ class AcceptMapsController extends GetxController {
           .get();
 
       if (!orderDoc.exists) {
-        debugPrint('❌ Order document not found');
         return false;
       }
 
@@ -1078,11 +1027,8 @@ class AcceptMapsController extends GetxController {
       final storedOTP = orderData['pickupOTP'];
 
       if (storedOTP == null) {
-        debugPrint('❌ No OTP found in order document');
         return false;
       }
-
-      debugPrint('Stored OTP: $storedOTP, Entered OTP: $enteredOTP');
 
       if (enteredOTP == storedOTP.toString()) {
         // Update order status to pickup (patient picked up)
@@ -1102,14 +1048,15 @@ class AcceptMapsController extends GetxController {
         // Send notification to user
         await _sendStatusChangeNotification('pickup');
 
-        debugPrint('✅ Pickup OTP confirmed, status updated to pickup');
+        // Automatically start route to destination after pickup
+
+        goToDestination();
+
         return true;
       } else {
-        debugPrint('❌ Invalid OTP entered - does not match stored OTP');
         return false;
       }
     } catch (e) {
-      debugPrint('❌ Error confirming pickup OTP: $e');
       return false;
     }
   }
@@ -1159,20 +1106,13 @@ class AcceptMapsController extends GetxController {
 
         // Animate camera to show both current location and destination
         await _animateCameraToShowRoute();
-
-        debugPrint('✅ Going to destination, polyline updated');
       }
-    } catch (e) {
-      debugPrint('❌ Error going to destination: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _createRouteToDestination() async {
     if (partnerPosition.value != null && userPosition.value != null) {
       try {
-        debugPrint(
-            'Creating route polyline to destination from ${partnerPosition.value} to ${userPosition.value}');
-
         final origin =
             '${partnerPosition.value!.latitude},${partnerPosition.value!.longitude}';
         final destination =
@@ -1216,12 +1156,8 @@ class AcceptMapsController extends GetxController {
           );
 
           polylines.add(polyline);
-          debugPrint(
-              '✅ Destination route polyline created - ETA: $duration, Distance: ${estimatedDistance.value.toStringAsFixed(1)} km');
         }
-      } catch (e) {
-        debugPrint('❌ Error creating destination route: $e');
-      }
+      } catch (e) {}
     }
   }
 
@@ -1257,8 +1193,9 @@ class AcceptMapsController extends GetxController {
     _cameraUpdateTimer?.cancel();
     _etaUpdateTimer?.cancel();
 
-    // Cancel position subscription
+    // Cancel position and order subscriptions
     _positionSubscription?.cancel();
+    _orderSubscription?.cancel();
 
     super.onClose();
   }

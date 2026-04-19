@@ -238,7 +238,7 @@ class FareNegotiationController extends GetxController {
 
   /// Navigate to Tracking Page once both parties accept
   void _navigateToTracking(Map<String, dynamic> orderData) {
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       // Ensure we have the order ID in the arguments
       final args = Map<String, dynamic>.from(orderData);
       args['id'] = requestId;
