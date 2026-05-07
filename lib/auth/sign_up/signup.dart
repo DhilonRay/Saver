@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:saver/components/widgets/space.dart';
 import 'package:get/get.dart';
 import 'signup_controller.dart';
 import '../../terms_condition/terms_condition.dart';
@@ -55,7 +58,10 @@ class SignUpPage extends StatelessWidget {
                     textPrimary,
                     textSecondary,
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 24),
+                  // Profile Picture Section
+                  _buildProfilePicturePicker(controller, primaryBlue),
+                  const SizedBox(height: 24),
                   _buildSignUpCard(
                     controller,
                     primaryBlue,
@@ -144,6 +150,7 @@ class SignUpPage extends StatelessWidget {
         ),
         const SizedBox(height: 32),
 
+        /* 
         // Full Name Field
         TextFormFieldWidget(
           controller: controller.nameController,
@@ -157,6 +164,7 @@ class SignUpPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        */
 
         // First Name and Last Name Row
         Row(
@@ -192,6 +200,28 @@ class SignUpPage extends StatelessWidget {
             ),
           ],
         ),
+        
+        // Company Name Field (Only for Drivers)
+        Obx(() => controller.selectedRole.value == 'driver'
+            ? Column(
+                children: [
+                  const SizedBox(height: 16),
+                  TextFormFieldWidget(
+                    controller: controller.companyNameController,
+                    hintText: 'Company / Ambulance Service Name',
+                    isFilled: true,
+                    fillColor: const Color(0xFFE3F2FD),
+                    prefixIcon: const Icon(Icons.business_outlined,
+                        color: Colors.black54),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ],
+              )
+            : const SizedBox.shrink()),
+
         const SizedBox(height: 16),
 
         // Phone Number Field (Matched Login Style)
@@ -306,6 +336,13 @@ class SignUpPage extends StatelessWidget {
                 borderSide: BorderSide.none,
               ),
             )),
+        const SizedBox(height: 24),
+
+        // Driver Documents Section
+        Obx(() => controller.selectedRole.value == 'driver'
+            ? _buildDriverDocumentsSection(controller, primaryBlue)
+            : const SizedBox.shrink()),
+
         const SizedBox(height: 24),
 
         // Terms and Conditions
@@ -578,6 +615,189 @@ class SignUpPage extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildProfilePicturePicker(
+      SignUpController controller, Color primaryBlue) {
+    return Obx(() => Center(
+          child: Stack(
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: primaryBlue, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: controller.profileImage.value != null
+                      ? Image.file(
+                          File(controller.profileImage.value!.path),
+                          fit: BoxFit.cover,
+                        )
+                      : Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.grey.shade400,
+                        ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: controller.pickProfileImage,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: primaryBlue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ));
+  }
+
+  Widget _buildDriverDocumentsSection(
+      SignUpController controller, Color primaryBlue) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Verification Documents *',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // First Row: License & NID
+        Row(
+          children: [
+            Expanded(
+              child: Obx(() => _buildUploadCard(
+                    title: 'Driving License',
+                    icon: Icons.assignment_ind_outlined,
+                    image: controller.licenseImage.value,
+                    onTap: controller.pickLicenseImage,
+                    primaryColor: primaryBlue,
+                  )),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Obx(() => _buildUploadCard(
+                    title: 'NID Card Photo',
+                    icon: Icons.badge_outlined,
+                    image: controller.nidImage.value,
+                    onTap: controller.pickNidImage,
+                    primaryColor: primaryBlue,
+                  )),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Second Row: Registration & Ambulance Photo
+        Row(
+          children: [
+            Expanded(
+              child: Obx(() => _buildUploadCard(
+                    title: 'Ambulance Reg.',
+                    icon: Icons.description_outlined,
+                    image: controller.registrationPapersImage.value,
+                    onTap: controller.pickRegistrationPapersImage,
+                    primaryColor: primaryBlue,
+                  )),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Obx(() => _buildUploadCard(
+                    title: 'Ambulance Photo',
+                    icon: Icons.emergency_outlined,
+                    image: controller.ambulanceImage.value,
+                    onTap: controller.pickAmbulanceImage,
+                    primaryColor: primaryBlue,
+                  )),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadCard({
+    required String title,
+    required IconData icon,
+    required XFile? image,
+    required VoidCallback onTap,
+    required Color primaryColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F7FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: image != null ? primaryColor : Colors.blue.shade100,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (image != null)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(image.path),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    ),
+                  ),
+                ),
+              )
+            else ...[
+              Icon(icon, color: primaryColor, size: 32),
+              const SizedBox(height: 8),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Text(
+                image != null ? 'Change Photo' : title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: image != null ? primaryColor : Colors.blue.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

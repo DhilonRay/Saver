@@ -46,9 +46,10 @@ class AcceptMapsController extends GetxController {
   Timer? _cameraUpdateTimer;
   Timer? _etaUpdateTimer;
   Position? _lastFirestorePosition;
+  DateTime? _lastFirestoreUpdateTime;
   Position? _lastCameraPosition;
   static const Duration _firestoreUpdateInterval =
-      Duration(seconds: 5); // Update every 5 seconds
+      Duration(seconds: 4); // Update at least every 4 seconds
   static const Duration _cameraUpdateInterval =
       Duration(seconds: 8); // Camera update every 8 seconds
   static const Duration _etaUpdateInterval =
@@ -120,7 +121,19 @@ class AcceptMapsController extends GetxController {
       }
 
       // Get current location and then calculate ETA
-      _getCurrentLocation();
+      _getCurrentLocation().then((_) {
+        // Automatically start live tracking if order is in a trackable state
+        if (requestData.value != null) {
+          final status =
+              requestData.value?['status']?.toString().toLowerCase();
+          if (['accepted', 'in_transit', 'pickup', 'to_destination']
+              .contains(status)) {
+            debugPrint(
+                'AcceptMaps: Automatically starting live tracking for status: $status');
+            startLiveTracking(updateStatus: false);
+          }
+        }
+      });
     } catch (e) {
       // Set default values if initialization fails
       serviceRate.value = 2500;
@@ -385,7 +398,7 @@ class AcceptMapsController extends GetxController {
     return points;
   }
 
-  void onMapCreated(GoogleMapController controller) {
+  Future<void> onMapCreated(GoogleMapController controller) async {
     if (!_controller.isCompleted) {
       _controller.complete(controller);
     }
@@ -394,11 +407,15 @@ class AcceptMapsController extends GetxController {
     if (partnerPosition.value != null && userPosition.value != null) {
       _fitBounds();
     } else if (partnerPosition.value != null) {
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: partnerPosition.value!, zoom: 14),
-        ),
-      );
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: partnerPosition.value!, zoom: 14),
+          ),
+        );
+      } catch (e) {
+        debugPrint('🏁 AcceptMaps: onMapCreated animateCamera failed: $e');
+      }
     }
   }
 
@@ -425,22 +442,34 @@ class AcceptMapsController extends GetxController {
               : userPosition.value!.longitude,
         ),
       );
-      controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+      try {
+        await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+      } catch (e) {
+        debugPrint('🏁 AcceptMaps: _fitBounds failed: $e');
+      }
     }
   }
 
   // Zoom methods
   Future<void> zoomIn() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomIn());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomIn());
+      } catch (e) {
+        debugPrint('🏁 AcceptMaps: zoomIn failed: $e');
+      }
     }
   }
 
   Future<void> zoomOut() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomOut());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomOut());
+      } catch (e) {
+        debugPrint('🏁 AcceptMaps: zoomOut failed: $e');
+      }
     }
   }
 
@@ -639,37 +668,41 @@ class AcceptMapsController extends GetxController {
   }
 
   // Live tracking functions
-  void startLiveTracking() async {
+  void startLiveTracking({bool updateStatus = true}) async {
     if (isLiveTracking.value) return;
 
     isLiveTracking.value = true;
 
-    // Update order status to in_transit
-    if (requestData.value != null) {
-      final requestId = requestData.value!['id'];
-      try {
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(requestId)
-            .update({
-          'status': 'in_transit',
-        });
+    // Update order status to in_transit only if requested and status is still accepted/confirmed
+    if (requestData.value != null && updateStatus) {
+      final status = requestData.value?['status']?.toString().toLowerCase();
+      if (status == 'accepted' || status == 'confirmed') {
+        final requestId = requestData.value!['id'];
+        try {
+          await FirebaseFirestore.instance
+              .collection('orders')
+              .doc(requestId)
+              .update({
+            'status': 'in_transit',
+          });
 
-        // Update local data
-        requestData.value!['status'] = 'in_transit';
-        requestData.refresh();
+          // Update local data
+          requestData.value!['status'] = 'in_transit';
+          requestData.refresh();
 
-        // Send notification to user
-        await _sendStatusChangeNotification('in_transit');
-      } catch (e) {}
+          // Send notification to user
+          await _sendStatusChangeNotification('in_transit');
+        } catch (e) {
+          debugPrint('Error updating status to in_transit: $e');
+        }
+      }
     }
 
     // Start listening to position changes with optimized timing
     _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.medium,
-        distanceFilter: 10, // Update every 10 meters
-        timeLimit: Duration(seconds: 30), // Timeout after 30 seconds
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // Update every 5 meters
       ),
     ).listen(
       (Position position) {
@@ -702,38 +735,39 @@ class AcceptMapsController extends GetxController {
   }
 
   void _scheduleFirestoreUpdate(Position position) {
-    // Check if position has changed significantly (at least 15 meters)
-    if (_lastFirestorePosition != null &&
-        _calculateDistance(_lastFirestorePosition!, position) < 15) {
-      return; // Skip update if not moved enough
+    if (requestData.value == null || !isLiveTracking.value) return;
+
+    final now = DateTime.now();
+    final requestId = requestData.value!['id'];
+
+    // Throttle check: Update if enough time passed (4s) OR moved significant distance (10m)
+    final timePassed = _lastFirestoreUpdateTime == null ||
+        now.difference(_lastFirestoreUpdateTime!) >= _firestoreUpdateInterval;
+
+    final movedSignificantly = _lastFirestorePosition == null ||
+        _calculateDistance(_lastFirestorePosition!, position) >= 10;
+
+    if (timePassed || movedSignificantly) {
+      // Avoid overlapping updates by checking if timer is already pending
+      // or just send it if it's been long enough.
+      // We'll use a direct async call here but prevent hammering.
+      
+      _lastFirestoreUpdateTime = now;
+      _lastFirestorePosition = position;
+
+      FirebaseFirestore.instance
+          .collection('orders')
+          .doc(requestId)
+          .update({
+        'partnerLiveLocation': {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'timestamp': Timestamp.now(),
+        },
+      }).catchError((e) {
+        debugPrint('Error updating live location: $e');
+      });
     }
-
-    // Cancel existing timer
-    _firestoreUpdateTimer?.cancel();
-
-    // Schedule new update
-    _firestoreUpdateTimer = Timer(_firestoreUpdateInterval, () async {
-      if (requestData.value != null && isLiveTracking.value) {
-        final requestId = requestData.value!['id'];
-        try {
-          await FirebaseFirestore.instance
-              .collection('orders')
-              .doc(requestId)
-              .update({
-            'partnerLiveLocation': {
-              'latitude': position.latitude,
-              'longitude': position.longitude,
-              'timestamp': Timestamp.now(),
-            },
-          });
-          _lastFirestorePosition = position;
-        } catch (e) {
-          // Retry after delay if failed
-          Future.delayed(
-              Duration(seconds: 2), () => _scheduleFirestoreUpdate(position));
-        }
-      }
-    });
   }
 
   void _scheduleCameraUpdate(Position position) {
@@ -801,15 +835,19 @@ class AcceptMapsController extends GetxController {
   }
 
   void _animateCameraToPosition(LatLng position) async {
-    final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: position,
-          zoom: 16.0, // Appropriate zoom level for following
+    try {
+      final GoogleMapController controller = await _controller.future;
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: position,
+            zoom: 16.0, // Appropriate zoom level for following
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('🏁 AcceptMaps: _animateCameraToPosition failed: $e');
+    }
   }
 
   Future<void> _animateCameraToShowRoute() async {
@@ -841,10 +879,16 @@ class AcceptMapsController extends GetxController {
         );
 
         // Animate camera to show the complete route
-        controller.animateCamera(
-          CameraUpdate.newLatLngBounds(bounds, 100), // 100 pixels padding
-        );
-      } catch (e) {}
+        try {
+          await controller.animateCamera(
+            CameraUpdate.newLatLngBounds(bounds, 100), // 100 pixels padding
+          );
+        } catch (e) {
+          debugPrint('🏁 AcceptMaps: _animateCameraToShowRoute animateCamera failed: $e');
+        }
+      } catch (e) {
+        debugPrint('🏁 AcceptMaps: _animateCameraToShowRoute failed: $e');
+      }
     }
   }
 

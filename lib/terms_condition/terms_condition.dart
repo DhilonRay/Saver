@@ -284,7 +284,7 @@ class TermsConditionPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '11.Contact Us',
+            '11. Contact Us',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -293,7 +293,7 @@ class TermsConditionPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'If you have any questions about this Privacy Policy, please contact us at:',
+            'If you have any questions about these Terms & Conditions, please contact us at:',
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,
@@ -302,14 +302,14 @@ class TermsConditionPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Email: neosaver@gmail.com',
+            'Email: contact.neosaver@gmail.com',
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,
             ),
           ),
           Text(
-            'Phone: Khulna, Bangladesh',
+            'Location: Khulna, Bangladesh',
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,

@@ -75,24 +75,33 @@ class HomePage extends StatelessWidget {
                         ),
                         if (notificationController.unreadCount.value > 0)
                           Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              constraints: const BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
-                              child: Text(
-                                notificationController.unreadCount.value
-                                    .toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+                            right: 4,
+                            top: 4,
+                            child: Obx(() =>
+                                notificationController.unreadCount.value > 0
+                                    ? Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 14,
+                                          minHeight: 14,
+                                        ),
+                                        child: Text(
+                                          notificationController
+                                              .unreadCount.value
+                                              .toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      )
+                                    : const SizedBox.shrink()),
                           ),
                       ],
                     );
@@ -166,12 +175,14 @@ class HomePage extends StatelessWidget {
                               title: 'Your Trip',
                               onTap: controller.navigateToUserOrders,
                             ),
-                            _buildDrawerItem(
-                              imagePath: 'assets/images/tracking.png',
-                              icon: Icons.track_changes_outlined,
-                              title: 'Tracking',
-                              onTap: controller.navigateToTrackingPage,
-                            ),
+                            Obx(() => controller.isTrackingPartner.value
+                                ? _buildDrawerItem(
+                                    imagePath: 'assets/images/tracking.png',
+                                    icon: Icons.track_changes_outlined,
+                                    title: 'Tracking',
+                                    onTap: controller.navigateToTrackingPage,
+                                  )
+                                : const SizedBox.shrink()),
 
                             // AI Chat Assistant
                             _buildDrawerItem(
@@ -334,68 +345,99 @@ class HomePage extends StatelessWidget {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 12),
                                         child: Theme(
                                           data: Theme.of(context).copyWith(
-                                            textSelectionTheme: TextSelectionThemeData(
+                                            textSelectionTheme:
+                                                TextSelectionThemeData(
                                               cursorColor: primaryBlue,
-                                              selectionColor: primaryBlue.withValues(alpha: 0.3),
+                                              selectionColor: primaryBlue
+                                                  .withValues(alpha: 0.3),
                                               selectionHandleColor: primaryBlue,
                                             ),
                                           ),
                                           child: TextField(
-                                            controller: controller.destinationController,
-                                            style: const TextStyle(
-                                              color: Colors.black, // Force black text
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                            cursorColor: primaryBlue,
-                                            onChanged: controller.onDestinationTextChanged,
-                                            decoration: InputDecoration(
-                                              hintText: 'Enter destination...',
-                                              hintStyle: TextStyle(
-                                                color: Colors.blueGrey.shade300,
+                                              controller: controller
+                                                  .destinationController,
+                                              style: const TextStyle(
+                                                color: Colors
+                                                    .black, // Force black text
                                                 fontSize: 16,
+                                                fontWeight: FontWeight.w500,
                                               ),
-                                              prefixIcon: Icon(
-                                                Icons.location_on_outlined,
-                                                color: primaryBlue,
-                                                size: 24,
-                                              ),
-                                              filled: true,
-                                              fillColor: Colors.white,
-                                              contentPadding: const EdgeInsets.symmetric(
-                                                horizontal: 16,
-                                                vertical: 16,
-                                              ),
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                                borderSide: BorderSide(color: Colors.grey.shade200),
-                                              ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                                borderSide: BorderSide(color: Colors.grey.shade200),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                                borderSide: const BorderSide(color: primaryBlue, width: 2),
-                                              ),
-                                              suffixIcon: Obx(() {
-                                                if (controller.destinationQuery.value.isEmpty) {
-                                                  return const SizedBox.shrink();
-                                                }
-                                                return IconButton(
-                                                  icon: Icon(Icons.cancel, color: Colors.grey.shade400, size: 20),
-                                                  onPressed: () {
-                                                    controller.destinationController.clear();
-                                                    controller.onDestinationTextChanged('');
-                                                    FocusScope.of(context).unfocus();
-                                                  },
-                                                );
-                                              }),
-                                            )
-                                          ),
+                                              cursorColor: primaryBlue,
+                                              onChanged: controller
+                                                  .onDestinationTextChanged,
+                                              decoration: InputDecoration(
+                                                hintText:
+                                                    'Enter destination...',
+                                                hintStyle: TextStyle(
+                                                  color:
+                                                      Colors.blueGrey.shade300,
+                                                  fontSize: 16,
+                                                ),
+                                                prefixIcon: Icon(
+                                                  Icons.location_on_outlined,
+                                                  color: primaryBlue,
+                                                  size: 24,
+                                                ),
+                                                filled: true,
+                                                fillColor: Colors.white,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                  vertical: 16,
+                                                ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: BorderSide(
+                                                      color:
+                                                          Colors.grey.shade200),
+                                                ),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: BorderSide(
+                                                      color:
+                                                          Colors.grey.shade200),
+                                                ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: const BorderSide(
+                                                      color: primaryBlue,
+                                                      width: 2),
+                                                ),
+                                                suffixIcon: Obx(() {
+                                                  if (controller
+                                                      .destinationQuery
+                                                      .value
+                                                      .isEmpty) {
+                                                    return const SizedBox
+                                                        .shrink();
+                                                  }
+                                                  return IconButton(
+                                                    icon: Icon(Icons.cancel,
+                                                        color: Colors
+                                                            .grey.shade400,
+                                                        size: 20),
+                                                    onPressed: () {
+                                                      controller
+                                                          .destinationController
+                                                          .clear();
+                                                      controller
+                                                          .onDestinationTextChanged(
+                                                              '');
+                                                      FocusScope.of(context)
+                                                          .unfocus();
+                                                    },
+                                                  );
+                                                }),
+                                              )),
                                         ),
                                       ),
 

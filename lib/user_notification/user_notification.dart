@@ -154,90 +154,85 @@ class UserNotificationPage extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
-        child: InkWell(
-          onTap: () => _handleNotificationTap(notification, controller),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _buildNotificationIcon(notification.type),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            notification.title,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatTimestamp(notification.timestamp),
-                            style: TextStyle(
-                              color:
-                                  colorScheme.onSurface.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!notification.isRead)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _getNotificationColor(notification.type),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  notification.message,
-                  style: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (!notification.isRead)
-                      TextButton(
-                        onPressed: () => controller.markAsRead(notification.id),
-                        child: Text(
-                          'Mark as Read',
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _buildNotificationIcon(notification.type),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          notification.title,
                           style: TextStyle(
-                            color: _getNotificationColor(notification.type),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimestamp(notification.timestamp),
+                          style: TextStyle(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
-                      ),
-                    IconButton(
-                      onPressed: () =>
-                          _showDeleteDialog(context, notification, controller),
-                      icon: Icon(
-                        Icons.delete_outline,
-                        size: 20,
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ],
+                    ),
+                  ),
+                  if (!notification.isRead)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _getNotificationColor(notification.type),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                notification.message,
+                style: TextStyle(
+                  color: colorScheme.onSurface.withValues(alpha: 0.8),
+                  fontSize: 14,
+                  height: 1.4,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (!notification.isRead)
+                    TextButton(
+                      onPressed: () => controller.markAsRead(notification.id),
+                      child: Text(
+                        'Mark as Read',
+                        style: TextStyle(
+                          color: _getNotificationColor(notification.type),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  IconButton(
+                    onPressed: () =>
+                        _showDeleteDialog(context, notification, controller),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

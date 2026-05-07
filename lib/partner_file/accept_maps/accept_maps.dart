@@ -731,9 +731,6 @@ class AcceptMapsPage extends StatelessWidget {
   }
 
   void _showFareInputDialog(AcceptMapsController controller) {
-    final fareController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     Get.bottomSheet(
       Container(
         padding: EdgeInsets.all(20),
@@ -789,99 +786,57 @@ class AcceptMapsPage extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 16),
-              // Fare Input
-              Form(
-                key: formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Enter Total Fare Amount',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    TextFormField(
-                      controller: fareController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Fare Amount (৳)',
-                        hintText: 'Enter the total ride cost',
-                        border: OutlineInputBorder(),
-                        prefixIcon:
-                            Icon(Icons.attach_money, color: primaryGreen),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter the fare amount';
-                        }
-                        final fare = double.tryParse(value);
-                        if (fare == null || fare <= 0) {
-                          return 'Please enter a valid amount';
-                        }
-                        if (fare < 500) {
-                          return 'Minimum fare is ৳500';
-                        }
-                        if (fare > 50000) {
-                          return 'Maximum fare is ৳50,000';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              /*  SizedBox(height: 16),
-              // Fare Guidelines
+              // Fixed Fare Display
               Container(
-                padding: EdgeInsets.all(12),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
+                  color: primaryGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: primaryGreen.withValues(alpha: 0.3)),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline,
-                            color: Colors.amber.shade700, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          'Fare Guidelines',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber.shade800,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 4),
                     Text(
-                      '• Base fare: ৳500-৳2,000\n• Per km: ৳50-৳150\n• Emergency surcharge: +20-50%\n• Final amount should reflect actual service cost',
+                      'Agreed Total Fare',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.amber.shade700,
-                        height: 1.4,
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '৳${controller.serviceRate.value.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Fixed as per the initial deal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: primaryGreen.withValues(alpha: 0.8),
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 16), */
-              Text(
-                'This fare will be recorded in the ride history and visible to the user. Please ensure accuracy.',
+              const SizedBox(height: 24),
+              const Text(
+                'This fare was locked at the start of the trip and cannot be changed.',
                 style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontStyle: FontStyle.italic),
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 24),
               // Actions
               Row(
                 children: [
@@ -889,36 +844,33 @@ class AcceptMapsPage extends StatelessWidget {
                     child: TextButton(
                       onPressed: () => Get.back(),
                       style: TextButton.styleFrom(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        padding: const EdgeInsets.symmetric(vertical: 18),
                         side: BorderSide(color: Colors.red.shade300),
                         foregroundColor: Colors.red.shade600,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text('Cancel'),
+                      child: const Text('Cancel'),
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        if (formKey.currentState?.validate() ?? false) {
-                          final fare = double.parse(fareController.text);
-                          Get.back();
-                          controller.completeRide(fareAmount: fare);
-                        }
+                        Get.back();
+                        controller.completeRide(
+                          fareAmount: controller.serviceRate.value.toDouble(),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade500,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                        backgroundColor: primaryGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text('Complete Ride'),
+                      child: const Text('Complete Ride'),
                     ),
                   ),
                 ],

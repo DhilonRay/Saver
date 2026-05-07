@@ -226,18 +226,26 @@ class UserOrdersPage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Your Trip',
+            title: const Text('Your Trips',
                 style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
+                  fontSize: 22,
+                  letterSpacing: -0.5,
                 )),
-            centerTitle: true,
-            backgroundColor: const Color(0xFFDCF2F7), // Light blue app bar
+            centerTitle: false,
+            backgroundColor: Colors.white,
             elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.black87),
+            iconTheme: const IconThemeData(color: Color(0xFF1A1A1A)),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Container(
+                color: Colors.grey.withValues(alpha: 0.1),
+                height: 1,
+              ),
+            ),
           ),
-          backgroundColor: colorScheme.surface,
+          backgroundColor: const Color(0xFFF8FAFC),
           body: Obx(() {
             if (controller.isLoading.value) {
               return Center(
@@ -325,194 +333,205 @@ class UserOrdersPage extends StatelessWidget {
 
                 return AnimatedList(
                   initialItemCount: snapshot.data!.docs.length,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemBuilder: (context, index, animation) {
                     final orderDoc = snapshot.data!.docs[index];
                     final orderData = orderDoc.data() as Map<String, dynamic>;
-                    // Add document ID to orderData
                     orderData['id'] = orderDoc.id;
+
                     final companyName =
                         orderData['companyName'] as String? ?? 'Trip Details';
                     final orderStatus = orderData['status'] as String?;
                     final createdAt =
                         (orderData['timestamp'] as Timestamp?)?.toDate();
-                    final partnerId = orderData['partnerId'] as String?;
                     final serviceType = orderData['serviceType'] as String? ??
                         orderData['type'] as String?;
                     final urgency = orderData['urgency'] as String?;
+                    final statusColor = controller.getStatusColor(orderStatus);
 
                     return SlideTransition(
                       position: Tween<Offset>(
-                        begin: const Offset(1, 0),
+                        begin: const Offset(0.1, 0),
                         end: Offset.zero,
                       ).animate(CurvedAnimation(
                         parent: animation,
-                        curve: Curves.easeOut,
+                        curve: Curves.easeOutCubic,
                       )),
                       child: FadeTransition(
                         opacity: animation,
                         child: GestureDetector(
-                          onTap: () {
-                            Get.to(
-                                () => OrderDetailScreen(orderData: orderData));
-                          },
+                          onTap: () => Get.to(
+                              () => OrderDetailScreen(orderData: orderData)),
                           child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  spreadRadius: 1,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  spreadRadius: 0,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
+                              border: Border.all(
+                                color: statusColor.withValues(alpha: 0.1),
+                                width: 1,
+                              ),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: controller
-                                          .getStatusColor(orderStatus)
-                                          .withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Status Indicator Strip
+                                    Container(
+                                      width: 6,
+                                      color: statusColor,
                                     ),
-                                    child: Icon(
-                                      _getOrderIcon(serviceType),
-                                      color: controller
-                                          .getStatusColor(orderStatus),
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(companyName,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              color: colorScheme.onSurface,
-                                              fontSize: 16,
-                                            )),
-                                        const SizedBox(height: 4),
-                                        if (serviceType != null)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme
-                                                  .secondaryContainer
-                                                  .withValues(alpha: 0.3),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              serviceType.toUpperCase(),
-                                              style: TextStyle(
-                                                color: colorScheme
-                                                    .onSecondaryContainer,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
+                                    const SizedBox(width: 12),
+                                    // Main Content
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16, horizontal: 12),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            // Left side: Name and Service Badges
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    companyName,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 17,
+                                                      color: Color(0xFF1A1A1A),
+                                                      letterSpacing: -0.5,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Wrap(
+                                                    spacing: 8,
+                                                    runSpacing: 8,
+                                                    children: [
+                                                      _buildInfoBadge(
+                                                        context,
+                                                        (serviceType ?? 'TRIP')
+                                                            .toUpperCase(),
+                                                        Colors.blue.shade700,
+                                                        Colors.blue.shade50,
+                                                      ),
+                                                      if (urgency != null &&
+                                                          urgency != 'normal')
+                                                        _buildInfoBadge(
+                                                          context,
+                                                          urgency.toUpperCase(),
+                                                          urgency == 'emergency'
+                                                              ? Colors.red
+                                                              : Colors.orange
+                                                                  .shade800,
+                                                          urgency == 'emergency'
+                                                              ? Colors
+                                                                  .red.shade50
+                                                              : Colors.orange
+                                                                  .shade50,
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ),
-                                        const SizedBox(height: 4),
-                                        if (createdAt != null)
-                                          Text(
-                                            'Placed: ${controller.formatDate(Timestamp.fromDate(createdAt))}',
-                                            style: TextStyle(
-                                                color: colorScheme.onSurface
-                                                    .withValues(alpha: 0.6),
-                                                fontSize: 12),
-                                          ),
-                                        if (urgency != null &&
-                                            urgency != 'normal')
-                                          Text(
-                                            'Urgency: ${urgency.toUpperCase()}',
-                                            style: TextStyle(
-                                              color: urgency == 'emergency'
-                                                  ? Colors.red
-                                                  : Colors.orange,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
+                                            const SizedBox(width: 16),
+                                            // Right side: Fare, Status, and Date
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.end,
+                                              children: [
+                                                if (orderData['fareAmount'] !=
+                                                    null)
+                                                  Text(
+                                                    '৳${orderData['fareAmount']}',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.green.shade700,
+                                                      fontSize: 18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                const SizedBox(height: 8),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: statusColor
+                                                        .withValues(alpha: 0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: Text(
+                                                    (orderStatus ?? 'UNKNOWN')
+                                                        .toUpperCase(),
+                                                    style: TextStyle(
+                                                      color: statusColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 11,
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                        Icons
+                                                            .calendar_today_outlined,
+                                                        size: 12,
+                                                        color: Colors
+                                                            .grey.shade500),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      controller.formatDate(
+                                                          Timestamp.fromDate(
+                                                              createdAt ??
+                                                                  DateTime
+                                                                      .now())),
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .grey.shade500,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                        if (orderData['fareAmount'] != null)
-                                          Text(
-                                            'Fare: ৳${orderData['fareAmount']}',
-                                            style: TextStyle(
-                                              color: Colors.green.shade700,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        if (orderStatus != null)
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(top: 4),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: controller
-                                                  .getStatusColor(orderStatus)
-                                                  .withValues(alpha: 0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: controller
-                                                    .getStatusColor(orderStatus)
-                                                    .withValues(alpha: 0.3),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Text(
-                                                orderStatus.toUpperCase(),
-                                                style: TextStyle(
-                                                  color:
-                                                      controller.getStatusColor(
-                                                          orderStatus),
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 11,
-                                                )),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (partnerId != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Icon(
-                                            Icons.handshake_outlined,
-                                            color: colorScheme.secondary,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                              'ID: ${controller.getShortPartnerId(partnerId)}',
-                                              style: TextStyle(
-                                                  color: colorScheme.onSurface
-                                                      .withValues(alpha: 0.6),
-                                                  fontSize: 10)),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  Icon(
-                                    Icons.chevron_right_outlined,
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                ],
+                                    const SizedBox(width: 16),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -526,6 +545,26 @@ class UserOrdersPage extends StatelessWidget {
           }),
         );
       },
+    );
+  }
+
+  Widget _buildInfoBadge(
+      BuildContext context, String text, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }
@@ -611,294 +650,362 @@ class OrderDetailScreen extends StatelessWidget {
       ),
       backgroundColor: colorScheme.surface,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Card
+            // Status Card - Modern Glassmorphism-like style
             Container(
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: controller
-                    .getStatusColor(orderStatus)
-                    .withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [
+                    controller
+                        .getStatusColor(orderStatus)
+                        .withValues(alpha: 0.15),
+                    controller
+                        .getStatusColor(orderStatus)
+                        .withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: controller
                       .getStatusColor(orderStatus)
-                      .withValues(alpha: 0.3),
-                  width: 1,
+                      .withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  Icon(
-                    _getOrderIcon(serviceType),
-                    color: controller.getStatusColor(orderStatus),
-                    size: 32,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          orderStatus?.toUpperCase() ?? 'UNKNOWN',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: controller.getStatusColor(orderStatus),
-                          ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: controller
+                              .getStatusColor(orderStatus)
+                              .withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          spreadRadius: 2,
                         ),
-                        if (urgency != null && urgency != 'normal')
-                          Text(
-                            'Urgency: ${urgency.toUpperCase()}',
-                            style: TextStyle(
-                              color: urgency == 'emergency'
-                                  ? Colors.red
-                                  : Colors.orange,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
                       ],
                     ),
+                    child: Icon(
+                      _getOrderIcon(serviceType),
+                      color: controller.getStatusColor(orderStatus),
+                      size: 32,
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    orderStatus?.toUpperCase() ?? 'UNKNOWN',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: controller.getStatusColor(orderStatus),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (urgency != null && urgency != 'normal') ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color:
+                            urgency == 'emergency' ? Colors.red : Colors.orange,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        urgency.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
 
-            _buildDetailItem(context, 'Company Name', companyName ?? 'N/A',
-                Icons.store_outlined),
+            Text(
+              'Trip Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
             const SizedBox(height: 16),
-            if (serviceType != null)
-              _buildDetailItem(context, 'Service Type', serviceType,
-                  Icons.category_outlined),
-            const SizedBox(height: 16),
-            if (createdAt != null)
-              _buildDetailItem(
-                  context,
-                  'Placed On',
-                  DateFormat('MMM d, h:mm a').format(createdAt),
-                  Icons.calendar_today_outlined),
-            const SizedBox(height: 16),
-            if (partnerId != null)
-              _buildDetailItem(
-                  context, 'Partner ID', partnerId, Icons.handshake_outlined),
-            const SizedBox(height: 16),
-            if (patientName != null)
-              _buildDetailItem(
-                  context, 'Patient Name', patientName, Icons.person_outlined),
-            const SizedBox(height: 16),
-            if (contactNumber != null)
-              _buildDetailItem(context, 'Contact Number', contactNumber,
-                  Icons.phone_outlined),
-            const SizedBox(height: 16),
+
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildDetailItem(context, 'Company Name',
+                      companyName ?? 'N/A', Icons.store_outlined),
+                  _buildDivider(),
+                  if (serviceType != null) ...[
+                    _buildDetailItem(context, 'Service Type', serviceType,
+                        Icons.category_outlined),
+                    _buildDivider(),
+                  ],
+                  if (createdAt != null) ...[
+                    _buildDetailItem(
+                        context,
+                        'Placed On',
+                        DateFormat('MMM d, yyyy • h:mm a').format(createdAt),
+                        Icons.calendar_today_outlined),
+                    _buildDivider(),
+                  ],
+                  if (patientName != null) ...[
+                    _buildDetailItem(context, 'Patient Name', patientName,
+                        Icons.person_outlined),
+                    _buildDivider(),
+                  ],
+                  if (contactNumber != null)
+                    _buildDetailItem(
+                      context,
+                      'Contact Number',
+                      (orderStatus?.toLowerCase() == 'pending' ||
+                              orderStatus?.toLowerCase() == 'cancelled')
+                          ? 'Available after confirmation'
+                          : contactNumber,
+                      Icons.phone_outlined,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             if (orderData['fareAmount'] != null)
               _buildDetailItem(context, 'Ride Fare',
                   '৳${orderData['fareAmount']}', Icons.attach_money_outlined,
                   color: Colors.green.shade700),
             const SizedBox(height: 16),
 
-            // Fare Breakdown Section (if we have detailed fare data)
+            // Fare Breakdown Section
             if (orderData['fareAmount'] != null) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.receipt_long,
-                            color: Colors.green.shade700, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Fare Details',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Service Charge:',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        Text(
-                          '৳${orderData['fareAmount']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (orderData['distance'] != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Distance: ${orderData['distance']} km',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const Text(
-                            'Included in fare',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (orderData['urgency'] != null &&
-                        orderData['urgency'] != 'normal') ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Urgency: ${orderData['urgency']} service',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const Text(
-                            'Additional charges applied',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.green.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green.shade600, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Payment completed successfully',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              Text(
+                'Fare Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A1A),
                 ),
               ),
               const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: Colors.green.withValues(alpha: 0.1)),
+                ),
+                child: Column(
+                  children: [
+                    _buildFareRow(
+                        'Service Charge', '৳${orderData['fareAmount']}',
+                        isTotal: true),
+                    if (orderData['distance'] != null) ...[
+                      const SizedBox(height: 12),
+                      _buildFareRow(
+                          'Estimated Distance', '${orderData['distance']} km'),
+                    ],
+                    if (orderData['urgency'] != null &&
+                        orderData['urgency'] != 'normal') ...[
+                      const SizedBox(height: 12),
+                      _buildFareRow(
+                          'Urgency Multiplier',
+                          orderData['urgency'] == 'emergency'
+                              ? '1.5x'
+                              : '1.2x'),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
             ],
-            if (pickupAddress != null)
+
+            if (pickupAddress != null && pickupAddress.isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTitleWithIcon(
-                      context, 'Pickup Address', Icons.location_on_outlined),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      pickupAddress,
-                      style: TextStyle(color: colorScheme.onSurface),
+                  Text(
+                    'Pickup Location',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on_outlined,
+                            color: Colors.red.shade400, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            pickupAddress,
+                            style: TextStyle(
+                              color: Color(0xFF4A4A4A),
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             if (issueDetails != null && issueDetails.isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTitleWithIcon(
-                      context, 'Additional Notes', Icons.note_outlined),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      issueDetails,
-                      style: TextStyle(color: colorScheme.onSurface),
+                  Text(
+                    'Additional Notes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A1A1A),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.note_outlined,
+                            color: Colors.blue.shade400, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            issueDetails,
+                            style: TextStyle(
+                              color: const Color(0xFF4A4A4A),
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
 
-            // Action Buttons
+            // Action Buttons - Premium Style
             if (orderStatus?.toLowerCase() == 'accepted' ||
                 orderStatus?.toLowerCase() == 'in_transit')
               Container(
-                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.primary.withValues(alpha: 0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Live Tracking',
+                    const Icon(Icons.map_outlined,
+                        color: Colors.white, size: 32),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Ambulance is on the way!',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onPrimaryContainer,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You can track the live location of your ambulance.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
+                      height: 50,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // Navigate to live tracking page
                           final homeController = Get.find<HomeController>();
                           final orderId = orderData['id'] as String?;
                           if (orderId != null) {
                             homeController.navigateToUserTracking(orderId);
                           }
                         },
-                        icon: Icon(Icons.location_on),
-                        label: Text('অ্যাম্বুলেন্স ট্র্যাক করুন'),
+                        icon: const Icon(Icons.location_on),
+                        label: const Text(
+                          'অ্যাম্বুলেন্স ট্র্যাক করুন',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
+                          backgroundColor: Colors.white,
+                          foregroundColor: colorScheme.primary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -912,46 +1019,95 @@ class OrderDetailScreen extends StatelessWidget {
   }
 
   Widget _buildDetailItem(
-      BuildContext context, String title, String? value, IconData icon,
+      BuildContext context, String title, String value, IconData icon,
       {Color? color}) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF64748B), size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: color ?? const Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFareRow(String label, String value, {bool isTotal = false}) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Icon(icon, color: colorScheme.secondary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurface)),
-              const SizedBox(height: 4),
-              Text(value ?? 'N/A',
-                  style: TextStyle(
-                      color: color ??
-                          colorScheme.onSurface.withValues(alpha: 0.7))),
-            ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? 16 : 14,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            color: isTotal ? const Color(0xFF15803D) : const Color(0xFF64748B),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isTotal ? 18 : 14,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+            color: isTotal ? const Color(0xFF15803D) : const Color(0xFF1E293B),
           ),
         ),
       ],
     );
   }
 
+  Widget _buildDivider() {
+    return Divider(
+      color: Colors.grey.withValues(alpha: 0.1),
+      height: 1,
+    );
+  }
+
   Widget _buildTitleWithIcon(
       BuildContext context, String title, IconData icon) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: colorScheme.primary),
+        Icon(icon, color: const Color(0xFF64748B), size: 18),
         const SizedBox(width: 8),
-        Text(title,
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
       ],
     );
   }

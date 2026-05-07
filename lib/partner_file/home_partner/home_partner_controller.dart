@@ -55,6 +55,7 @@ class HomePartnerController extends GetxController {
 
   // Online/Offline status
   var isOnline = true.obs;
+  var isApproved = false.obs; // Approval status from admin
   var partnerName = 'NeoSaver Partner'.obs;
 
   // Profile image
@@ -69,18 +70,27 @@ class HomePartnerController extends GetxController {
       <String>{}.obs; // Track requests that have already been shown
   var declinedRequestIds =
       <String>{}.obs; // Track declined requests to prevent showing again
-  var interactedRequestIds =
+  final RxSet<String> interactedRequestIds =
       <String>{}.obs; // Track requests already responded to or accepted
+  var activeOrderId = Rx<String?>(null); // Track currently active order ID
+  StreamSubscription<QuerySnapshot>? _activeOrdersSubscription;
   StreamSubscription<QuerySnapshot>? _requestsSubscription;
   StreamSubscription<DocumentSnapshot>? _nameSubscription;
   StreamSubscription<DocumentSnapshot>? _imageSubscription;
   StreamSubscription<DocumentSnapshot>? _rateSubscription;
   StreamSubscription<DocumentSnapshot>? _fareResponseSubscription;
+  StreamSubscription<DocumentSnapshot>? _approvalSubscription;
 
   // Fare input controller for driver fare entry
   final TextEditingController _fareInputController = TextEditingController();
 
-  // Timer for periodic location updates (10 seconds)
+  // Location Stream and Camera Following
+  StreamSubscription<Position>? _positionSubscription;
+  DateTime? _lastFirestoreUpdateTime;
+  Position? _lastFirestorePosition;
+  static const Duration _firestoreUpdateInterval = Duration(seconds: 4);
+  var shouldFollowDriver = true.obs; // Camera follows ambulance by default
+  bool isUserGesturing = false; // Internal flag to detect manual pan
   StreamSubscription? _activeNegotiationSubscription;
   Timer? _locationUpdateTimer;
 
@@ -798,6 +808,7 @@ class HomePartnerController extends GetxController {
 
     // Start listening for requests
     _listenForRequests();
+    _listenForActiveOrders(); // Also listen for active/accepted orders
 
     // Other initializations
     _getCurrentLocation();
@@ -805,6 +816,7 @@ class HomePartnerController extends GetxController {
     _loadPartnerName(); // Load partner's name
     _loadProfileImage(); // Load partner's profile image
     _loadInitialOnlineStatus(); // Load online/offline status
+    _listenToApprovalStatus(); // Listen for admin approval status
 
     // Initialize FCM token specifically for this partner
     _initializeFCM();
@@ -814,11 +826,30 @@ class HomePartnerController extends GetxController {
       final request = Map<String, dynamic>.from(Get.arguments['initialRequest']);
       // Ensure it has an ID field that the bottom sheet expects
       final String? reqId = request['id'] ?? request['orderId'];
-      
+
       if (reqId != null) {
         request['id'] = reqId; // Normalize to 'id'
-        Future.delayed(const Duration(milliseconds: 800), () {
-          _showRequestBottomSheet(request);
+        Future.delayed(const Duration(milliseconds: 800), () async {
+          try {
+            // Re-verify status from Firestore to ensure it's still pending
+            final doc = await FirebaseFirestore.instance
+                .collection('orders')
+                .doc(reqId)
+                .get();
+
+            if (doc.exists) {
+              final status = doc.data()?['status']?.toString().toLowerCase();
+              if (status == 'pending') {
+                _showRequestBottomSheet(request);
+              } else {
+                debugPrint(
+                    '🏠 HomePartner: Initial request $reqId is no longer pending ($status).');
+              }
+            }
+          } catch (e) {
+            debugPrint('🏠 HomePartner: Error checking initial request: $e');
+            // Fallback: show it anyway if check fails, or could be safer to hide it
+          }
         });
       }
     }
@@ -829,17 +860,40 @@ class HomePartnerController extends GetxController {
     });
 
     // Start periodic location updates every 10 seconds
-    _startLocationUpdateTimer();
+    // Start location updates via stream
+    _startPositionSubscription();
 
     // Show success dialog for new driver signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (Get.context != null) {
           Alert.info(
-              'Your driver account has been created successfully. You can now start accepting ambulance requests.');
+              'Your driver account has been created successfully. Admin will verify your documents shortly.');
         }
       });
     }
+  }
+
+  void _listenToApprovalStatus() {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      _approvalSubscription?.cancel();
+      _approvalSubscription = FirebaseFirestore.instance
+          .collection('partners')
+          .doc(user.uid)
+          .snapshots()
+          .listen((doc) {
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          isApproved.value = data['isApproved'] ?? false;
+          debugPrint('🛡️ Approval Status: ${isApproved.value}');
+        }
+      }, onError: (e) {
+        debugPrint('❌ Error listening to approval status: $e');
+      });
+    } catch (e) {}
   }
 
   @override
@@ -849,14 +903,98 @@ class HomePartnerController extends GetxController {
     _imageSubscription?.cancel();
     _rateSubscription?.cancel();
     _fareResponseSubscription?.cancel();
+    _approvalSubscription?.cancel();
     _fareInputController.dispose();
-    _locationUpdateTimer?.cancel(); // Cancel location update timer
+    _positionSubscription?.cancel(); // Cancel location stream
+    _activeOrdersSubscription?.cancel(); // Cancel active orders listener
     shownRequestIds.clear(); // Clear shown requests when controller closes
     // Don't clear declinedRequestIds - they should persist across sessions
     super.onClose();
   }
 
   /// Start periodic location updates every 10 seconds
+  void _startPositionSubscription() {
+    try {
+      _positionSubscription?.cancel();
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 2, // Update every 2 meters
+        ),
+      ).listen((Position position) {
+        _handleNewPosition(position);
+      });
+    } catch (e) {
+      debugPrint('Error starting position stream: $e');
+      // Fallback to timer if stream fails
+      _startLocationUpdateTimer();
+    }
+  }
+
+  void _handleNewPosition(Position position) async {
+    final newPosition = LatLng(position.latitude, position.longitude);
+
+    // Filter noise - only update if moved significantly or if it's the first fix
+    if (currentPosition.value != null) {
+      final distance = Geolocator.distanceBetween(
+        currentPosition.value!.latitude,
+        currentPosition.value!.longitude,
+        newPosition.latitude,
+        newPosition.longitude,
+      );
+      if (distance < 2) return; // Ignore very small movements (noise)
+    }
+
+    currentPosition.value = newPosition;
+
+    // Update marker
+    markers.removeWhere((m) => m.markerId.value == 'currentLocation');
+    markers.add(
+      Marker(
+        markerId: const MarkerId('currentLocation'),
+        position: newPosition,
+        infoWindow: const InfoWindow(title: 'Your Ambulance Location'),
+        icon: currentLocationIcon,
+      ),
+    );
+
+    // Camera following logic
+    if (shouldFollowDriver.value && _controller.isCompleted) {
+      try {
+        final GoogleMapController mapController = await _controller.future;
+        await mapController.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: newPosition, zoom: 14),
+          ),
+        );
+      } catch (e) {
+        debugPrint('🏠 HomePartner: animateCamera failed: $e');
+      }
+    }
+
+    final now = DateTime.now();
+
+    // Throttle check: Update if enough time passed (4s) OR moved significant distance (10m)
+    final timePassed = _lastFirestoreUpdateTime == null ||
+        now.difference(_lastFirestoreUpdateTime!) >= _firestoreUpdateInterval;
+
+    final movedSignificantly = _lastFirestorePosition == null ||
+        Geolocator.distanceBetween(
+              _lastFirestorePosition!.latitude,
+              _lastFirestorePosition!.longitude,
+              position.latitude,
+              position.longitude,
+            ) >=
+            10;
+
+    if (isOnline.value && (timePassed || movedSignificantly)) {
+      _lastFirestoreUpdateTime = now;
+      _lastFirestorePosition = position;
+      await _updatePartnerLocation();
+    }
+  }
+
+  // Fallback timer (kept for robustness)
   void _startLocationUpdateTimer() {
     _locationUpdateTimer?.cancel();
     _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
@@ -1030,6 +1168,21 @@ class HomePartnerController extends GetxController {
           'lastUpdated': Timestamp.now(),
           'isOnline': isOnline.value, // Use the observable value
         });
+
+        // Also update active order tracking if exists
+        if (activeOrderId.value != null && isOnline.value) {
+          await FirebaseFirestore.instance
+              .collection('orders')
+              .doc(activeOrderId.value)
+              .update({
+            'partnerLiveLocation': {
+              'latitude': currentPosition.value!.latitude,
+              'longitude': currentPosition.value!.longitude,
+              'timestamp': Timestamp.now(),
+            },
+          });
+          debugPrint('🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
+        }
       }
     } catch (e) {}
   }
@@ -1105,6 +1258,37 @@ class HomePartnerController extends GetxController {
                 error.toString().contains('Unable to resolve host')) {}
           });
     } catch (e) {}
+  }
+
+  void _listenForActiveOrders() {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      _activeOrdersSubscription?.cancel();
+      _activeOrdersSubscription = FirebaseFirestore.instance
+          .collection('orders')
+          .where('acceptedBy', isEqualTo: user.uid)
+          .where('status', whereIn: [
+            'accepted',
+            'in_transit',
+            'pickup',
+            'to_destination'
+          ])
+          .snapshots()
+          .listen((snapshot) {
+            if (snapshot.docs.isNotEmpty) {
+              // Get the most recent active order
+              final activeOrder = snapshot.docs.first;
+              activeOrderId.value = activeOrder.id;
+              debugPrint('🏠 HomePartner: Detected active order: ${activeOrder.id}');
+            } else {
+              activeOrderId.value = null;
+            }
+          });
+    } catch (e) {
+      debugPrint('Error listening for active orders: $e');
+    }
   }
 
   void _showRequestBottomSheet(Map<String, dynamic> request) {
@@ -2419,33 +2603,45 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  void onMapCreated(GoogleMapController controller) {
+  Future<void> onMapCreated(GoogleMapController controller) async {
     if (!_controller.isCompleted) {
       _controller.complete(controller);
     }
 
     // If we have current position, animate to it
     if (currentPosition.value != null) {
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: currentPosition.value!, zoom: 14),
-        ),
-      );
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: currentPosition.value!, zoom: 14),
+          ),
+        );
+      } catch (e) {
+        debugPrint('🏠 HomePartner: onMapCreated animateCamera failed: $e');
+      }
     }
   }
 
   // Zoom methods
   Future<void> zoomIn() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomIn());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomIn());
+      } catch (e) {
+        debugPrint('🏠 HomePartner: zoomIn failed: $e');
+      }
     }
   }
 
   Future<void> zoomOut() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomOut());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomOut());
+      } catch (e) {
+        debugPrint('🏠 HomePartner: zoomOut failed: $e');
+      }
     }
   }
 
@@ -2466,26 +2662,30 @@ class HomePartnerController extends GetxController {
 
       // Move camera to show both partner location and user location
       if (_controller.isCompleted && currentPosition.value != null) {
-        final GoogleMapController controller = await _controller.future;
-        LatLngBounds bounds = LatLngBounds(
-          southwest: LatLng(
-            latitude < currentPosition.value!.latitude
-                ? latitude
-                : currentPosition.value!.latitude,
-            longitude < currentPosition.value!.longitude
-                ? longitude
-                : currentPosition.value!.longitude,
-          ),
-          northeast: LatLng(
-            latitude > currentPosition.value!.latitude
-                ? latitude
-                : currentPosition.value!.latitude,
-            longitude > currentPosition.value!.longitude
-                ? longitude
-                : currentPosition.value!.longitude,
-          ),
-        );
-        controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        try {
+          final GoogleMapController controller = await _controller.future;
+          LatLngBounds bounds = LatLngBounds(
+            southwest: LatLng(
+              latitude < currentPosition.value!.latitude
+                  ? latitude
+                  : currentPosition.value!.latitude,
+              longitude < currentPosition.value!.longitude
+                  ? longitude
+                  : currentPosition.value!.longitude,
+            ),
+            northeast: LatLng(
+              latitude > currentPosition.value!.latitude
+                  ? latitude
+                  : currentPosition.value!.latitude,
+              longitude > currentPosition.value!.longitude
+                  ? longitude
+                  : currentPosition.value!.longitude,
+            ),
+          );
+          await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        } catch (e) {
+          debugPrint('🏠 HomePartner: showRouteToUser animateCamera failed: $e');
+        }
       }
 
       Alert.info(
@@ -2495,6 +2695,21 @@ class HomePartnerController extends GetxController {
       Alert.info(
         'Failed to show route to user: $e',
       );
+    }
+  }
+
+  Future<void> animateCameraToCurrent() async {
+    if (_controller.isCompleted && currentPosition.value != null) {
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: currentPosition.value!, zoom: 14),
+          ),
+        );
+      } catch (e) {
+        debugPrint('🏠 HomePartner: animateCameraToCurrent failed: $e');
+      }
     }
   }
 }

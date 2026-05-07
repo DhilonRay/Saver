@@ -351,20 +351,24 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
     );
   }
 
-  void _focusOnOrder(Map<String, dynamic> orderData) {
+  Future<void> _focusOnOrder(Map<String, dynamic> orderData) async {
     if (_mapController != null && orderData['deliveryLocation'] != null) {
-      var location = orderData['deliveryLocation'] as Map<String, dynamic>;
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(
-              location['latitude'] ?? 23.8103,
-              location['longitude'] ?? 90.4125,
+      try {
+        var location = orderData['deliveryLocation'] as Map<String, dynamic>;
+        await _mapController!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(
+                location['latitude'] ?? 23.8103,
+                location['longitude'] ?? 90.4125,
+              ),
+              zoom: 15,
             ),
-            zoom: 15,
           ),
-        ),
-      );
+        );
+      } catch (e) {
+        debugPrint('AdminTracking: animateCamera failed: $e');
+      }
     }
   }
 

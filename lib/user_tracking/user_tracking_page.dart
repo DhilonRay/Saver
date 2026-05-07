@@ -382,6 +382,16 @@ class BottomDraggablePanel extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    // Call Button
+                    CircleAvatar(
+                      backgroundColor: Colors.green.shade50,
+                      child: IconButton(
+                        icon: const Icon(Icons.phone, color: Colors.green),
+                        onPressed: controller.callPartner,
+                        tooltip: 'চালকের সাথে কথা বলুন',
+                      ),
+                    ),
                   ],
                 );
               }),

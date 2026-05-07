@@ -8,6 +8,7 @@ import '../home_user/home_user.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
+import 'trip_rating_page.dart';
 
 class UserTrackingController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -540,8 +541,12 @@ class UserTrackingController extends GetxController {
     // Show completion UI for a few seconds before going home
     await Future.delayed(const Duration(seconds: 4));
 
-    // Navigate back to home
-    Get.offAll(() => HomePage());
+    // Navigate to Rating Page
+    final data = orderData.value ?? {};
+    if (!data.containsKey('id')) {
+      data['id'] = orderId;
+    }
+    Get.offAll(() => TripRatingPage(orderData: data));
   }
 
   Future<void> _fetchPartnerDetails(String partnerId) async {
@@ -694,11 +699,15 @@ class UserTrackingController extends GetxController {
 
     if (positions.isNotEmpty) {
       if (positions.length == 1) {
-        controller.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(target: positions.first, zoom: 14),
-          ),
-        );
+        try {
+          await controller.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(target: positions.first, zoom: 14),
+            ),
+          );
+        } catch (e) {
+          debugPrint('UserTracking: _fitBounds (single) failed: $e');
+        }
       } else {
         LatLngBounds bounds = LatLngBounds(
           southwest: LatLng(
@@ -710,7 +719,11 @@ class UserTrackingController extends GetxController {
             positions.map((p) => p.longitude).reduce(max),
           ),
         );
-        controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        try {
+          await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        } catch (e) {
+          debugPrint('UserTracking: _fitBounds (bounds) failed: $e');
+        }
       }
     }
   }
@@ -907,15 +920,23 @@ class UserTrackingController extends GetxController {
   // Navigation methods
   void zoomIn() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomIn());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomIn());
+      } catch (e) {
+        debugPrint('UserTracking: zoomIn failed: $e');
+      }
     }
   }
 
   void zoomOut() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomOut());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomOut());
+      } catch (e) {
+        debugPrint('UserTracking: zoomOut failed: $e');
+      }
     }
   }
 

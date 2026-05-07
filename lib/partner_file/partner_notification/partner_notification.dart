@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:saver/partner_file/home_partner/home_partner.dart';
+import 'package:saver/components/constants/alert.dart';
 import 'partner_notification_controller.dart';
 
 class PartnerNotificationPage extends StatelessWidget {
@@ -368,7 +370,7 @@ class PartnerNotificationPage extends StatelessWidget {
     );
   }
 
-  void _handleNotificationTap(PartnerNotification notification, PartnerNotificationController controller) {
+  Future<void> _handleNotificationTap(PartnerNotification notification, PartnerNotificationController controller) async {
     // Mark as read if not already
     if (!notification.isRead) {
       controller.markAsRead(notification.id);
@@ -382,6 +384,23 @@ class PartnerNotificationPage extends StatelessWidget {
       final userId = data['userId'];
 
       if (type == 'ambulance_request') {
+        // Check if order is still pending before navigating
+        try {
+          final String id = orderId ?? data['id'] ?? '';
+          if (id.isNotEmpty) {
+            final doc = await FirebaseFirestore.instance.collection('orders').doc(id).get();
+            if (doc.exists) {
+              final status = doc.data()?['status']?.toString().toLowerCase();
+              if (status != 'pending') {
+                Alert.info('এই অর্ডারটি ইতিমধ্যে গ্রহণ করা হয়েছে বা বাতিল হয়েছে।');
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error checking order status on tap: $e');
+        }
+
         // Navigate to Home map and auto-open the request
         Get.offAll(() => HomePartnerPage(), arguments: {
           'initialRequest': data,

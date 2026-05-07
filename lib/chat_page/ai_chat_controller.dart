@@ -38,10 +38,11 @@ class AIChatController extends GetxController {
   final String _systemPrompt = '''
 আপনি NeoSaver অ্যাপের একটি সহায়ক AI সহকারী। আপনি শুধুমাত্র নিচের দুটি বিষয়ের উত্তর দেবেন:
 
-১. স্বাস্থ্য সংক্রান্ত প্রশ্ন (Health related questions):
-- প্রাথমিক চিকিৎসা (First aid)
+১. স্বাস্থ্য সংক্রান্ত তথ্য এবং পরামর্শ (Health related info & tips):
+- প্রাথমিক চিকিৎসা (First aid tips)
+- সাধারণ স্বাস্থ্য সচেতনতা ও টিপস (General health awareness & wellness tips)
 - জরুরি নির্দেশনা (Emergency guidance - অ-নিদানিক/non-diagnostic)
-- সাধারণ স্বাস্থ্য সচেতনতা (Basic health awareness)
+- জীবনযাপন ও সুস্থ থাকার উপায় (Lifestyle & wellness advice)
 
 ২. NeoSaver সংক্রান্ত প্রশ্ন (NeoSaver related questions):
 - অ্যাম্বুলেন্স বুকিং পদ্ধতি (How to book ambulance):
@@ -57,10 +58,11 @@ class AIChatController extends GetxController {
 
 You are a helpful AI assistant for the NeoSaver app. You ONLY respond to the following two categories:
 
-1. Health-related questions:
-- First aid
+1. Health-related information and tips:
+- First aid instructions
+- General health awareness and wellness tips
 - Emergency guidance (non-diagnostic)
-- Basic health awareness
+- Simple healthy lifestyle advice
 
 2. NeoSaver-related questions:
 - How to book an ambulance:
@@ -370,30 +372,30 @@ DO NOT answer any other topics (politics, personal chat, general knowledge, or a
 4. View route on map''';
     }
 
-    // First aid
-    if (lowerQuery.contains('প্রাথমিক') ||
+    // Health awareness and First aid tips
+    if (lowerQuery.contains('স্বাস্থ্য') ||
+        lowerQuery.contains('health') ||
+        lowerQuery.contains('প্রাথমিক') ||
         lowerQuery.contains('চিকিৎসা') ||
         lowerQuery.contains('first aid') ||
         lowerQuery.contains('টিপস') ||
-        lowerQuery.contains('tips')) {
-      return '''💊 **প্রাথমিক চিকিৎসা টিপস:**
+        lowerQuery.contains('tips') ||
+        lowerQuery.contains('tip') ||
+        lowerQuery.contains('পরামর্শ') ||
+        lowerQuery.contains('advice')) {
+      return '''💊 **স্বাস্থ্য ও প্রাথমিক চিকিৎসা টিপস (Health & First Aid Tips):**
 
-🩸 **রক্তপাত হলে:**
-- পরিষ্কার কাপড় দিয়ে চাপ দিন
-- আক্রান্ত স্থান উঁচু করে রাখুন
+🩸 **রক্তপাত হলে:** পরিষ্কার কাপড় দিয়ে চাপ দিন এবং আক্রান্ত স্থান উঁচু করে রাখুন।
+🔥 **পুড়ে গেলে:** ঠাণ্ডা পানি দিয়ে ১০-২০ মিনিট ধুয়ে দিন। সরাসরি বরফ দেবেন না।
+🥤 **ডিহাইড্রেশন:** প্রচুর পানি ও স্যালাইন পান করুন।
+🍏 **সুস্থ থাকতে:** সুষম খাবার খান, পর্যাপ্ত ঘুমান এবং নিয়মিত ব্যায়াম করুন।
+😵 **অজ্ঞান হলে:** চিৎ করে শুইয়ে পা উঁচু করে রাখুন এবং শ্বাস-প্রশ্বাস চেক করুন।
 
-🔥 **পুড়ে গেলে:**
-- ঠাণ্ডা পানি দিয়ে ধুয়ে দিন (১০-২০ মিনিট)
-- বরফ সরাসরি দেবেন না
+⚠️ **গুরুতর অবস্থায় অবশ্যই ৯৯৯ (999) কল করুন!**
 
-😵 **অজ্ঞান হলে:**
-- চিৎ করে শুইয়ে দিন
-- পা উঁচু করে রাখুন
-- শ্বাস-প্রশ্বাস চেক করুন
+*এটি শুধুমাত্র সাধারণ তথ্য। যেকোনো শারীরিক সমস্যায় ডাক্তারের পরামর্শ নিন।*
 
-⚠️ **গুরুতর অবস্থায় অবশ্যই 999 কল করুন!**
-
-*এটি শুধুমাত্র প্রাথমিক তথ্য। ডাক্তারের পরামর্শ নিন।*''';
+**Health Tips:** Drink plenty of water, eat balanced meals, and get regular exercise. For emergencies, always call 999 immediately.''';
     }
 
     // Tracking

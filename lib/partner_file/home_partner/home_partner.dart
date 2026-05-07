@@ -32,210 +32,207 @@ class HomePartnerPage extends StatelessWidget {
       init: HomePartnerController(isNewSignup: isNewSignup),
       builder: (controller) {
         return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (didPop, result) {
-              if (didPop) return;
-              if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
-                _scaffoldKey.currentState?.closeDrawer();
-              } else {
-                // Standard behavior: exit if drawer is not open
-                // But on home page, we might want a confirmation.
-                // The user specifically asked to fix the drawer-closing issue.
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [lightBlue, Colors.white],
-                ),
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+              _scaffoldKey.currentState?.closeDrawer();
+            } else {
+              // Standard behavior: exit if drawer is not open
+              // But on home page, we might want a confirmation.
+              // The user specifically asked to fix the drawer-closing issue.
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [lightBlue, Colors.white],
               ),
-              child: Scaffold(
-                key: _scaffoldKey,
-                appBar: AppBar(
-                  title: Obx(() => Text(
-                        controller.partnerName.value,
-                        style: TextStyle(
-                          color: primaryBlue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      )),
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  leading: IconButton(
+            ),
+            child: Scaffold(
+              key: _scaffoldKey,
+              appBar: AppBar(
+                title: Obx(() => Text(
+                      controller.partnerName.value,
+                      style: TextStyle(
+                        color: primaryBlue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    )),
+                backgroundColor: Colors.white,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(
+                    Icons.menu,
+                    color: primaryBlue,
+                    size: 28,
+                  ),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                ),
+                actions: [
+                  IconButton(
                     icon: Icon(
-                      Icons.menu,
+                      Icons.notifications,
                       color: primaryBlue,
                       size: 28,
                     ),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    onPressed: () {
+                      Get.to(() => const PartnerNotificationPage());
+                    },
                   ),
-                  actions: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.notifications,
-                        color: primaryBlue,
-                        size: 28,
-                      ),
-                      onPressed: () {
-                        Get.to(() => const PartnerNotificationPage());
-                      },
+                ],
+              ),
+              drawer: Drawer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [lightBlue, Colors.white],
                     ),
-                  ],
-                ),
-                drawer: Drawer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [lightBlue, Colors.white],
-                      ),
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.only(top: 12, bottom: 8),
-                          child: Column(
-                            children: [
-                              // Profile Image with Upload Functionality
-                              GestureDetector(
-                                onTap: controller.showProfileImageOptions,
-                                child: Obx(() {
-                                  final imageUrl =
-                                      controller.profileImageUrl.value;
-                                  final isUploading =
-                                      controller.isUploadingImage.value;
-                                  final progress =
-                                      controller.uploadProgress.value;
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.only(top: 12, bottom: 8),
+                        child: Column(
+                          children: [
+                            // Profile Image with Upload Functionality
+                            GestureDetector(
+                              onTap: controller.showProfileImageOptions,
+                              child: Obx(() {
+                                final imageUrl =
+                                    controller.profileImageUrl.value;
+                                final isUploading =
+                                    controller.isUploadingImage.value;
+                                final progress =
+                                    controller.uploadProgress.value;
 
-                                  return Stack(
-                                    alignment: Alignment.center,
-                                    children: [
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: primaryBlue.withValues(
+                                              alpha: 0.3),
+                                          width: 2,
+                                        ),
+                                        image: imageUrl != null
+                                            ? DecorationImage(
+                                                image: NetworkImage(imageUrl),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                      child: imageUrl == null
+                                          ? Icon(
+                                              Icons.local_shipping,
+                                              color: primaryBlue,
+                                              size: 40,
+                                            )
+                                          : null,
+                                    ),
+                                    if (isUploading)
                                       Container(
                                         width: 80,
                                         height: 80,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: primaryBlue.withValues(
-                                                alpha: 0.3),
-                                            width: 2,
-                                          ),
-                                          image: imageUrl != null
-                                              ? DecorationImage(
-                                                  image: NetworkImage(imageUrl),
-                                                  fit: BoxFit.cover,
-                                                )
-                                              : null,
+                                          color: Colors.black
+                                              .withValues(alpha: 0.7),
                                         ),
-                                        child: imageUrl == null
-                                            ? Icon(
-                                                Icons.local_shipping,
-                                                color: primaryBlue,
-                                                size: 40,
-                                              )
-                                            : null,
-                                      ),
-                                      if (isUploading)
-                                        Container(
-                                          width: 80,
-                                          height: 80,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.black
-                                                .withValues(alpha: 0.7),
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              SizedBox(
-                                                width: 30,
-                                                height: 30,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  value: progress > 0
-                                                      ? progress
-                                                      : null, // Show progress if available
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                  backgroundColor: Colors.white
-                                                      .withValues(alpha: 0.3),
-                                                ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: 30,
+                                              height: 30,
+                                              child: CircularProgressIndicator(
+                                                value: progress > 0
+                                                    ? progress
+                                                    : null, // Show progress if available
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                                backgroundColor: Colors.white
+                                                    .withValues(alpha: 0.3),
                                               ),
-                                              if (progress > 0)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 4),
-                                                  child: Text(
-                                                    '${(progress * 100).toInt()}%',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
+                                            ),
+                                            if (progress > 0)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 4),
+                                                child: Text(
+                                                  '${(progress * 100).toInt()}%',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
-                                            ],
-                                          ),
-                                        ),
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.camera_alt,
-                                            color: primaryBlue,
-                                            size: 16,
-                                          ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  );
-                                }),
-                              ),
-                              SizedBox(height: 4),
-                              Obx(() => Text(
-                                    controller.partnerName.value,
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      color: primaryBlue,
-                                      fontWeight: FontWeight.bold,
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.camera_alt,
+                                          color: primaryBlue,
+                                          size: 16,
+                                        ),
+                                      ),
                                     ),
-                                  )),
-                              Text(
-                                'Emergency Response',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: primaryBlue.withValues(alpha: 0.8),
-                                  fontWeight: FontWeight.w300,
-                                ),
+                                  ],
+                                );
+                              }),
+                            ),
+                            SizedBox(height: 4),
+                            Obx(() => Text(
+                                  controller.partnerName.value,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    color: primaryBlue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )),
+                            Text(
+                              'Emergency Response',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: primaryBlue.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w300,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              SizedBox(height: 0),
-                              _buildDrawerItem(
-                                icon: Icons.assignment_ind_outlined,
-                                title: 'My Trips',
-                                onTap: controller.navigateToPartnersOrders,
-                              ),
-                              /*     Obx(() => _buildDrawerItem(
+                      ),
+                      Expanded(
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: [
+                            SizedBox(height: 0),
+                            _buildDrawerItem(
+                              icon: Icons.assignment_ind_outlined,
+                              title: 'My Trips',
+                              onTap: controller.navigateToPartnersOrders,
+                            ),
+                            /*     Obx(() => _buildDrawerItem(
                             icon: controller.isOnline.value 
                                 ? Icons.toggle_on_rounded 
                                 : Icons.toggle_off_rounded,
@@ -245,93 +242,97 @@ class HomePartnerPage extends StatelessWidget {
                                 ? Colors.green.shade600 
                                 : Colors.orange.shade600,
                           )), */
-                              _buildDrawerItem(
-                                icon: Icons.person,
-                                title: 'Profile',
-                                onTap: () {
-                                  /* // Close the drawer and navigate to Profile page
+                            _buildDrawerItem(
+                              icon: Icons.person,
+                              title: 'Profile',
+                              onTap: () {
+                                /* // Close the drawer and navigate to Profile page
                               try {
                                 Get.back();
                               } catch (_) {} */
-                                  Get.toNamed('/partner-profile');
-                                },
-                              ),
-                              Divider(height: 8, thickness: 1),
-                              _buildDrawerItem(
-                                icon: Icons.info_outline,
-                                title: 'About Us',
-                                onTap: controller.navigateToAboutUs,
-                              ),
-                              _buildDrawerItem(
-                                icon: Icons.privacy_tip,
-                                title: 'Privacy Policy',
-                                onTap: () {
-                                  /*   // Close the drawer and navigate to Privacy Policy page
+                                Get.toNamed('/partner-profile');
+                              },
+                            ),
+                            Divider(height: 8, thickness: 1),
+                            _buildDrawerItem(
+                              icon: Icons.info_outline,
+                              title: 'About Us',
+                              onTap: controller.navigateToAboutUs,
+                            ),
+                            _buildDrawerItem(
+                              icon: Icons.privacy_tip,
+                              title: 'Privacy Policy',
+                              onTap: () {
+                                /*   // Close the drawer and navigate to Privacy Policy page
                               try {
                                 Get.back();
                               } catch (_) {} */
-                                  Get.toNamed('/privacy-policy');
-                                },
-                              ),
-                              _buildDrawerItem(
-                                icon: Icons.description,
-                                title: 'Terms & Conditions',
-                                onTap: () {
-                                  /*  // Close the drawer and navigate to Terms & Conditions page
+                                Get.toNamed('/privacy-policy');
+                              },
+                            ),
+                            _buildDrawerItem(
+                              icon: Icons.description,
+                              title: 'Terms & Conditions',
+                              onTap: () {
+                                /*  // Close the drawer and navigate to Terms & Conditions page
                               try {
                                 Get.back();
                               } catch (_) {} */
-                                  Get.toNamed('/terms-conditions');
-                                },
-                              ),
-                              _buildDrawerItem(
-                                icon: Icons.feedback_outlined,
-                                title: 'Feedback',
-                                onTap: () {
-                                  /* // Close the drawer and navigate to Feedback page
+                                Get.toNamed('/terms-conditions');
+                              },
+                            ),
+                            _buildDrawerItem(
+                              icon: Icons.feedback_outlined,
+                              title: 'Feedback',
+                              onTap: () {
+                                /* // Close the drawer and navigate to Feedback page
                               try {
                                 Get.back();
                               } catch (_) {} */
-                                  Get.toNamed('/feedback');
-                                },
-                              ),
-                            ],
-                          ),
+                                Get.toNamed('/feedback');
+                              },
+                            ),
+                          ],
                         ),
-                        Container(
-                          padding: EdgeInsets.all(20),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: controller.signOut,
-                              icon: Icon(Icons.logout,
-                                  color: primaryBlue, size: 24),
-                              label: Text(
-                                'Sign Out',
-                                style: TextStyle(
-                                  color: primaryBlue,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.all(20),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: controller.signOut,
+                            icon: Icon(Icons.logout,
+                                color: primaryBlue, size: 24),
+                            label: Text(
+                              'Sign Out',
+                              style: TextStyle(
+                                color: primaryBlue,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 16, horizontal: 32),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 2,
-                                shadowColor: Colors.blue.shade100,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
+                              elevation: 2,
+                              shadowColor: Colors.blue.shade100,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-                body: Listener(
+              ),
+              body: Obx(() {
+                if (!controller.isApproved.value) {
+                  return _buildPendingApprovalScreen(primaryBlue);
+                }
+                return Listener(
                   onPointerSignal: (pointerSignal) {
                     if (pointerSignal is PointerScrollEvent) {
                       // If the app is not in the resumed state (focused/active),
@@ -368,17 +369,29 @@ class HomePartnerPage extends StatelessWidget {
                           );
                         }
 
-                        return GoogleMap(
-                          initialCameraPosition: CameraPosition(
-                            target: controller.currentPosition.value!,
-                            zoom: 14,
+                        return Listener(
+                          onPointerDown: (_) =>
+                              controller.isUserGesturing = true,
+                          child: GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                              target: controller.currentPosition.value!,
+                              zoom: 14,
+                            ),
+                            myLocationEnabled: true,
+                            myLocationButtonEnabled: true,
+                            markers: controller.markers.toSet(),
+                            onMapCreated: controller.onMapCreated,
+                            onCameraMoveStarted: () {
+                              if (controller.isUserGesturing) {
+                                debugPrint(
+                                    '🏠 HomePartner: Manual pan detected, disabling follow');
+                                controller.shouldFollowDriver.value = false;
+                                controller.isUserGesturing = false;
+                              }
+                            },
+                            zoomControlsEnabled: false,
+                            mapToolbarEnabled: false,
                           ),
-                          myLocationEnabled: true,
-                          myLocationButtonEnabled: true,
-                          markers: controller.markers.toSet(),
-                          onMapCreated: controller.onMapCreated,
-                          zoomControlsEnabled: false,
-                          mapToolbarEnabled: false,
                         );
                       }),
 
@@ -508,6 +521,44 @@ class HomePartnerPage extends StatelessWidget {
                                   )),
                             ),
 
+                            // Recenter button (appears when follow is disabled)
+                            Positioned(
+                              right: 16,
+                              bottom: 130, // Above zoom buttons
+                              child: Obx(() {
+                                if (controller.shouldFollowDriver.value)
+                                  return const SizedBox.shrink();
+                                return Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () {
+                                      controller.shouldFollowDriver.value =
+                                          true;
+                                      controller.animateCameraToCurrent();
+                                    },
+                                    icon: const Icon(
+                                      Icons.my_location,
+                                      color: primaryBlue,
+                                      size: 24,
+                                    ),
+                                    tooltip: 'Recenter & Follow',
+                                  ),
+                                );
+                              }),
+                            ),
+
                             // Zoom controls positioned on the right side
                             Positioned(
                               right: 16,
@@ -519,14 +570,13 @@ class HomePartnerPage extends StatelessWidget {
                                   Container(
                                     width: 48,
                                     height: 48,
-                                    margin: EdgeInsets.only(bottom: 8),
+                                    margin: const EdgeInsets.only(bottom: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.2),
+                                          color: Colors.black.withOpacity(0.2),
                                           blurRadius: 8,
                                           offset: Offset(0, 2),
                                         ),
@@ -534,7 +584,7 @@ class HomePartnerPage extends StatelessWidget {
                                     ),
                                     child: IconButton(
                                       onPressed: controller.zoomIn,
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Icons.add,
                                         color: primaryBlue,
                                         size: 24,
@@ -552,8 +602,7 @@ class HomePartnerPage extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.2),
+                                          color: Colors.black.withOpacity(0.2),
                                           blurRadius: 8,
                                           offset: Offset(0, 2),
                                         ),
@@ -561,7 +610,7 @@ class HomePartnerPage extends StatelessWidget {
                                     ),
                                     child: IconButton(
                                       onPressed: controller.zoomOut,
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Icons.remove,
                                         color: primaryBlue,
                                         size: 24,
@@ -577,9 +626,11 @@ class HomePartnerPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
-              ),
-            ));
+                );
+              }),
+            ),
+          ),
+        );
       },
     );
   }
@@ -623,6 +674,81 @@ class HomePartnerPage extends StatelessWidget {
               Icons.chevron_right,
               color: Colors.grey.shade400,
               size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingApprovalScreen(Color primaryBlue) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.verified_user_outlined,
+                size: 80,
+                color: primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Verification Pending',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Your documents are being reviewed by our admin team. This usually takes 24-48 hours.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Reviewing Documents...',
+                    style: TextStyle(
+                      color: primaryBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

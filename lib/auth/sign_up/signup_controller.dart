@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
 import 'package:saver/compo/success_dialog.dart';
 import '../../home_user/home_user.dart';
@@ -10,7 +13,7 @@ import '../../partner_file/partner/partner.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
-  final TextEditingController nameController = TextEditingController();
+  // final TextEditingController nameController = TextEditingController();
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
@@ -20,6 +23,7 @@ class SignUpController extends GetxController {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
+  final TextEditingController companyNameController = TextEditingController();
 
   // Reactive Variables
   var selectedRole = 'user'.obs;
@@ -28,6 +32,15 @@ class SignUpController extends GetxController {
   var isConfirmPasswordVisible = false.obs;
   var selectedCountryCode = '+880'.obs; // Default to Bangladesh
   var agreedToTerms = false.obs;
+
+  // Image Selection
+  final ImagePicker _picker = ImagePicker();
+  var profileImage = Rx<XFile?>(null);
+  var licenseImage = Rx<XFile?>(null);
+  var ambulanceImage = Rx<XFile?>(null);
+  var nidImage = Rx<XFile?>(null);
+  var registrationPapersImage = Rx<XFile?>(null);
+  var isUploadingImages = false.obs;
 
   @override
   void onInit() {
@@ -60,6 +73,75 @@ class SignUpController extends GetxController {
     selectedRole.value = role;
   }
 
+  // Image Picking Methods
+  Future<void> pickProfileImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      profileImage.value = image;
+    }
+  }
+
+  Future<void> pickLicenseImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      licenseImage.value = image;
+    }
+  }
+
+  Future<void> pickNidImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      nidImage.value = image;
+    }
+  }
+
+  Future<void> pickRegistrationPapersImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      registrationPapersImage.value = image;
+    }
+  }
+
+  Future<void> pickAmbulanceImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      ambulanceImage.value = image;
+    }
+  }
+
+  Future<String?> _uploadImage(XFile? xFile, String folder, String fileName) async {
+    if (xFile == null) return null;
+    try {
+      final file = File(xFile.path);
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_images') // Using confirmed path
+          .child(folder)
+          .child(fileName);
+      
+      final uploadTask = await ref.putFile(file);
+      return await uploadTask.ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+      return null;
+    }
+  }
+
   Future<void> registerUser() async {
     // Validation
     if (!_validateInputs()) {
@@ -81,26 +163,103 @@ class SignUpController extends GetxController {
         password: passwordController.text.trim(),
       );
 
+      String uid = userCredential.user!.uid;
+      String? profileImageUrl;
+      String? licenseImageUrl;
+      String? ambulanceImageUrl;
+      String? nidImageUrl;
+      String? registrationPapersImageUrl;
+
+      // Upload Images if any
+      isUploadingImages.value = true;
+      
+      if (profileImage.value != null) {
+        profileImageUrl = await _uploadImage(
+          profileImage.value, 
+          uid, 
+          'profile_${DateTime.now().millisecondsSinceEpoch}.jpg'
+        );
+      }
+
+      if (selectedRole.value == 'driver') {
+        if (licenseImage.value != null) {
+          licenseImageUrl = await _uploadImage(
+            licenseImage.value, 
+            uid, 
+            'license_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          );
+        }
+        if (nidImage.value != null) {
+          nidImageUrl = await _uploadImage(
+            nidImage.value, 
+            uid, 
+            'nid_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          );
+        }
+        if (registrationPapersImage.value != null) {
+          registrationPapersImageUrl = await _uploadImage(
+            registrationPapersImage.value, 
+            uid, 
+            'registration_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          );
+        }
+        if (ambulanceImage.value != null) {
+          ambulanceImageUrl = await _uploadImage(
+            ambulanceImage.value, 
+            uid, 
+            'ambulance_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          );
+        }
+      }
+      isUploadingImages.value = false;
+
       // Save user data to Firestore
       String collectionName =
           selectedRole.value == 'driver' ? 'drivers' : 'users';
-      await FirebaseFirestore.instance
-          .collection(collectionName)
-          .doc(userCredential.user!.uid)
-          .set({
-        'name': nameController.text.trim(),
+      
+      Map<String, dynamic> userData = {
+        'name':
+            '${firstNameController.text.trim()} ${lastNameController.text.trim()}',
         'firstName': firstNameController.text.trim(),
         'lastName': lastNameController.text.trim(),
         'phone': phoneController.text.trim(),
         'address': addressController.text.trim(),
         'postCode': postCodeController.text.trim(),
         'email': emailController.text.trim(),
-        'uid': userCredential.user!.uid,
+        'uid': uid,
         'role': selectedRole.value,
         'acceptedTerms': true,
+        'profileImageUrl': profileImageUrl,
         'createdAt': Timestamp.now(),
         'updatedAt': Timestamp.now(),
-      });
+      };
+
+      // Add driver specific fields
+      if (selectedRole.value == 'driver') {
+        userData.addAll({
+          'licenseImageUrl': licenseImageUrl,
+          'ambulanceImageUrl': ambulanceImageUrl,
+          'nidImageUrl': nidImageUrl,
+          'registrationPapersImageUrl': registrationPapersImageUrl,
+          'isApproved': false, // New drivers need approval
+          'isOnline': false,
+          'companyName': companyNameController.text.trim(),
+        });
+
+        // Send notification to admin panel
+        await _sendAdminNotification(uid, userData);
+        
+        // Also save to 'partners' collection for the map and other features
+        await FirebaseFirestore.instance
+            .collection('partners')
+            .doc(uid)
+            .set(userData);
+      }
+
+      await FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(uid)
+          .set(userData);
 
       debugPrint('User registered with role: ${selectedRole.value}');
       debugPrint('User data saved to Firestore: ${userCredential.user!.uid}');
@@ -133,8 +292,7 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    if (nameController.text.trim().isEmpty ||
-        firstNameController.text.trim().isEmpty ||
+    if (firstNameController.text.trim().isEmpty ||
         lastNameController.text.trim().isEmpty ||
         phoneController.text.trim().isEmpty ||
         addressController.text.trim().isEmpty ||
@@ -157,8 +315,9 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    if (!isValidName(nameController.text.trim())) {
-      _showErrorSnackbar('Error', 'Name cannot contain numbers');
+    if (!isValidName(firstNameController.text.trim()) ||
+        !isValidName(lastNameController.text.trim())) {
+      _showErrorSnackbar('Error', 'Names cannot contain numbers');
       return false;
     }
 
@@ -166,6 +325,30 @@ class SignUpController extends GetxController {
       _showErrorSnackbar(
           'Error', 'Please agree to the Terms of Use and Privacy Policy');
       return false;
+    }
+
+    // Driver specific validation
+    if (selectedRole.value == 'driver') {
+      if (licenseImage.value == null) {
+        _showErrorSnackbar('Error', 'Please upload your License photo');
+        return false;
+      }
+      if (nidImage.value == null) {
+        _showErrorSnackbar('Error', 'Please upload your NID photo');
+        return false;
+      }
+      if (registrationPapersImage.value == null) {
+        _showErrorSnackbar('Error', 'Please upload Ambulance Registration papers');
+        return false;
+      }
+      if (ambulanceImage.value == null) {
+        _showErrorSnackbar('Error', 'Please upload a photo of your ambulance');
+        return false;
+      }
+      if (companyNameController.text.trim().isEmpty) {
+        _showErrorSnackbar('Error', 'Please enter your Company/Service name');
+        return false;
+      }
     }
 
     return true;
@@ -180,6 +363,25 @@ class SignUpController extends GetxController {
   bool isValidName(String name) {
     return RegExp(r'^[a-zA-Z\s]+$').hasMatch(name);
   }
+
+  Future<void> _sendAdminNotification(
+      String uid, Map<String, dynamic> userData) async {
+    try {
+      await FirebaseFirestore.instance.collection('admin_notifications').add({
+        'type': 'new_driver_signup',
+        'title': 'New Driver Verification Request',
+        'message':
+            '${userData['name']} has registered as an ambulance driver and needs verification.',
+        'userId': uid,
+        'userData': userData,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('✅ Admin notification sent');
+    } catch (e) {
+      debugPrint('❌ Failed to send admin notification: $e');
+    }
+   }
 
   void togglePasswordVisibility() {
     isPasswordVisible.value = !isPasswordVisible.value;

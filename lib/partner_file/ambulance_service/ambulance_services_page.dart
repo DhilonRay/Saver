@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'ambulance_service_controller.dart';
@@ -15,7 +15,8 @@ class AmbulanceServicesPage extends StatelessWidget {
           appBar: AppBar(
             title: const Text(
               "Available Ambulances",
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
             backgroundColor: Colors.blueGrey.shade600,
             elevation: 4,
@@ -38,7 +39,8 @@ class AmbulanceServicesPage extends StatelessWidget {
               ),
             ),
             child: Obx(() {
-              if (controller.isLoading.value && controller.ambulancePartners.isEmpty) {
+              if (controller.isLoading.value &&
+                  controller.ambulancePartners.isEmpty) {
                 return const Center(
                   child: CircularProgressIndicator(color: Colors.tealAccent),
                 );
@@ -46,7 +48,8 @@ class AmbulanceServicesPage extends StatelessWidget {
 
               if (controller.ambulancePartners.isEmpty) {
                 return ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   children: [
                     _buildChargesInfoBox(),
                     const SizedBox(height: 16),
@@ -61,7 +64,8 @@ class AmbulanceServicesPage extends StatelessWidget {
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: controller.ambulancePartners.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
@@ -75,7 +79,9 @@ class AmbulanceServicesPage extends StatelessWidget {
                   final ambulanceType = partnerData['ambulanceType'] ?? 'N/A';
                   final coverageArea = partnerData['coverageArea'] ?? 'N/A';
                   final createdAt = partnerData['createdAt'] != null
-                      ? (partnerData['createdAt'] as Timestamp).toDate().toString()
+                      ? (partnerData['createdAt'] as Timestamp)
+                          .toDate()
+                          .toString()
                       : 'N/A';
                   final licenseNumber = partnerData['licenseNumber'] ?? 'N/A';
                   final vehicleNumber = partnerData['vehicleNumber'] ?? 'N/A';
@@ -103,11 +109,13 @@ class AmbulanceServicesPage extends StatelessWidget {
                           Row(
                             children: [
                               Icon(Icons.local_hospital_outlined,
-                                  color: Colors.teal.shade600, size: 28,
+                                  color: Colors.teal.shade600,
+                                  size: 28,
                                   shadows: [
                                     Shadow(
                                         blurRadius: 3,
-                                        color: Colors.tealAccent.withValues(alpha: 0.4),
+                                        color: Colors.tealAccent
+                                            .withValues(alpha: 0.4),
                                         offset: const Offset(1, 1)),
                                   ]),
                               const SizedBox(width: 10),
@@ -124,44 +132,34 @@ class AmbulanceServicesPage extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          _buildInfoRow(Icons.directions_car, 'Ambulance Type', ambulanceType),
-                          _buildInfoRow(Icons.location_on, 'Coverage Area', coverageArea),
-                          _buildInfoRow(Icons.calendar_today, 'Registered', createdAt),
-                          _buildInfoRow(Icons.badge, 'License Number', licenseNumber),
-                          _buildInfoRow(Icons.confirmation_number, 'Vehicle Number', vehicleNumber),
+                          _buildInfoRow(Icons.directions_car, 'Ambulance Type',
+                              ambulanceType),
+                          _buildInfoRow(
+                              Icons.location_on, 'Coverage Area', coverageArea),
+                          _buildInfoRow(
+                              Icons.calendar_today, 'Registered', createdAt),
+                          _buildInfoRow(
+                              Icons.badge, 'License Number', licenseNumber),
+                          _buildInfoRow(Icons.confirmation_number,
+                              'Vehicle Number', vehicleNumber),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => controller.copyToClipboard(contact),
-                                  icon: const Icon(Icons.copy, size: 18),
-                                  label: const Text('Copy Contact'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade600,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => controller.startAirAmbulanceChat(
+                                  partnerDoc.id, companyName),
+                              icon: const Icon(Icons.send, size: 18),
+                              label: const Text('Book Now'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => controller.startAirAmbulanceChat(partnerDoc.id, companyName),
-                                  icon: const Icon(Icons.send, size: 18),
-                                  label: const Text('Book Now'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green.shade600,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:saver/components/alert.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 class FeedbackController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -19,6 +22,16 @@ class FeedbackController extends GetxController {
 
   // Loading state
   var isSubmitting = false.obs;
+
+  // Attachment
+  final ImagePicker _picker = ImagePicker();
+  final RxList<XFile> selectedFiles = <XFile>[].obs;
+  var isUploading = false.obs;
+
+  // Max file size: 10 MB
+  static const int maxFileSize = 10 * 1024 * 1024;
+  // Max number of files: 5
+  static const int maxFileCount = 5;
 
   // Form key
   final formKey = GlobalKey<FormState>();
@@ -45,6 +58,38 @@ class FeedbackController extends GetxController {
     rating.value = value;
   }
 
+  Future<void> pickAttachment() async {
+    if (selectedFiles.length >= maxFileCount) {
+      Alert.info('You can only attach up to $maxFileCount files');
+      return;
+    }
+
+    try {
+      final XFile? file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (file != null) {
+        final int fileSize = await file.length();
+        if (fileSize > maxFileSize) {
+          Alert.info('File size must be less than 10 MB');
+          return;
+        }
+        selectedFiles.add(file);
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+      Alert.info('Error picking file');
+    }
+  }
+
+  void removeAttachment(int index) {
+    if (index >= 0 && index < selectedFiles.length) {
+      selectedFiles.removeAt(index);
+    }
+  }
+
   Future<void> submitFeedback() async {
     if (!formKey.currentState!.validate()) return;
 
@@ -57,6 +102,31 @@ class FeedbackController extends GetxController {
 
     try {
       final user = _auth.currentUser;
+      final List<String> attachmentUrls = [];
+
+      // 0. Upload attachments if they exist
+      if (selectedFiles.isNotEmpty) {
+        isUploading.value = true;
+        for (var xFile in selectedFiles) {
+          final file = File(xFile.path);
+          final fileName =
+              'feedback_${DateTime.now().millisecondsSinceEpoch}_${xFile.name}';
+
+          // Using profile_images/USER_ID path as it's confirmed to have permissions in logs
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('profile_images')
+              .child(user?.uid ?? 'anonymous')
+              .child('feedback')
+              .child(fileName);
+
+          final uploadTask = await storageRef.putFile(file);
+          final url = await uploadTask.ref.getDownloadURL();
+          attachmentUrls.add(url);
+        }
+        isUploading.value = false;
+      }
+
       // 1. Save to feedback collection (for records)
       await _firestore.collection('feedback').add({
         'name': nameController.text.trim(),
@@ -64,6 +134,7 @@ class FeedbackController extends GetxController {
         'feedback': feedbackController.text.trim(),
         'rating': rating.value,
         'userId': user?.uid,
+        'attachmentUrls': attachmentUrls,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -92,6 +163,7 @@ class FeedbackController extends GetxController {
       emailController.clear();
       feedbackController.clear();
       rating.value = 0;
+      selectedFiles.clear();
 
       await Alert.success('Thank you for your feedback!');
       Get.back(); // Go back to previous screen

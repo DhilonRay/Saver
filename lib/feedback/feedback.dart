@@ -201,6 +201,123 @@ class FeedbackPage extends StatelessWidget {
                         ),
                         validator: controller.validateFeedback,
                       ),
+                      const VerticalGap(16),
+
+                      // Attachment Section
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Attachments (Max ${FeedbackController.maxFileCount})',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            Obx(() => Text(
+                                  '${controller.selectedFiles.length}/${FeedbackController.maxFileCount}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                      const VerticalGap(8),
+                      Obx(() => Column(
+                            children: [
+                              // List of selected files
+                              ...List.generate(controller.selectedFiles.length,
+                                  (index) {
+                                final file = controller.selectedFiles[index];
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.insert_drive_file,
+                                          color: Colors.blue.shade700),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              file.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const Text(
+                                              'File attached successfully',
+                                              style: TextStyle(
+                                                color: Colors.blue,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close,
+                                            color: Colors.red, size: 20),
+                                        onPressed: () =>
+                                            controller.removeAttachment(index),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+
+                              // Add more button
+                              if (controller.selectedFiles.length <
+                                  FeedbackController.maxFileCount)
+                                InkWell(
+                                  onTap: controller.pickAttachment,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.grey.shade300,
+                                          style: BorderStyle.solid),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.add_a_photo_outlined,
+                                            color: Colors.grey.shade600),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          controller.selectedFiles.isEmpty
+                                              ? 'Attach Photos (Max 10 MB)'
+                                              : 'Add Another Photo',
+                                          style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )),
                       const VerticalGap(24),
 
                       // Submit Button

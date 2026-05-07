@@ -29,8 +29,8 @@ class PartnerProfileController extends GetxController {
   var isUploadingAmbulanceImage = false.obs;
   var ambulanceUploadProgress = 0.0.obs;
 
-  // Maximum file size in bytes (2MB)
-  static const int maxFileSizeBytes = 2 * 1024 * 1024; // 2MB
+  // Maximum file size in bytes (10MB)
+  static const int maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
 
   // Location address
   var locationAddress = Rx<String?>(null);
@@ -629,14 +629,14 @@ class PartnerProfileController extends GetxController {
 
   // ==================== AMBULANCE IMAGE METHODS ====================
 
-  // Check if file size is within 2MB limit
+  // Check if file size is within 10MB limit
   Future<bool> _checkFileSizeLimit(File file) async {
     final fileSize = await file.length();
     if (fileSize > maxFileSizeBytes) {
       final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
       Get.snackbar(
         'File Too Large',
-        'Image size ($fileSizeMB MB) exceeds 2MB limit. Please choose a smaller image or take a new photo.',
+        'Image size ($fileSizeMB MB) exceeds 10MB limit. Please choose a smaller image or take a new photo.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade100,
         colorText: Colors.red.shade900,

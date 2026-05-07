@@ -99,8 +99,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   var isUploadingImage = false.obs;
   var uploadProgress = 0.0.obs; // Upload progress (0.0 to 1.0)
 
-  // Maximum file size in bytes (2MB)
-  static const int maxFileSizeBytes = 2 * 1024 * 1024; // 2MB
+  // Maximum file size in bytes (10MB)
+  static const int maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
 
   // Partner rates cache
   var partnerRates =
@@ -159,7 +159,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     if (currentPosition.value == null) return;
 
     try {
-      debugPrint('🔍 Updating ambulance providers markers (showAmbulances: ${showAmbulances.value})...');
+      debugPrint(
+          '🔍 Updating ambulance providers markers (showAmbulances: ${showAmbulances.value})...');
 
       // Cancel existing subscription if any
       await _partnersSubscription?.cancel();
@@ -196,18 +197,32 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           final data = doc.data();
           final latitude = data['latitude'] as double?;
           final longitude = data['longitude'] as double?;
-          final name = data['companyName'] as String? ?? 'Ambulance Provider';
-          final phone = data['contact'] as String?;
-          final address = data['coverageArea'] as String?;
+          final companyName = data['companyName'] as String? ?? 'Ambulance Service';
+          final driverName = data['name'] as String? ?? 'Driver';
+          final phone = data['phone'] as String? ?? data['contact'] as String?;
+          final address = data['address'] as String? ?? data['coverageArea'] as String?;
           final ambulanceType = data['ambulanceType'] as String?;
           final isOnline = data['isOnline'] as bool? ?? false;
+          final lastUpdated = data['lastUpdated'] as Timestamp?;
+          
+          // Check if the provider is recently active (within last 5 minutes)
+          // This prevents showing drivers who closed the app without going offline
+          bool isRecentlyActive = true;
+          if (lastUpdated != null) {
+            final difference = DateTime.now().difference(lastUpdated.toDate());
+            if (difference.inMinutes > 5) {
+              isRecentlyActive = false;
+            }
+          }
 
-          // Only show online partners with valid location
-          if (latitude != null && longitude != null && isOnline) {
+          // Only show online partners with valid location and recent activity
+          if (latitude != null && longitude != null && isOnline && isRecentlyActive) {
             // Create a custom ambulance data object to pass to details
             final ambulanceData = {
               'id': doc.id,
-              'name': name,
+              'name': driverName,
+              'driverName': driverName,
+              'companyName': companyName,
               'phone': phone ?? '+8801581822846',
               'address': address ?? 'Coverage area not specified',
               'ambulanceType': ambulanceType ?? 'General Ambulance',
@@ -215,18 +230,24 @@ class HomeController extends GetxController with WidgetsBindingObserver {
               'longitude': longitude,
               'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
               'profileImageUrl': data['profileImageUrl'] as String?,
+              'licenseNumber': data['licenseNumber'] as String? ?? 'N/A',
+              'vehicleNumber': data['vehicleNumber'] as String? ?? 'N/A',
               'isOnline': isOnline,
             };
 
             // Add a compact representation to the list visible in drawer
             onlineList.add({
               'id': doc.id,
-              'name': name,
+              'name': driverName,
+              'driverName': driverName,
+              'companyName': companyName,
               'phone': phone ?? '+8801793399913',
               'address': address ?? 'Coverage area not specified',
               'ambulanceType': ambulanceType ?? 'General Ambulance',
               'ambulanceImageUrl': data['ambulanceImageUrl'] as String?,
               'profileImageUrl': data['profileImageUrl'] as String?,
+              'licenseNumber': data['licenseNumber'] as String? ?? 'N/A',
+              'vehicleNumber': data['vehicleNumber'] as String? ?? 'N/A',
               'latitude': latitude,
               'longitude': longitude,
               'isOnline': isOnline,
@@ -237,7 +258,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                 markerId: MarkerId('ambulance_${doc.id}'),
                 position: LatLng(latitude, longitude),
                 infoWindow: InfoWindow(
-                  title: '$name (Online)',
+                  title: '$companyName (Online)',
                   snippet: '🚑 $ambulanceType • Tap for details',
                   onTap: () => _showAmbulanceProviderDetails(ambulanceData),
                 ),
@@ -1471,26 +1492,6 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                                     ),
                                     const SizedBox(height: 8),
 
-                                    // Phone Row
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.phone,
-                                          color: Color(0xFF1976D2),
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          phone,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-
                                     // Ambulance Type Row
                                     Row(
                                       children: [
@@ -1714,7 +1715,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
     final partnerId = ambulanceData['id'] as String?;
     final companyName =
-        ambulanceData['name'] as String? ?? 'Ambulance Provider';
+        ambulanceData['companyName'] as String? ?? 'Ambulance Provider';
+    final driverName =
+        ambulanceData['driverName'] as String? ?? 'Ambulance Driver';
 
     if (partnerId == null) {
       Alert.error('Invalid ambulance provider selected.');
@@ -1797,21 +1800,79 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Book Ambulance',
-                            style: const TextStyle(
+                            companyName,
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade900,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            companyName,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundImage: ambulanceData['profileImageUrl'] != null 
+                                  ? NetworkImage(ambulanceData['profileImageUrl'])
+                                  : null,
+                                child: ambulanceData['profileImageUrl'] == null 
+                                  ? const Icon(Icons.person, size: 12) 
+                                  : null,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                driverName,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border:
+                                      Border.all(color: Colors.purple.shade100),
+                                ),
+                                child: Text(
+                                  'License: ${ambulanceData['licenseNumber'] ?? 'N/A'}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.purple.shade700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border:
+                                      Border.all(color: Colors.teal.shade100),
+                                ),
+                                child: Text(
+                                  'No: ${ambulanceData['vehicleNumber'] ?? 'N/A'}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.teal.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1921,39 +1982,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                   const SizedBox(height: 16),
                 ],
 
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Additional Notes (optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  minLines: 1,
-                  maxLines: null,
-                  onChanged: (value) => additionalNotes = value,
-                ),
-                const SizedBox(height: 16),
                 // Actions
                 Column(
                   children: [
-                    // Call Ambulance button (top)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _callAmbulance(ambulanceData['phone']),
-                        icon: const Icon(Icons.call, size: 20),
-                        label: const Text('Call Ambulance'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.blue.shade800,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.blue.shade100),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     // Cancel and Book Now buttons (bottom row)
                     Row(
                       children: [
@@ -2148,15 +2179,30 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                       ),
                       SizedBox(height: 12),
                     ],
-                    // Clean Header
+                    // Company Name (Prominent at Top)
+                    Text(
+                      ambulanceData['companyName'] ?? 'Ambulance Service',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Driver Info Row
                     Row(
                       children: [
+                        // Driver Photo
                         Container(
-                          width: 50,
-                          height: 50,
+                          width: 55,
+                          height: 55,
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: Colors.blue.shade100, width: 2),
                             image: ambulanceData['profileImageUrl'] != null
                                 ? DecorationImage(
                                     image: NetworkImage(
@@ -2167,41 +2213,65 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                           ),
                           child: ambulanceData['profileImageUrl'] == null
                               ? Icon(
-                                  Icons.local_hospital,
+                                  Icons.person,
                                   color: Colors.blue.shade600,
-                                  size: 26,
+                                  size: 30,
                                 )
                               : null,
                         ),
-                        SizedBox(width: 15),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                ambulanceData['name'] ?? 'Ambulance Provider',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                                ambulanceData['driverName'] ??
+                                    ambulanceData['name'] ??
+                                    'Driver',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),
                               ),
-                              SizedBox(height: 4),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Available Now',
-                                  style: TextStyle(
-                                    color: Colors.green.shade700,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Available',
+                                      style: TextStyle(
+                                        color: Colors.green.shade700,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  if (ambulanceData['ambulanceType'] != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        ambulanceData['ambulanceType'],
+                                        style: TextStyle(
+                                          color: Colors.blue.shade700,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -2277,13 +2347,29 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                           if (ambulanceData['ambulanceType'] != null)
                             SizedBox(height: 12),
 
-                          // Phone
-                          _buildSimpleInfoRow(
-                            Icons.phone,
-                            Colors.green.shade600,
-                            'Phone',
-                            ambulanceData['phone'] ?? '+8801581822846',
-                          ),
+                          // License Number
+                          if (ambulanceData['licenseNumber'] != null)
+                            _buildSimpleInfoRow(
+                              Icons.assignment,
+                              Colors.purple.shade600,
+                              'License',
+                              ambulanceData['licenseNumber'],
+                            ),
+
+                          if (ambulanceData['licenseNumber'] != null)
+                            SizedBox(height: 12),
+
+                          // Vehicle Number
+                          if (ambulanceData['vehicleNumber'] != null)
+                            _buildSimpleInfoRow(
+                              Icons.grid_3x3,
+                              Colors.teal.shade600,
+                              'Vehicle No',
+                              ambulanceData['vehicleNumber'],
+                            ),
+
+                          if (ambulanceData['vehicleNumber'] != null)
+                            SizedBox(height: 12),
                         ],
                       ),
                     ),
@@ -2291,68 +2377,26 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                     SizedBox(height: 16),
 
                     // Action Buttons
-                    Row(
-                      children: [
-                        // Call Button - Left side
-                        Expanded(
-                          flex: 1,
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final String numberToCall =
-                                  ambulanceData['phone'] ?? '+8801581822846';
-                              final Uri launchUri = Uri(
-                                scheme: 'tel',
-                                path: numberToCall,
-                              );
-                              try {
-                                await launchUrl(launchUri);
-                                SuccessDialog.show(
-                                  title: 'Call Ambulance',
-                                  message:
-                                      'Calling ${ambulanceData['name']}...',
-                                );
-                              } catch (e) {
-                                Alert.error(
-                                    'Unable to make call. Please dial $numberToCall manually.');
-                              }
-                              Get.back();
-                            },
-                            icon: Icon(Icons.call, size: 18),
-                            label: Text('Call'),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.green.shade300),
-                              foregroundColor: Colors.green.shade700,
-                              padding: EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
+                    // Book Now - Primary Action (Full Width)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Get.back();
+                          _bookSpecificAmbulance(ambulanceData);
+                        },
+                        icon: Icon(Icons.book_online, size: 18),
+                        label: Text('Book Now'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          elevation: 2,
                         ),
-
-                        SizedBox(width: 10),
-                        // Book Now - Right side (Primary Action)
-                        Expanded(
-                          flex: 1,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Get.back();
-                              _bookSpecificAmbulance(ambulanceData);
-                            },
-                            icon: Icon(Icons.book_online, size: 18),
-                            label: Text('Book Now'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade600,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
 
                     SizedBox(height: 10),
@@ -4153,33 +4197,45 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  void onMapCreated(GoogleMapController controller) {
+  Future<void> onMapCreated(GoogleMapController controller) async {
     if (!_controller.isCompleted) {
       _controller.complete(controller);
     }
 
     // If we have current position, animate to it
     if (currentPosition.value != null) {
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: currentPosition.value!, zoom: 14),
-        ),
-      );
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: currentPosition.value!, zoom: 14),
+          ),
+        );
+      } catch (e) {
+        debugPrint('🏠 HomeUser: onMapCreated animateCamera failed: $e');
+      }
     }
   }
 
   // Zoom methods
   Future<void> zoomIn() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomIn());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomIn());
+      } catch (e) {
+        debugPrint('🏠 HomeUser: zoomIn failed: $e');
+      }
     }
   }
 
   Future<void> zoomOut() async {
     if (_controller.isCompleted) {
-      final GoogleMapController controller = await _controller.future;
-      controller.animateCamera(CameraUpdate.zoomOut());
+      try {
+        final GoogleMapController controller = await _controller.future;
+        await controller.animateCamera(CameraUpdate.zoomOut());
+      } catch (e) {
+        debugPrint('🏠 HomeUser: zoomOut failed: $e');
+      }
     }
   }
 
@@ -4211,7 +4267,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                 : currentPosition.value!.longitude,
           ),
         );
-        controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        try {
+          await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+        } catch (e) {
+          debugPrint('🏠 HomeUser: setDestinationFromCoordinates animateCamera failed: $e');
+        }
       }
     } catch (e) {
       Alert.error(
