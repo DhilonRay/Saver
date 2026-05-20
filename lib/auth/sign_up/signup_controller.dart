@@ -241,7 +241,7 @@ class SignUpController extends GetxController {
           'ambulanceImageUrl': ambulanceImageUrl,
           'nidImageUrl': nidImageUrl,
           'registrationPapersImageUrl': registrationPapersImageUrl,
-          'isApproved': false, // New drivers need approval
+          'isApproved': true, // Auto-approve drivers
           'isOnline': false,
           'companyName': companyNameController.text.trim(),
         });

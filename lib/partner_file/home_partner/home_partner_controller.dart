@@ -867,8 +867,7 @@ class HomePartnerController extends GetxController {
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (Get.context != null) {
-          Alert.info(
-              'Your driver account has been created successfully. Admin will verify your documents shortly.');
+         
         }
       });
     }
@@ -1104,6 +1103,9 @@ class HomePartnerController extends GetxController {
           Alert.info(
               'Location permission is required to show your location on the map');
           isLoadingLocation.value = false;
+          // Fallback to default position so map works
+          currentPosition.value = defaultPosition;
+          isInitialLoading.value = false;
           return;
         }
       }
@@ -1112,11 +1114,16 @@ class HomePartnerController extends GetxController {
         Alert.info(
             'Location permission is permanently denied. Please enable it in settings.');
         isLoadingLocation.value = false;
+        // Fallback to default position so map works
+        currentPosition.value = defaultPosition;
+        isInitialLoading.value = false;
         return;
       }
 
+      // Add a 8-second time limit to avoid indefinite hanging
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
       );
 
       currentPosition.value = LatLng(position.latitude, position.longitude);
@@ -1138,6 +1145,7 @@ class HomePartnerController extends GetxController {
       isLoadingLocation.value = false;
       isInitialLoading.value = false;
     } catch (e) {
+      debugPrint('🏠 HomePartner: _getCurrentLocation failed or timed out: $e');
       // Use default position if location fails
       currentPosition.value = defaultPosition;
       markers.clear();
@@ -2586,19 +2594,20 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance
+      // Force status to online initially on login/startup
+      isOnline.value = true;
+
+      await FirebaseFirestore.instance
           .collection('partners')
           .doc(user.uid)
-          .get();
-
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        isOnline.value = data['isOnline'] ?? true;
-        debugPrint('✅ Initial online status loaded: ${isOnline.value}');
-      }
+          .update({
+        'isOnline': true,
+        'lastStatusUpdate': Timestamp.now(),
+      });
+      debugPrint('✅ Initial online status loaded as ONLINE: true');
     } catch (e) {
-      debugPrint('❌ Error loading initial online status: $e');
-      // Default to online if there's an error
+      debugPrint('❌ Error setting initial online status: $e');
+      // Fallback
       isOnline.value = true;
     }
   }

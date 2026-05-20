@@ -22,6 +22,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../about/about.dart';
 import '../user_id/userid.dart';
+import '../glm_dashboard/glm_dashboard.dart';
 import '../auth/log_in/login_screen.dart';
 import '../chat_page/sos_chat_page.dart';
 import '../partner_file/partner_orders/partners_orders_page.dart';
@@ -2655,21 +2656,53 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     required String notes,
     FareDetails? fareDetails,
   }) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) {
-      Alert.error(
-        'User not authenticated',
-      );
+    String? userId;
+    Map<String, dynamic> userData = {};
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool isGLM = prefs.getBool('isGLMLoggedIn') ?? false;
+      String? glmId = prefs.getString('currentGLMId');
+
+      if (isGLM && glmId != null) {
+        userId = glmId;
+        final glmDoc = await FirebaseFirestore.instance
+            .collection('glm_accounts')
+            .doc(glmId)
+            .get();
+        if (glmDoc.exists) {
+          final data = glmDoc.data() ?? {};
+          userData = {
+            'name': data['hospitalName'] ?? data['fullName'] ?? 'GLM Partner',
+            'phone': data['phone'] ?? 'N/A',
+            'email': data['email'] ?? 'N/A',
+          };
+        } else {
+          userData = {
+            'name': 'GLM Partner',
+            'phone': 'N/A',
+            'email': 'N/A',
+          };
+        }
+      } else {
+        userId = _auth.currentUser?.uid;
+        if (userId == null) {
+          Alert.error('User not authenticated');
+          return null;
+        }
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        userData = userDoc.data() ?? {};
+      }
+    } catch (e) {
+      debugPrint('Error retrieving user session: $e');
+      Alert.error('Session retrieval failed');
       return null;
     }
 
     try {
-      // Fetch user details from users collection
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final userData = userDoc.data() ?? {};
 
       // Check if user already has a pending ambulance request to this specific partner
       final existingRequests = await FirebaseFirestore.instance
@@ -3713,7 +3746,18 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     Get.to(() => UserOrdersPage());
   }
 
-  void navigateToUserId() {
+  void navigateToUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool isGLM = prefs.getBool('isGLMLoggedIn') ?? false;
+      String? glmId = prefs.getString('currentGLMId');
+      if (isGLM && glmId != null) {
+        Get.offAll(() => GLMDashboard(glmId: glmId));
+        return;
+      }
+    } catch (e) {
+      debugPrint('SharedPreferences error in navigateToUserId: $e');
+    }
     Get.to(() => UserIdPage());
   }
 

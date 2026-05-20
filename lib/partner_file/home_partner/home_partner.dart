@@ -329,9 +329,6 @@ class HomePartnerPage extends StatelessWidget {
                 ),
               ),
               body: Obx(() {
-                if (!controller.isApproved.value) {
-                  return _buildPendingApprovalScreen(primaryBlue);
-                }
                 return Listener(
                   onPointerSignal: (pointerSignal) {
                     if (pointerSignal is PointerScrollEvent) {
@@ -681,78 +678,4 @@ class HomePartnerPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPendingApprovalScreen(Color primaryBlue) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.verified_user_outlined,
-                size: 80,
-                color: primaryBlue,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Verification Pending',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Your documents are being reviewed by our admin team. This usually takes 24-48 hours.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade100),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Reviewing Documents...',
-                    style: TextStyle(
-                      color: primaryBlue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/billing_breakdown_widget.dart';
+import '../admin_theme.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({Key? key}) : super(key: key);
@@ -18,325 +20,225 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Order Management'),
-        backgroundColor: Colors.blue.shade900,
-      ),
-      body: Column(
-        children: [
-          // Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _buildFilterChip('All', 'all'),
-                _buildFilterChip('Pending', 'pending'),
-                _buildFilterChip('Accepted', 'accepted'),
-                _buildFilterChip('Picked Up', 'picked_up'),
-                _buildFilterChip('Completed', 'completed'),
-                _buildFilterChip('Cancelled', 'cancelled'),
-              ],
+      backgroundColor: AdminTheme.bgDeep,
+      appBar: const AdminAppBar(title: 'Order Management'),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
+        child: Column(
+          children: [
+            // Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  AdminFilterChip(label: 'All', selected: _selectedFilter == 'all', onTap: () => setState(() => _selectedFilter = 'all')),
+                  const SizedBox(width: 8),
+                  AdminFilterChip(label: 'Pending', selected: _selectedFilter == 'pending', onTap: () => setState(() => _selectedFilter = 'pending')),
+                  const SizedBox(width: 8),
+                  AdminFilterChip(label: 'Accepted', selected: _selectedFilter == 'accepted', onTap: () => setState(() => _selectedFilter = 'accepted')),
+                  const SizedBox(width: 8),
+                  AdminFilterChip(label: 'Picked Up', selected: _selectedFilter == 'picked_up', onTap: () => setState(() => _selectedFilter = 'picked_up')),
+                  const SizedBox(width: 8),
+                  AdminFilterChip(label: 'Completed', selected: _selectedFilter == 'completed', onTap: () => setState(() => _selectedFilter = 'completed')),
+                  const SizedBox(width: 8),
+                  AdminFilterChip(label: 'Cancelled', selected: _selectedFilter == 'cancelled', onTap: () => setState(() => _selectedFilter = 'cancelled')),
+                ],
+              ),
             ),
-          ),
 
-          // Orders List
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _selectedFilter == 'all'
-                  ? _firestore
-                      .collection('orders')
-                      .orderBy('createdAt', descending: true)
-                      .snapshots()
-                  : _firestore
-                      .collection('orders')
-                      .where('status', isEqualTo: _selectedFilter)
-                      .orderBy('createdAt', descending: true)
-                      .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+            // Orders List
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _selectedFilter == 'all'
+                    ? _firestore.collection('orders').snapshots()
+                    : _firestore.collection('orders').where('status', isEqualTo: _selectedFilter).snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                var orders = snapshot.data!.docs;
-
-                if (orders.isEmpty) {
-                  return const Center(child: Text('No orders found'));
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: orders.length,
-                  itemBuilder: (context, index) {
-                    var orderData =
-                        orders[index].data() as Map<String, dynamic>;
-                    var orderId = orders[index].id;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // Sort locally to avoid composite index requirement
+                  var orders = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+                  orders.sort((a, b) {
+                    try {
+                      final aT = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                      final bT = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                      if (aT == null) return 1;
+                      if (bT == null) return -1;
+                      return bT.compareTo(aT);
+                    } catch (_) { return 0; }
+                  });
+                  if (orders.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(color: AdminTheme.bgSurface.withOpacity(0.5), shape: BoxShape.circle),
+                            child: const Icon(Icons.shopping_bag_rounded, size: 40, color: AdminTheme.textMuted),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text('No orders found', style: AdminTheme.body),
+                        ],
                       ),
-                      child: InkWell(
-                        onTap: () => _viewOrderDetails(orderId, orderData),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      var orderData = orders[index].data() as Map<String, dynamic>;
+                      var orderId = orders[index].id;
+                      final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GlassCard(
+                          onTap: () => _viewOrderDetails(orderId, orderData),
+                          accentColor: statusColor,
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Order #${orderId.substring(0, 8)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  _buildStatusChip(
-                                      orderData['status'] ?? 'pending'),
+                                  Text('Order #${orderId.substring(0, 8)}', style: AdminTheme.heading3),
+                                  AdminStatusBadge(label: (orderData['status'] ?? 'pending').toString().toUpperCase(), color: statusColor),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Customer: ${orderData['userName'] ?? 'N/A'}',
-                                style: TextStyle(color: Colors.grey.shade700),
-                              ),
+                              const SizedBox(height: 10),
+                              Text('Customer: ${orderData['userName'] ?? 'N/A'}', style: AdminTheme.body),
                               const SizedBox(height: 4),
-                              Text(
-                                'Amount: ৳${orderData['totalAmount'] ?? 0}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
+                              Text('Amount: ৳${orderData['totalAmount'] ?? 0}', style: AdminTheme.heading3.copyWith(color: AdminTheme.green, fontSize: 14)),
                               const SizedBox(height: 4),
                               Text(
                                 orderData['createdAt'] != null
-                                    ? DateFormat('dd MMM yyyy, hh:mm a').format(
-                                        (orderData['createdAt'] as Timestamp)
-                                            .toDate())
+                                    ? DateFormat('dd MMM yyyy, hh:mm a').format((orderData['createdAt'] as Timestamp).toDate())
                                     : 'N/A',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
+                                style: AdminTheme.bodySmall,
                               ),
                               if (orderData['partnerName'] != null) ...[
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    Icon(
-                                      Icons.delivery_dining,
-                                      size: 16,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      orderData['partnerName'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue.shade700,
-                                      ),
-                                    ),
+                                    Icon(Icons.delivery_dining_rounded, size: 14, color: AdminTheme.blue.withOpacity(0.7)),
+                                    const SizedBox(width: 5),
+                                    Text(orderData['partnerName'], style: AdminTheme.bodySmall.copyWith(color: AdminTheme.blue)),
                                   ],
                                 ),
                               ],
                             ],
                           ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    bool isSelected = _selectedFilter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() {
-            _selectedFilter = value;
-          });
-        },
-        backgroundColor: Colors.grey.shade200,
-        selectedColor: Colors.blue.shade700,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String status) {
-    Color color;
-    switch (status) {
-      case 'pending':
-        color = Colors.orange;
-        break;
-      case 'accepted':
-        color = Colors.blue;
-        break;
-      case 'picked_up':
-        color = Colors.purple;
-        break;
-      case 'completed':
-        color = Colors.green;
-        break;
-      case 'cancelled':
-        color = Colors.red;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          ],
         ),
       ),
     );
   }
 
   void _viewOrderDetails(String orderId, Map<String, dynamic> orderData) {
+    final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
     Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.assignment,
-                        color: Colors.blue.shade900, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Order #${orderId.substring(0, 8)}',
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+      BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AdminTheme.bgCard,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: AdminTheme.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.assignment_rounded, color: AdminTheme.blue, size: 22),
                       ),
-                    ),
-                    _buildStatusChip(orderData['status'] ?? 'pending'),
-                  ],
-                ),
-                const Divider(height: 24),
-                _buildDetailRow('Customer', orderData['userName'] ?? 'N/A'),
-                _buildDetailRow('Phone', orderData['userPhone'] ?? 'N/A'),
-                _buildDetailRow('Phone', orderData['userPhone'] ?? 'N/A'),
-                _buildDetailRow('Pickup', orderData['pickupAddress'] ?? 'N/A'),
-                _buildDetailRow(
-                    'Delivery', orderData['deliveryAddress'] ?? 'N/A'),
-                if (orderData['partnerName'] != null)
-                  _buildDetailRow('Partner', orderData['partnerName']),
-                _buildDetailRow(
-                  'Order Date',
-                  orderData['createdAt'] != null
-                      ? DateFormat('dd MMM yyyy, hh:mm a').format(
-                          (orderData['createdAt'] as Timestamp).toDate())
-                      : 'N/A',
-                ),
-                const SizedBox(height: 16),
-
-                // Payment Details
-                const Text(
-                  'Payment Info:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                if (orderData['payment'] != null) ...[
-                  _buildDetailRow('Method',
-                      (orderData['payment']['method'] ?? 'N/A').toUpperCase()),
-                  if (orderData['payment']['method'] == 'bkash') ...[
-                    _buildDetailRow(
-                        'TRXID', orderData['payment']['trxId'] ?? 'N/A'),
-                    _buildDetailRow('Sender',
-                        orderData['payment']['senderNumber'] ?? 'N/A'),
-                  ],
-                  _buildDetailRow(
-                      'Status',
-                      (orderData['payment']['status'] ?? 'pending')
-                          .toUpperCase()),
-                ],
-
-                const SizedBox(height: 12),
-                // Billing Breakdown
-                Builder(builder: (context) {
-                  double fare = 0.0;
-                  if (orderData['payment'] != null &&
-                      orderData['payment']['fare'] != null) {
-                    fare = (orderData['payment']['fare'] as num).toDouble();
-                  } else {
-                    fare =
-                        (orderData['totalAmount'] as num?)?.toDouble() ?? 0.0;
-                    // If totalAmount includes service charge, we might need to reverse calc
-                    // But assuming totalAmount usually means fare in old records
-                  }
-                  return BillingBreakdownWidget(fare: fare);
-                }),
-                const SizedBox(height: 16),
-                const SizedBox(height: 16),
-                const Text(
-                  'Update Status:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildStatusButton('Pending', 'pending', orderId),
-                    _buildStatusButton('Accepted', 'accepted', orderId),
-                    _buildStatusButton('Picked Up', 'picked_up', orderId),
-                    _buildStatusButton('Completed', 'completed', orderId),
-                    _buildStatusButton('Cancelled', 'cancelled', orderId),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Get.back(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade900,
-                    ),
-                    child: const Text('Close',
-                        style: TextStyle(color: Colors.white)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Order #${orderId.substring(0, 8)}', style: AdminTheme.heading2)),
+                      AdminStatusBadge(label: (orderData['status'] ?? 'pending').toString().toUpperCase(), color: statusColor),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Divider(color: Colors.white.withOpacity(0.04)),
+                  const SizedBox(height: 12),
+                  AdminDetailRow(label: 'Customer', value: orderData['userName'] ?? 'N/A'),
+                  AdminDetailRow(label: 'Phone', value: orderData['userPhone'] ?? 'N/A'),
+                  AdminDetailRow(label: 'Pickup', value: orderData['pickupAddress'] ?? 'N/A'),
+                  AdminDetailRow(label: 'Delivery', value: orderData['deliveryAddress'] ?? 'N/A'),
+                  if (orderData['partnerName'] != null)
+                    AdminDetailRow(label: 'Partner', value: orderData['partnerName']),
+                  AdminDetailRow(
+                    label: 'Order Date',
+                    value: orderData['createdAt'] != null
+                        ? DateFormat('dd MMM yyyy, hh:mm a').format((orderData['createdAt'] as Timestamp).toDate())
+                        : 'N/A',
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Payment Details
+                  const AdminSectionHeader(title: 'Payment Info', icon: Icons.payment_rounded),
+                  if (orderData['payment'] != null) ...[
+                    AdminDetailRow(label: 'Method', value: (orderData['payment']['method'] ?? 'N/A').toUpperCase()),
+                    if (orderData['payment']['method'] == 'bkash') ...[
+                      AdminDetailRow(label: 'TRXID', value: orderData['payment']['trxId'] ?? 'N/A'),
+                      AdminDetailRow(label: 'Sender', value: orderData['payment']['senderNumber'] ?? 'N/A'),
+                    ],
+                    AdminDetailRow(label: 'Status', value: (orderData['payment']['status'] ?? 'pending').toUpperCase()),
+                  ],
+                  const SizedBox(height: 12),
+                  Builder(builder: (context) {
+                    double fare = 0.0;
+                    if (orderData['payment'] != null && orderData['payment']['fare'] != null) {
+                      fare = (orderData['payment']['fare'] as num).toDouble();
+                    } else {
+                      fare = (orderData['totalAmount'] as num?)?.toDouble() ?? 0.0;
+                    }
+                    return BillingBreakdownWidget(fare: fare);
+                  }),
+                  const SizedBox(height: 20),
+                  const AdminSectionHeader(title: 'Update Status', icon: Icons.edit_rounded),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildStatusButton('Pending', 'pending', orderId),
+                      _buildStatusButton('Accepted', 'accepted', orderId),
+                      _buildStatusButton('Picked Up', 'picked_up', orderId),
+                      _buildStatusButton('Completed', 'completed', orderId),
+                      _buildStatusButton('Cancelled', 'cancelled', orderId),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Get.back(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                        ),
+                      ),
+                      child: const Text('Close', style: TextStyle(color: AdminTheme.textSecondary)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -344,53 +246,30 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStatusButton(String label, String status, String orderId) {
-    return ElevatedButton(
-      onPressed: () => _updateOrderStatus(orderId, status),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _getStatusColor(status),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final color = _getStatusColor(status);
+    return GestureDetector(
+      onTap: () => _updateOrderStatus(orderId, status),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
       ),
-      child: Text(label,
-          style: const TextStyle(fontSize: 12, color: Colors.white)),
     );
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'accepted':
-        return Colors.blue;
-      case 'picked_up':
-        return Colors.purple;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'pending': return AdminTheme.orange;
+      case 'accepted': return AdminTheme.blue;
+      case 'picked_up': return AdminTheme.purple;
+      case 'completed': return AdminTheme.green;
+      case 'cancelled': return AdminTheme.red;
+      default: return AdminTheme.textMuted;
     }
   }
 
@@ -400,21 +279,14 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         'status': newStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
       Get.back();
-      Get.snackbar(
-        'Success',
-        'Order status updated to $newStatus',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Success', 'Order status updated to $newStatus',
+          backgroundColor: AdminTheme.green, colorText: Colors.white,
+          snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to update order status',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Error', 'Failed to update order status',
+          backgroundColor: AdminTheme.red, colorText: Colors.white,
+          snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
     }
   }
 }

@@ -64,7 +64,7 @@ class PartnerController extends GetxController {
       await FirebaseFirestore.instance
           .collection('partners')
           .doc(uid)
-          .set(partnerData);
+          .set(partnerData, SetOptions(merge: true));
 
       // Verify data was saved by reading it back
       final savedDoc = await FirebaseFirestore.instance

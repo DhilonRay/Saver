@@ -108,24 +108,28 @@ class UserIdController extends GetxController {
 
         await _updateLocation(uid);
       } catch (e) {
-        Get.defaultDialog(
-          title: 'Error',
-          middleText: 'Failed to load user data: ${e.toString()}',
-          textConfirm: 'OK',
-          confirmTextColor: Colors.white,
-          onConfirm: () => Get.back(),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Get.defaultDialog(
+            title: 'Error',
+            middleText: 'Failed to load user data: ${e.toString()}',
+            textConfirm: 'OK',
+            confirmTextColor: Colors.white,
+            onConfirm: () => Get.back(),
+          );
+        });
       }
     } else {
       // Handle case when user is not authenticated
       userData.value = null;
-      Get.defaultDialog(
-        title: 'Authentication Required',
-        middleText: 'Please log in to view your profile',
-        textConfirm: 'OK',
-        confirmTextColor: Colors.white,
-        onConfirm: () => Get.back(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.defaultDialog(
+          title: 'Authentication Required',
+          middleText: 'Please log in to view your profile',
+          textConfirm: 'OK',
+          confirmTextColor: Colors.white,
+          onConfirm: () => Get.back(),
+        );
+      });
     }
     isLoading.value = false;
   }

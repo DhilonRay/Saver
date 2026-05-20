@@ -9,12 +9,38 @@ import '../services/notification_service.dart';
 import '../fare_negotiation/fare_negotiation_page.dart';
 import '../user_tracking/user_tracking_page.dart';
 import '../partner_file/accept_maps/accept_maps.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../admin/admin_dashboard/admin_dashboard.dart';
+import '../glm_dashboard/glm_dashboard.dart';
 
 class SplashPageController {
   /// Navigate after the splash delay using Get navigation to avoid
   /// passing a BuildContext across an async gap.
   void navigateAfterSplash() {
     Future.delayed(const Duration(seconds: 3), () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        bool isAdmin = prefs.getBool('isAdminLoggedIn') ?? false;
+        debugPrint('🔍 SplashPageController: isAdminLoggedIn = $isAdmin');
+        if (isAdmin) {
+          debugPrint('🚀 SplashPageController: Admin session active, routing to AdminDashboard');
+          Get.offAll(() => const AdminDashboard());
+          _initializeFCMDelayed();
+          return;
+        }
+
+        bool isGLM = prefs.getBool('isGLMLoggedIn') ?? false;
+        String? currentGLMId = prefs.getString('currentGLMId');
+        debugPrint('🔍 SplashPageController: isGLMLoggedIn = $isGLM, GLM ID = $currentGLMId');
+        if (isGLM && currentGLMId != null) {
+          debugPrint('🚀 SplashPageController: GLM session active, routing to GLMDashboard');
+          Get.offAll(() => GLMDashboard(glmId: currentGLMId));
+          return;
+        }
+      } catch (e) {
+        debugPrint('⚠️ SplashPageController: SharedPreferences error: $e');
+      }
+
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         try {
@@ -130,6 +156,16 @@ class SplashPageController {
           }
 
           // Standard role-based redirect
+          final adminDoc = await FirebaseFirestore.instance
+              .collection('admins')
+              .doc(user.uid)
+              .get();
+          if (adminDoc.exists) {
+            Get.offAll(() => const AdminDashboard());
+            _initializeFCMDelayed();
+            return;
+          }
+
           final partnerDoc = await FirebaseFirestore.instance
               .collection('partners')
               .doc(user.uid)

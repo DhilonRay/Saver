@@ -1,416 +1,157 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
+import '../admin_theme.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
   const AdminNotificationsScreen({Key? key}) : super(key: key);
-
   @override
-  State<AdminNotificationsScreen> createState() =>
-      _AdminNotificationsScreenState();
+  State<AdminNotificationsScreen> createState() => _AdminNotificationsScreenState();
 }
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _fs = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _messageController = TextEditingController();
-
+  final _titleCtrl = TextEditingController();
+  final _msgCtrl = TextEditingController();
   String _selectedTarget = 'all_users';
   bool _isSending = false;
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
+  void dispose() { _titleCtrl.dispose(); _msgCtrl.dispose(); super.dispose(); }
 
   Future<void> _sendNotification() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isSending = true);
-
     try {
-      String title = _titleController.text.trim();
-      String message = _messageController.text.trim();
+      String title = _titleCtrl.text.trim();
+      String message = _msgCtrl.text.trim();
       List<String> tokens = [];
-
-      // Get FCM tokens based on target
-      if (_selectedTarget == 'all_users') {
-        QuerySnapshot usersSnapshot =
-            await _firestore.collection('users').get();
-        for (var doc in usersSnapshot.docs) {
-          var data = doc.data() as Map<String, dynamic>;
-          if (data['fcmToken'] != null) {
-            tokens.add(data['fcmToken']);
-          }
-        }
-      } else if (_selectedTarget == 'all_partners') {
-        QuerySnapshot partnersSnapshot =
-            await _firestore.collection('partners').get();
-        for (var doc in partnersSnapshot.docs) {
-          var data = doc.data() as Map<String, dynamic>;
-          if (data['fcmToken'] != null) {
-            tokens.add(data['fcmToken']);
-          }
-        }
-      } else if (_selectedTarget == 'all') {
-        // Get all users
-        QuerySnapshot usersSnapshot =
-            await _firestore.collection('users').get();
-        for (var doc in usersSnapshot.docs) {
-          var data = doc.data() as Map<String, dynamic>;
-          if (data['fcmToken'] != null) {
-            tokens.add(data['fcmToken']);
-          }
-        }
-        // Get all partners
-        QuerySnapshot partnersSnapshot =
-            await _firestore.collection('partners').get();
-        for (var doc in partnersSnapshot.docs) {
-          var data = doc.data() as Map<String, dynamic>;
-          if (data['fcmToken'] != null) {
-            tokens.add(data['fcmToken']);
-          }
-        }
+      if (_selectedTarget == 'all_users' || _selectedTarget == 'all') {
+        var snap = await _fs.collection('users').get();
+        for (var doc in snap.docs) { var d = doc.data(); if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
       }
-
+      if (_selectedTarget == 'all_partners' || _selectedTarget == 'all') {
+        var snap = await _fs.collection('partners').get();
+        for (var doc in snap.docs) { var d = doc.data(); if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
+      }
       if (tokens.isEmpty) {
-        Get.snackbar(
-          'No Recipients',
-          'No FCM tokens found for the selected target',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
-        setState(() => _isSending = false);
-        return;
+        Get.snackbar('No Recipients', 'No FCM tokens found for the selected target', backgroundColor: AdminTheme.orange, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+        setState(() => _isSending = false); return;
       }
-
-      // Save notification to Firestore
-      await _firestore.collection('admin_notifications').add({
-        'title': title,
-        'message': message,
-        'target': _selectedTarget,
-        'recipientCount': tokens.length,
-        'sentAt': FieldValue.serverTimestamp(),
-      });
-
-      // In a real app, you would call your backend API to send FCM notifications
-      // For now, we'll just show success
-      Get.snackbar(
-        'Success',
-        'Notification sent to ${tokens.length} recipients',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-
-      _titleController.clear();
-      _messageController.clear();
+      await _fs.collection('admin_notifications').add({'title': title, 'message': message, 'target': _selectedTarget, 'recipientCount': tokens.length, 'sentAt': FieldValue.serverTimestamp()});
+      Get.snackbar('Success', 'Notification sent to ${tokens.length} recipients', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+      _titleCtrl.clear(); _msgCtrl.clear();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to send notification: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    } finally {
-      setState(() => _isSending = false);
-    }
+      Get.snackbar('Error', 'Failed to send notification: $e', backgroundColor: AdminTheme.red, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    } finally { setState(() => _isSending = false); }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Send Notifications'),
-        backgroundColor: Colors.blue.shade900,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Send Notification Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Compose Notification',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Target Selection
-                      const Text(
-                        'Send To:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _selectedTarget,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          prefixIcon: const Icon(Icons.people),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'all',
-                            child: Text('All Users & Partners'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'all_users',
-                            child: Text('All Users'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'all_partners',
-                            child: Text('All Partners'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedTarget = value!;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Title Field
-                      const Text(
-                        'Title:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _titleController,
-                        decoration: InputDecoration(
-                          hintText: 'Enter notification title',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          prefixIcon: const Icon(Icons.title),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a title';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Message Field
-                      const Text(
-                        'Message:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _messageController,
-                        maxLines: 5,
-                        decoration: InputDecoration(
-                          hintText: 'Enter notification message',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(bottom: 80),
-                            child: Icon(Icons.message),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a message';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Send Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton.icon(
-                          onPressed: _isSending ? null : _sendNotification,
-                          icon: _isSending
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.send, color: Colors.white),
-                          label: Text(
-                            _isSending ? 'Sending...' : 'Send Notification',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade900,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+      backgroundColor: AdminTheme.bgDeep,
+      appBar: const AdminAppBar(title: 'Send Notifications'),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Compose Card
+            GlassCard(
+              accentColor: AdminTheme.accent,
+              child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AdminTheme.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.edit_notifications_rounded, color: AdminTheme.accent, size: 22)),
+                  const SizedBox(width: 12), const Text('Compose Notification', style: AdminTheme.heading2),
+                ]),
+                const SizedBox(height: 20),
+                Text('SEND TO', style: AdminTheme.caption.copyWith(letterSpacing: 1.2, color: AdminTheme.textSecondary)), const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedTarget, dropdownColor: AdminTheme.bgCard,
+                  style: AdminTheme.body.copyWith(color: AdminTheme.textPrimary),
+                  decoration: _inputDecor('Select target', Icons.people_rounded),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All Users & Partners')),
+                    DropdownMenuItem(value: 'all_users', child: Text('All Users')),
+                    DropdownMenuItem(value: 'all_partners', child: Text('All Partners')),
+                  ],
+                  onChanged: (v) => setState(() => _selectedTarget = v!),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text('TITLE', style: AdminTheme.caption.copyWith(letterSpacing: 1.2, color: AdminTheme.textSecondary)), const SizedBox(height: 8),
+                TextFormField(controller: _titleCtrl, style: AdminTheme.body.copyWith(color: AdminTheme.textPrimary), decoration: _inputDecor('Enter notification title', Icons.title_rounded),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Please enter a title' : null),
+                const SizedBox(height: 16),
+                Text('MESSAGE', style: AdminTheme.caption.copyWith(letterSpacing: 1.2, color: AdminTheme.textSecondary)), const SizedBox(height: 8),
+                TextFormField(controller: _msgCtrl, maxLines: 5, style: AdminTheme.body.copyWith(color: AdminTheme.textPrimary),
+                  decoration: _inputDecor('Enter notification message', Icons.message_rounded).copyWith(
+                    prefixIcon: Padding(padding: const EdgeInsets.only(bottom: 80), child: Icon(Icons.message_rounded, color: AdminTheme.accent.withOpacity(0.5), size: 18)),
+                  ),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Please enter a message' : null),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity, height: 52, child: DecoratedBox(
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), gradient: const LinearGradient(colors: [AdminTheme.accent, AdminTheme.accentGlow]), boxShadow: [BoxShadow(color: AdminTheme.accent.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))]),
+                  child: ElevatedButton.icon(
+                    onPressed: _isSending ? null : _sendNotification,
+                    icon: _isSending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: AdminTheme.bgDeep, strokeWidth: 2)) : Icon(Icons.send_rounded, color: AdminTheme.bgDeep, size: 20),
+                    label: Text(_isSending ? 'Sending...' : 'Send Notification', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AdminTheme.bgDeep)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  ),
+                )),
+              ])),
             ),
             const SizedBox(height: 24),
 
-            // Notification History
-            const Text(
-              'Notification History',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-
+            // History
+            const AdminSectionHeader(title: 'Notification History', icon: Icons.history_rounded),
             StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('admin_notifications')
-                  .orderBy('sentAt', descending: true)
-                  .limit(20)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                var notifications = snapshot.data!.docs;
-
-                if (notifications.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Center(
-                        child: Text(
-                          'No notifications sent yet',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: notifications.length,
-                  itemBuilder: (context, index) {
-                    var data =
-                        notifications[index].data() as Map<String, dynamic>;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 1,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Icon(
-                            Icons.notifications,
-                            color: Colors.blue.shade900,
-                          ),
-                        ),
-                        title: Text(
-                          data['title'] ?? 'No Title',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text(
-                              data['message'] ?? 'No Message',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Sent to: ${_getTargetLabel(data['target'])} (${data['recipientCount']} recipients)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            if (data['sentAt'] != null)
-                              Text(
-                                (data['sentAt'] as Timestamp)
-                                    .toDate()
-                                    .toString()
-                                    .split('.')[0],
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
+              stream: _fs.collection('admin_notifications').orderBy('sentAt', descending: true).limit(20).snapshots(),
+              builder: (ctx, snap) {
+                if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: AdminTheme.body));
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
+                var notifs = snap.data!.docs;
+                if (notifs.isEmpty) return GlassCard(child: Center(child: Text('No notifications sent yet', style: AdminTheme.body.copyWith(color: AdminTheme.textMuted))));
+                return ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: notifs.length, itemBuilder: (ctx, i) {
+                  var d = notifs[i].data() as Map<String, dynamic>;
+                  return Padding(padding: const EdgeInsets.only(bottom: 10), child: GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AdminTheme.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.notifications_rounded, color: AdminTheme.blue, size: 20)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(d['title'] ?? 'No Title', style: AdminTheme.heading3.copyWith(fontSize: 13)),
+                        const SizedBox(height: 3), Text(d['message'] ?? 'No Message', maxLines: 2, overflow: TextOverflow.ellipsis, style: AdminTheme.bodySmall),
+                        const SizedBox(height: 4),
+                        Text('To: ${_getTargetLabel(d['target'])} (${d['recipientCount']} recipients)', style: AdminTheme.caption),
+                        if (d['sentAt'] != null) Text((d['sentAt'] as Timestamp).toDate().toString().split('.')[0], style: AdminTheme.caption),
+                      ])),
+                    ]),
+                  ));
+                });
               },
             ),
-          ],
+            const SizedBox(height: 40),
+          ]),
         ),
       ),
     );
   }
 
+  InputDecoration _inputDecor(String hint, IconData icon) => InputDecoration(
+    hintText: hint, hintStyle: AdminTheme.body.copyWith(color: AdminTheme.textMuted.withOpacity(0.5)),
+    prefixIcon: Icon(icon, color: AdminTheme.accent.withOpacity(0.5), size: 18),
+    filled: true, fillColor: AdminTheme.bgDeep.withOpacity(0.5),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.white.withOpacity(0.05))),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.white.withOpacity(0.05))),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AdminTheme.accent, width: 1.5)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AdminTheme.red, width: 1)),
+    errorStyle: const TextStyle(color: AdminTheme.red, fontSize: 11),
+    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+  );
+
   String _getTargetLabel(String target) {
-    switch (target) {
-      case 'all':
-        return 'All Users & Partners';
-      case 'all_users':
-        return 'All Users';
-      case 'all_partners':
-        return 'All Partners';
-      default:
-        return target;
-    }
+    switch (target) { case 'all': return 'All Users & Partners'; case 'all_users': return 'All Users'; case 'all_partners': return 'All Partners'; default: return target; }
   }
 }

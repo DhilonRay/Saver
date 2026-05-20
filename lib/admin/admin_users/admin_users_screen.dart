@@ -1,10 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
+import '../admin_theme.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({Key? key}) : super(key: key);
-
   @override
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
@@ -17,359 +18,131 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Management'),
-        backgroundColor: Colors.blue.shade900,
-      ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
+      backgroundColor: AdminTheme.bgDeep,
+      appBar: const AdminAppBar(title: 'User Management'),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: AdminSearchBar(
+                controller: _searchController,
                 hintText: 'Search users by name or email...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
+                onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                onClear: () { _searchController.clear(); setState(() => _searchQuery = ''); },
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
             ),
-          ),
-
-          // Users List
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('users').snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                var users = snapshot.data!.docs.where((doc) {
-                  var data = doc.data() as Map<String, dynamic>;
-                  var name = (data['name'] ?? '').toString().toLowerCase();
-                  var email = (data['email'] ?? '').toString().toLowerCase();
-                  return name.contains(_searchQuery) ||
-                      email.contains(_searchQuery);
-                }).toList();
-
-                if (users.isEmpty) {
-                  return const Center(child: Text('No users found'));
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    var userData = users[index].data() as Map<String, dynamic>;
-                    var userId = users[index].id;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(12),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.blue.shade900,
-                          ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('users').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
+                  var users = snapshot.data!.docs.where((doc) {
+                    var d = doc.data() as Map<String, dynamic>;
+                    return (d['name'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
+                        (d['email'] ?? '').toString().toLowerCase().contains(_searchQuery);
+                  }).toList();
+                  if (users.isEmpty) return _emptyState(Icons.person_off_rounded, 'No users found');
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: users.length,
+                    itemBuilder: (context, i) {
+                      var ud = users[i].data() as Map<String, dynamic>;
+                      var uid = users[i].id;
+                      bool isActive = ud['isActive'] ?? true;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GlassCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(children: [
+                            Container(width: 48, height: 48, decoration: BoxDecoration(gradient: LinearGradient(colors: [AdminTheme.blue.withOpacity(0.15), AdminTheme.blue.withOpacity(0.05)]), borderRadius: BorderRadius.circular(14)),
+                              child: const Icon(Icons.person_rounded, color: AdminTheme.blue, size: 22)),
+                            const SizedBox(width: 14),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(ud['name'] ?? 'No Name', style: AdminTheme.heading3.copyWith(fontSize: 14)),
+                              const SizedBox(height: 4),
+                              Text(ud['email'] ?? 'No Email', style: AdminTheme.bodySmall),
+                              const SizedBox(height: 4),
+                              Text('Phone: ${ud['phone'] ?? 'N/A'}', style: AdminTheme.bodySmall),
+                              const SizedBox(height: 6),
+                              AdminStatusBadge(label: isActive ? 'Active' : 'Suspended', color: isActive ? AdminTheme.green : AdminTheme.red),
+                            ])),
+                            PopupMenuButton(
+                              icon: const Icon(Icons.more_vert_rounded, color: AdminTheme.textMuted, size: 20),
+                              color: AdminTheme.bgCard, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              itemBuilder: (_) => [
+                                _mi('view', Icons.visibility_rounded, 'View Details', AdminTheme.accent),
+                                _mi('suspend', isActive ? Icons.block_rounded : Icons.check_circle_rounded, isActive ? 'Suspend' : 'Activate', AdminTheme.orange),
+                                _mi('delete', Icons.delete_rounded, 'Delete', AdminTheme.red),
+                              ],
+                              onSelected: (v) { if (v == 'view') _viewUser(uid, ud); else if (v == 'suspend') _toggleStatus(uid, ud); else if (v == 'delete') _deleteUser(uid, ud); },
+                            ),
+                          ]),
                         ),
-                        title: Text(
-                          userData['name'] ?? 'No Name',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text(userData['email'] ?? 'No Email'),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Phone: ${userData['phone'] ?? 'N/A'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: (userData['isActive'] ?? true)
-                                    ? Colors.green.shade100
-                                    : Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                (userData['isActive'] ?? true)
-                                    ? 'Active'
-                                    : 'Suspended',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: (userData['isActive'] ?? true)
-                                      ? Colors.green.shade700
-                                      : Colors.red.shade700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: PopupMenuButton(
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.visibility, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('View Details'),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'suspend',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    (userData['isActive'] ?? true)
-                                        ? Icons.block
-                                        : Icons.check_circle,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text((userData['isActive'] ?? true)
-                                      ? 'Suspend User'
-                                      : 'Activate User'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete,
-                                      size: 20, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Delete User',
-                                      style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'view':
-                                _viewUserDetails(userId, userData);
-                                break;
-                              case 'suspend':
-                                _toggleUserStatus(userId, userData);
-                                break;
-                              case 'delete':
-                                _deleteUser(userId, userData);
-                                break;
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _viewUserDetails(String userId, Map<String, dynamic> userData) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.person, color: Colors.blue.shade900, size: 28),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'User Details',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              _buildDetailRow('Name', userData['name'] ?? 'N/A'),
-              _buildDetailRow('Email', userData['email'] ?? 'N/A'),
-              _buildDetailRow('Phone', userData['phone'] ?? 'N/A'),
-              _buildDetailRow('User ID', userId),
-              _buildDetailRow(
-                'Status',
-                (userData['isActive'] ?? true) ? 'Active' : 'Suspended',
-              ),
-              _buildDetailRow(
-                'Joined',
-                userData['createdAt'] != null
-                    ? (userData['createdAt'] as Timestamp)
-                        .toDate()
-                        .toString()
-                        .split('.')[0]
-                    : 'N/A',
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Get.back(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade900,
-                  ),
-                  child: const Text('Close',
-                      style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
-      ),
-    );
+  PopupMenuItem _mi(String v, IconData ic, String t, Color c) => PopupMenuItem(value: v, child: Row(children: [Icon(ic, size: 18, color: c), const SizedBox(width: 10), Text(t, style: TextStyle(color: c, fontSize: 13))]));
+
+  Widget _emptyState(IconData ic, String t) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AdminTheme.bgSurface.withOpacity(0.5), shape: BoxShape.circle), child: Icon(ic, size: 40, color: AdminTheme.textMuted)),
+    const SizedBox(height: 14), Text(t, style: AdminTheme.body),
+  ]));
+
+  void _viewUser(String uid, Map<String, dynamic> ud) {
+    Get.dialog(BackdropFilter(filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), child: Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), backgroundColor: AdminTheme.bgCard,
+      child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AdminTheme.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.person_rounded, color: AdminTheme.blue, size: 22)), const SizedBox(width: 12), const Text('User Details', style: AdminTheme.heading2)]),
+        const SizedBox(height: 16), Divider(color: Colors.white.withOpacity(0.04)), const SizedBox(height: 12),
+        AdminDetailRow(label: 'Name', value: ud['name'] ?? 'N/A'), AdminDetailRow(label: 'Email', value: ud['email'] ?? 'N/A'), AdminDetailRow(label: 'Phone', value: ud['phone'] ?? 'N/A'),
+        AdminDetailRow(label: 'User ID', value: uid), AdminDetailRow(label: 'Status', value: (ud['isActive'] ?? true) ? 'Active' : 'Suspended'),
+        AdminDetailRow(label: 'Joined', value: ud['createdAt'] != null ? (ud['createdAt'] as Timestamp).toDate().toString().split('.')[0] : 'N/A'),
+        const SizedBox(height: 20),
+        SizedBox(width: double.infinity, child: TextButton(onPressed: () => Get.back(), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.white.withOpacity(0.08)))),
+          child: const Text('Close', style: TextStyle(color: AdminTheme.textSecondary)))),
+      ])))));
   }
 
-  Future<void> _toggleUserStatus(
-      String userId, Map<String, dynamic> userData) async {
-    bool currentStatus = userData['isActive'] ?? true;
-    bool newStatus = !currentStatus;
-
-    Get.dialog(
-      AlertDialog(
-        title: Text(newStatus ? 'Activate User?' : 'Suspend User?'),
-        content: Text(
-          newStatus
-              ? 'This user will be able to use the app.'
-              : 'This user will not be able to access the app.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await _firestore.collection('users').doc(userId).update({
-                  'isActive': newStatus,
-                });
-                Get.back();
-                Get.snackbar(
-                  'Success',
-                  'User ${newStatus ? 'activated' : 'suspended'} successfully',
-                  backgroundColor: Colors.green,
-                  colorText: Colors.white,
-                );
-              } catch (e) {
-                Get.snackbar(
-                  'Error',
-                  'Failed to update user status',
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: newStatus ? Colors.green : Colors.orange,
-            ),
-            child: Text(newStatus ? 'Activate' : 'Suspend',
-                style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _toggleStatus(String uid, Map<String, dynamic> ud) async {
+    bool ns = !(ud['isActive'] ?? true);
+    _confirmDialog(ns ? 'Activate User?' : 'Suspend User?', ns ? 'User will be able to use the app.' : 'User will not be able to access the app.', ns ? AdminTheme.green : AdminTheme.orange, ns ? 'Activate' : 'Suspend', () async {
+      await _firestore.collection('users').doc(uid).update({'isActive': ns});
+      Get.back(); Get.snackbar('Success', 'User ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    });
   }
 
-  Future<void> _deleteUser(String userId, Map<String, dynamic> userData) async {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Delete User?'),
-        content: Text(
-          'Are you sure you want to permanently delete ${userData['name']}? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await _firestore.collection('users').doc(userId).delete();
-                Get.back();
-                Get.snackbar(
-                  'Success',
-                  'User deleted successfully',
-                  backgroundColor: Colors.green,
-                  colorText: Colors.white,
-                );
-              } catch (e) {
-                Get.snackbar(
-                  'Error',
-                  'Failed to delete user',
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _deleteUser(String uid, Map<String, dynamic> ud) async {
+    _confirmDialog('Delete User?', 'Permanently delete ${ud['name']}? This cannot be undone.', AdminTheme.red, 'Delete', () async {
+      await _firestore.collection('users').doc(uid).delete();
+      Get.back(); Get.snackbar('Success', 'User deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    });
+  }
+
+  void _confirmDialog(String title, String msg, Color color, String action, VoidCallback onConfirm) {
+    Get.dialog(BackdropFilter(filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), child: Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), backgroundColor: AdminTheme.bgCard,
+      child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.warning_rounded, color: color, size: 28)),
+        const SizedBox(height: 16), Text(title, style: AdminTheme.heading2), const SizedBox(height: 8),
+        Text(msg, style: AdminTheme.body.copyWith(color: AdminTheme.textSecondary), textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(child: TextButton(onPressed: () => Get.back(), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.white.withOpacity(0.08)))), child: const Text('Cancel', style: TextStyle(color: AdminTheme.textSecondary)))),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton(onPressed: onConfirm, style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0), child: Text(action, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)))),
+        ]),
+      ])))));
   }
 }

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserOrderController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -20,14 +21,27 @@ class UserOrderController extends GetxController {
     initializeUser();
   }
 
-  void initializeUser() {
-    final currentUser = _auth.currentUser;
-    if (currentUser != null) {
-      userId.value = currentUser.uid;
-      fetchOrders();
-    } else {
+  void initializeUser() async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        userId.value = currentUser.uid;
+        fetchOrders();
+      } else {
+        final prefs = await SharedPreferences.getInstance();
+        bool isGLM = prefs.getBool('isGLMLoggedIn') ?? false;
+        String? glmId = prefs.getString('currentGLMId');
+        if (isGLM && glmId != null) {
+          userId.value = glmId;
+          fetchOrders();
+        } else {
+          isLoading.value = false;
+          error.value = 'User not authenticated';
+        }
+      }
+    } catch (e) {
       isLoading.value = false;
-      error.value = 'User not authenticated';
+      error.value = 'Failed to initialize session: ${e.toString()}';
     }
   }
 

@@ -8,6 +8,8 @@ import 'package:saver/components/constants/alert.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/home_partner/home_partner.dart';
 import '../../services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../glm_dashboard/glm_dashboard.dart';
 import '../sign_up/signup.dart';
 
 class LoginController extends GetxController {
@@ -63,8 +65,41 @@ class LoginController extends GetxController {
     final identifier = identifierController.text.trim();
 
     if (identifier.isEmpty) {
-      Alert.error('Please enter email or phone number');
+      Alert.error('Please enter GLM ID, email or phone number');
       return;
+    }
+
+    isLoading.value = true;
+    try {
+      // Check if this matches a manually created GLM Account ID
+      DocumentSnapshot glmDoc = await FirebaseFirestore.instance
+          .collection('glm_accounts')
+          .doc(identifier)
+          .get();
+
+      if (glmDoc.exists) {
+        var glmData = glmDoc.data() as Map<String, dynamic>;
+        final String inputPass = passwordController.text.trim();
+        final String dbPass = glmData['password'] ?? '';
+        if (inputPass == dbPass) {
+          isLoading.value = false;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isGLMLoggedIn', true);
+          await prefs.setString('currentGLMId', identifier);
+          
+          Alert.info('Welcome GLM Partner!');
+          Get.offAll(() => GLMDashboard(glmId: identifier));
+          return;
+        } else {
+          isLoading.value = false;
+          Alert.error('Incorrect password for GLM account');
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('GLM Account check failed: $e');
+    } finally {
+      isLoading.value = false;
     }
 
     if (identifier.contains('@')) {
@@ -84,6 +119,8 @@ class LoginController extends GetxController {
 
       if (adminDoc.exists) {
         debugPrint('🔑 Admin user detected - navigating to admin dashboard');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isAdminLoggedIn', true);
         Get.offAllNamed('/admin-dashboard');
         return;
       }
@@ -153,6 +190,31 @@ class LoginController extends GetxController {
 
     try {
       await Firebase.initializeApp();
+
+      // ----------------------------------------------------
+      // FIXED ADMIN CREDENTIALS BYPASS
+      // ----------------------------------------------------
+      if (email == 'admin@saver.com' && password == 'ADMIN@105176@ADMIN105176') {
+        try {
+          await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+        } catch (e) {
+          try {
+            UserCredential uc = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
+            await FirebaseFirestore.instance.collection('admins').doc(uc.user!.uid).set({
+              'email': email,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          } catch (_) {}
+        }
+        isLoading.value = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isAdminLoggedIn', true);
+        debugPrint('💾 LoginController: Set isAdminLoggedIn = true successfully');
+        Get.offAllNamed('/admin-dashboard');
+        return;
+      }
+      // ----------------------------------------------------
+
       final auth = FirebaseAuth.instance;
 
       final userCredential = await auth.signInWithEmailAndPassword(

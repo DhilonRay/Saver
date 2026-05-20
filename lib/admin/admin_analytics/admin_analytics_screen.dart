@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../admin_theme.dart';
 
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key});
@@ -121,400 +122,265 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics & Reports'),
-        backgroundColor: Colors.blue.shade900,
+      backgroundColor: AdminTheme.bgDeep,
+      appBar: AdminAppBar(
+        title: 'Analytics & Reports',
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAnalytics,
+          GestureDetector(
+            onTap: _loadAnalytics,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AdminTheme.bgSurface.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.refresh_rounded, color: AdminTheme.textSecondary, size: 22),
+            ),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadAnalytics,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Revenue Section
-                    const Text(
-                      'Revenue Analytics',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+          ? const Center(child: CircularProgressIndicator(color: AdminTheme.accent))
+          : Container(
+              decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
+              child: RefreshIndicator(
+                onRefresh: _loadAnalytics,
+                color: AdminTheme.accent,
+                backgroundColor: AdminTheme.bgCard,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Revenue Section
+                      const AdminSectionHeader(title: 'Revenue Analytics', icon: Icons.trending_up_rounded, color: AdminTheme.green),
+                      GlassCard(
+                        accentColor: AdminTheme.green,
                         child: Column(
                           children: [
-                            _buildRevenueRow(
-                                'Total Revenue', totalRevenue, Colors.green),
-                            const Divider(),
-                            _buildRevenueRow(
-                                'Today', todayRevenue, Colors.blue),
-                            const Divider(),
-                            _buildRevenueRow(
-                                'This Week', weekRevenue, Colors.purple),
-                            const Divider(),
-                            _buildRevenueRow(
-                                'This Month', monthRevenue, Colors.orange),
+                            _buildRevenueRow('Total Revenue', totalRevenue, AdminTheme.green),
+                            Divider(color: Colors.white.withOpacity(0.04), height: 24),
+                            _buildRevenueRow('Today', todayRevenue, AdminTheme.blue),
+                            Divider(color: Colors.white.withOpacity(0.04), height: 24),
+                            _buildRevenueRow('This Week', weekRevenue, AdminTheme.purple),
+                            Divider(color: Colors.white.withOpacity(0.04), height: 24),
+                            _buildRevenueRow('This Month', monthRevenue, AdminTheme.orange),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    // Orders Section
-                    const Text(
-                      'Orders Analytics',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      // Orders Section
+                      const AdminSectionHeader(title: 'Orders Analytics', icon: Icons.shopping_bag_rounded, color: AdminTheme.blue),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 1.35,
+                        children: [
+                          AdminStatCard(title: 'Total Orders', value: totalOrders.toString(), icon: Icons.shopping_bag_rounded, color: AdminTheme.blue),
+                          AdminStatCard(title: 'Today', value: todayOrders.toString(), icon: Icons.today_rounded, color: AdminTheme.green),
+                          AdminStatCard(title: 'This Week', value: weekOrders.toString(), icon: Icons.calendar_view_week_rounded, color: AdminTheme.purple),
+                          AdminStatCard(title: 'This Month', value: monthOrders.toString(), icon: Icons.calendar_month_rounded, color: AdminTheme.orange),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.5,
-                      children: [
-                        _buildStatCard(
-                          'Total Orders',
-                          totalOrders.toString(),
-                          Icons.shopping_bag,
-                          Colors.blue,
-                        ),
-                        _buildStatCard(
-                          'Today',
-                          todayOrders.toString(),
-                          Icons.today,
-                          Colors.green,
-                        ),
-                        _buildStatCard(
-                          'This Week',
-                          weekOrders.toString(),
-                          Icons.calendar_view_week,
-                          Colors.purple,
-                        ),
-                        _buildStatCard(
-                          'This Month',
-                          monthOrders.toString(),
-                          Icons.calendar_month,
-                          Colors.orange,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    // Users & Partners Section
-                    const Text(
-                      'Users & Partners',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
+                      // Users & Partners Section
+                      const AdminSectionHeader(title: 'Users & Partners', icon: Icons.people_rounded, color: AdminTheme.accent),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GlassCard(
+                              accentColor: AdminTheme.blue,
+                              padding: const EdgeInsets.all(20),
                               child: Column(
                                 children: [
-                                  Icon(
-                                    Icons.people,
-                                    size: 48,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    totalUsers.toString(),
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AdminTheme.blue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
+                                    child: const Icon(Icons.people_rounded, size: 28, color: AdminTheme.blue),
                                   ),
-                                  const Text(
-                                    'Total Users',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(totalUsers.toString(), style: AdminTheme.stat.copyWith(color: AdminTheme.blue)),
+                                  const Text('Total Users', style: AdminTheme.bodySmall),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    '$activeUsers Active',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.green.shade700,
-                                    ),
-                                  ),
+                                  AdminMiniTag(text: '$activeUsers Active', color: AdminTheme.green),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: GlassCard(
+                              accentColor: AdminTheme.green,
+                              padding: const EdgeInsets.all(20),
                               child: Column(
                                 children: [
-                                  Icon(
-                                    Icons.delivery_dining,
-                                    size: 48,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    totalPartners.toString(),
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade700,
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AdminTheme.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
+                                    child: const Icon(Icons.delivery_dining_rounded, size: 28, color: AdminTheme.green),
                                   ),
-                                  const Text(
-                                    'Total Partners',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(totalPartners.toString(), style: AdminTheme.stat.copyWith(color: AdminTheme.green)),
+                                  const Text('Total Partners', style: AdminTheme.bodySmall),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    '$activePartners Active',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.green.shade700,
-                                    ),
-                                  ),
+                                  AdminMiniTag(text: '$activePartners Active', color: AdminTheme.green),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Top Partners Section
-                    const Text(
-                      'Top Performing Partners',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore
-                          .collection('partners')
-                          .orderBy('completedOrders', descending: true)
-                          .limit(5)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
+                      const SizedBox(height: 24),
 
-                        var partners = snapshot.data!.docs;
+                      // Top Partners
+                      const AdminSectionHeader(title: 'Top Performing Partners', icon: Icons.emoji_events_rounded, color: AdminTheme.amber),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _firestore
+                            .collection('partners')
+                            .orderBy('completedOrders', descending: true)
+                            .limit(5)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                        if (partners.isEmpty) {
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Center(
-                                child: Text(
-                                  'No partner data available',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
+                          var partners = snapshot.data!.docs;
+                          if (partners.isEmpty) {
+                            return GlassCard(
+                              child: const Center(child: Text('No partner data available', style: AdminTheme.body)),
+                            );
+                          }
 
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: partners.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              var partnerData = partners[index].data()
-                                  as Map<String, dynamic>;
-
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.green.shade100,
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade900,
-                                    ),
+                          return GlassCard(
+                            accentColor: AdminTheme.amber,
+                            child: Column(
+                              children: partners.asMap().entries.map((entry) {
+                                var partnerData = entry.value.data() as Map<String, dynamic>;
+                                List<String> emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: entry.key < partners.length - 1 ? 12 : 0,
                                   ),
-                                ),
-                                title: Text(
-                                  partnerData['name'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                  'Vehicle: ${partnerData['vehicleType'] ?? 'N/A'}',
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '${partnerData['completedOrders'] ?? 0} orders',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue.shade700,
+                                  child: Row(
+                                    children: [
+                                      Text(emojis[entry.key], style: const TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(partnerData['name'] ?? 'Unknown', style: AdminTheme.heading3.copyWith(fontSize: 13)),
+                                            Text('Vehicle: ${partnerData['vehicleType'] ?? 'N/A'}', style: AdminTheme.bodySmall),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '৳${partnerData['totalEarnings'] ?? 0}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.green.shade700,
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text('${partnerData['completedOrders'] ?? 0} orders', style: AdminTheme.bodySmall.copyWith(color: AdminTheme.blue, fontWeight: FontWeight.w600)),
+                                          Text('৳${partnerData['totalEarnings'] ?? 0}', style: AdminTheme.bodySmall.copyWith(color: AdminTheme.green)),
+                                        ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Recent Orders Section
-                    const Text(
-                      'Recent Orders',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore
-                          .collection('orders')
-                          .orderBy('createdAt', descending: true)
-                          .limit(10)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-
-                        var orders = snapshot.data!.docs;
-
-                        if (orders.isEmpty) {
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Center(
-                                child: Text(
-                                  'No orders yet',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           );
-                        }
+                        },
+                      ),
+                      const SizedBox(height: 24),
 
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.separated(
+                      // Recent Orders
+                      const AdminSectionHeader(title: 'Recent Orders', icon: Icons.receipt_long_rounded, color: AdminTheme.blue),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _firestore
+                            .collection('orders')
+                            .orderBy('createdAt', descending: true)
+                            .limit(10)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
+
+                          var orders = snapshot.data!.docs;
+                          if (orders.isEmpty) {
+                            return GlassCard(child: const Center(child: Text('No orders yet', style: AdminTheme.body)));
+                          }
+
+                          return ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: orders.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 1),
                             itemBuilder: (context, index) {
-                              var orderData =
-                                  orders[index].data() as Map<String, dynamic>;
+                              var orderData = orders[index].data() as Map<String, dynamic>;
                               var orderId = orders[index].id;
+                              final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
 
-                              return ListTile(
-                                leading: Icon(
-                                  Icons.shopping_bag,
-                                  color: _getStatusColor(
-                                      orderData['status'] ?? 'pending'),
-                                ),
-                                title: Text(
-                                  'Order #${orderId.substring(0, 8)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                  orderData['userName'] ?? 'Unknown',
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '৳${orderData['totalAmount'] ?? 0}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: GlassCard(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(Icons.shopping_bag_rounded, color: statusColor, size: 20),
                                       ),
-                                    ),
-                                    Text(
-                                      orderData['status']
-                                          .toString()
-                                          .toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: _getStatusColor(
-                                            orderData['status'] ?? 'pending'),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Order #${orderId.substring(0, 8)}',
+                                              style: AdminTheme.heading3.copyWith(fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(orderData['userName'] ?? 'Unknown', style: AdminTheme.bodySmall),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '৳${orderData['totalAmount'] ?? 0}',
+                                            style: AdminTheme.heading3.copyWith(color: AdminTheme.green, fontSize: 13),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          AdminStatusBadge(
+                                            label: (orderData['status'] ?? 'pending').toString().toUpperCase(),
+                                            color: statusColor,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -522,87 +388,32 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   }
 
   Widget _buildRevenueRow(String label, double amount, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            '৳${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 28, color: color),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: AdminTheme.body),
+        Text(
+          '৳${amount.toStringAsFixed(2)}',
+          style: AdminTheme.heading3.copyWith(color: color),
         ),
-      ),
+      ],
     );
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
       case 'pending':
-        return Colors.orange;
+        return AdminTheme.orange;
       case 'accepted':
-        return Colors.blue;
+        return AdminTheme.blue;
       case 'picked_up':
-        return Colors.purple;
+        return AdminTheme.purple;
       case 'completed':
-        return Colors.green;
+        return AdminTheme.green;
       case 'cancelled':
-        return Colors.red;
+        return AdminTheme.red;
       default:
-        return Colors.grey;
+        return AdminTheme.textMuted;
     }
   }
 }
