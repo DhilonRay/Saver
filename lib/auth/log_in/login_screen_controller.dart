@@ -11,6 +11,7 @@ import '../../services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../glm_dashboard/glm_dashboard.dart';
 import '../sign_up/signup.dart';
+import '../../config/api_keys_secret.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
@@ -194,7 +195,7 @@ class LoginController extends GetxController {
       // ----------------------------------------------------
       // FIXED ADMIN CREDENTIALS BYPASS
       // ----------------------------------------------------
-      if (email == 'admin@saver.com' && password == 'ADMIN@105176@ADMIN105176') {
+      if (email == ApiKeysSecret.adminEmail && password == ApiKeysSecret.adminPassword) {
         try {
           await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
         } catch (e) {

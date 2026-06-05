@@ -912,8 +912,37 @@ class HomePartnerController extends GetxController {
   }
 
   /// Start periodic location updates every 10 seconds
-  void _startPositionSubscription() {
+  void _startPositionSubscription() async {
     try {
+      // Check permission before starting stream
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        debugPrint('🏠 HomePartner: Location permission denied, using default position');
+        if (currentPosition.value == null) {
+          currentPosition.value = defaultPosition;
+          isLoadingLocation.value = false;
+          isInitialLoading.value = false;
+        }
+        return;
+      }
+
+      // Also check if location service is enabled
+      final isServiceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!isServiceEnabled) {
+        debugPrint('🏠 HomePartner: Location service disabled, using default position');
+        if (currentPosition.value == null) {
+          currentPosition.value = defaultPosition;
+          isLoadingLocation.value = false;
+          isInitialLoading.value = false;
+        }
+        return;
+      }
+
       _positionSubscription?.cancel();
       _positionSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
@@ -922,9 +951,33 @@ class HomePartnerController extends GetxController {
         ),
       ).listen((Position position) {
         _handleNewPosition(position);
+      }, onError: (e) {
+        debugPrint('🏠 HomePartner: Position stream error: $e');
+        // Ensure map is not stuck on grey if stream errors
+        if (currentPosition.value == null) {
+          currentPosition.value = defaultPosition;
+          isLoadingLocation.value = false;
+          isInitialLoading.value = false;
+        }
+        _startLocationUpdateTimer();
+      });
+
+      // Safety fallback: if no position received within 10 seconds, use default
+      Future.delayed(const Duration(seconds: 10), () {
+        if (currentPosition.value == null) {
+          debugPrint('🏠 HomePartner: No position after 10s, using default position');
+          currentPosition.value = defaultPosition;
+          isLoadingLocation.value = false;
+          isInitialLoading.value = false;
+        }
       });
     } catch (e) {
       debugPrint('Error starting position stream: $e');
+      if (currentPosition.value == null) {
+        currentPosition.value = defaultPosition;
+        isLoadingLocation.value = false;
+        isInitialLoading.value = false;
+      }
       // Fallback to timer if stream fails
       _startLocationUpdateTimer();
     }

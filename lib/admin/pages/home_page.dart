@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import '../admin_controller.dart';
 import '../admin_theme.dart';
 
@@ -219,6 +221,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
               myLocationEnabled: false,
               zoomControlsEnabled: true,
               mapType: MapType.normal,
+              // Enable map gestures so it can be scrolled
+              scrollGesturesEnabled: true,
+              zoomGesturesEnabled: true,
+              rotateGesturesEnabled: true,
+              tiltGesturesEnabled: true,
+              gestureRecognizers: {
+                Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                ),
+              },
             ),
             // Legend
             Positioned(

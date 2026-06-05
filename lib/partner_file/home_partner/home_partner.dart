@@ -328,8 +328,7 @@ class HomePartnerPage extends StatelessWidget {
                   ),
                 ),
               ),
-              body: Obx(() {
-                return Listener(
+              body: Listener(
                   onPointerSignal: (pointerSignal) {
                     if (pointerSignal is PointerScrollEvent) {
                       // If the app is not in the resumed state (focused/active),
@@ -623,8 +622,7 @@ class HomePartnerPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                );
-              }),
+                ),
             ),
           ),
         );

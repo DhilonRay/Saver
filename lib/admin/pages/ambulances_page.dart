@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -59,18 +60,31 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
             itemBuilder: (context, index) {
               var rawData = ambulances[index].data() as Map<String, dynamic>;
               var id = ambulances[index].id;
-              
+
               // Normalize partner data to keys expected by UI and detail pages
               Map<String, dynamic> data = {
                 'name': rawData['companyName'] ?? rawData['name'] ?? 'Ambulance',
                 'driverName': rawData['name'] ?? 'N/A',
+                'driverEmail': rawData['email'] ?? 'N/A',
                 'driverPhone': rawData['phone'] ?? rawData['contact'] ?? 'N/A',
                 'type': rawData['ambulanceType'] ?? 'N/A',
                 'numberPlate': rawData['vehicleNumber'] ?? 'N/A',
+                'licenseNumber': rawData['licenseNumber'] ?? 'N/A',
+                'roadTaxToken': rawData['roadTaxToken'] ?? 'N/A',
+                'nationalId': rawData['nationalId'] ?? 'N/A',
+                'referenceId': rawData['referenceId'] ?? 'N/A',
                 'lastAddress': rawData['coverageArea'] ?? rawData['address'] ?? 'N/A',
                 'lastLocationUpdate': rawData['lastUpdated'],
                 'isActive': rawData['isOnline'] ?? false,
                 'onTrip': rawData['onTrip'] ?? false,
+                'isApproved': rawData['isApproved'] ?? false,
+                'createdAt': rawData['createdAt'],
+                // Document images from registration
+                'profileImageUrl': rawData['profileImageUrl'],
+                'licenseImageUrl': rawData['licenseImageUrl'],
+                'ambulanceImageUrl': rawData['ambulanceImageUrl'],
+                'nidImageUrl': rawData['nidImageUrl'],
+                'registrationPapersImageUrl': rawData['registrationPapersImageUrl'],
               };
 
               bool isActive = data['isActive'] ?? false;
@@ -164,6 +178,10 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
   }
 }
 
+// ──────────────────────────────────────────────────────────
+// Detail Page
+// ──────────────────────────────────────────────────────────
+
 class _AmbulanceDetailPage extends StatelessWidget {
   final String ambulanceId;
   final Map<String, dynamic> data;
@@ -184,7 +202,7 @@ class _AmbulanceDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status header
+            // ── Status Header ──
             GlassCard(
               accentColor: statusColor,
               padding: const EdgeInsets.all(20),
@@ -220,6 +238,9 @@ class _AmbulanceDetailPage extends StatelessWidget {
                               label: isActive ? (onTrip ? 'ON TRIP' : 'IDLE - READY') : 'INACTIVE',
                               color: statusColor,
                             ),
+                            const SizedBox(width: 8),
+                            if (data['isApproved'] == true)
+                              AdminStatusBadge(label: 'VERIFIED', color: AdminTheme.green),
                           ],
                         ),
                       ],
@@ -230,54 +251,71 @@ class _AmbulanceDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Vehicle info
+            // ── Vehicle Information ──
             const AdminSectionHeader(title: 'Vehicle Information', icon: Icons.directions_bus_rounded),
             GlassCard(
               child: Column(
                 children: [
-                  AdminDetailRow(label: 'Name', value: data['name'] ?? 'N/A', labelWidth: 120),
-                  AdminDetailRow(label: 'Type', value: data['type'] ?? 'N/A', labelWidth: 120),
-                  AdminDetailRow(label: 'Number Plate', value: data['numberPlate'] ?? 'N/A', labelWidth: 120),
-                  AdminDetailRow(label: 'Status', value: isActive ? 'Active' : 'Inactive', labelWidth: 120),
+                  AdminDetailRow(label: 'Company Name', value: data['name'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Type', value: data['type'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Number Plate', value: data['numberPlate'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'License No.', value: data['licenseNumber'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Road Tax Token', value: data['roadTaxToken'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Status', value: isActive ? 'Active / Online' : 'Inactive / Offline', labelWidth: 140),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Driver info
+            // ── Driver Information ──
             const AdminSectionHeader(title: 'Driver Information', icon: Icons.person_rounded),
             GlassCard(
               child: Column(
                 children: [
-                  AdminDetailRow(label: 'Driver Name', value: data['driverName'] ?? 'N/A', labelWidth: 120),
-                  AdminDetailRow(label: 'Phone', value: data['driverPhone'] ?? 'N/A', labelWidth: 120),
+                  AdminDetailRow(label: 'Driver Name', value: data['driverName'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Phone', value: data['driverPhone'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'Email', value: data['driverEmail'] ?? 'N/A', labelWidth: 140),
+                  AdminDetailRow(label: 'National ID', value: data['nationalId'] ?? 'N/A', labelWidth: 140),
+                  if ((data['referenceId'] ?? '').toString().isNotEmpty && data['referenceId'] != 'N/A')
+                    AdminDetailRow(label: 'Reference ID', value: data['referenceId'] ?? 'N/A', labelWidth: 140),
+                  if (data['createdAt'] != null)
+                    AdminDetailRow(label: 'Joined', value: _formatTimestamp(data['createdAt']), labelWidth: 140),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Last known location
+            // ── Submitted Documents ──
+            AdminSectionHeader(
+              title: 'Submitted Documents',
+              icon: Icons.folder_copy_rounded,
+              color: AdminTheme.blue,
+            ),
+            _buildDocumentsSection(context),
+            const SizedBox(height: 16),
+
+            // ── Last Known Location ──
             const AdminSectionHeader(title: 'Last Known Location', icon: Icons.location_on_rounded),
             GlassCard(
               child: Column(
                 children: [
                   AdminDetailRow(
-                    label: 'Location',
+                    label: 'Coverage Area',
                     value: data['lastAddress'] ?? 'Location data not available',
-                    labelWidth: 120,
+                    labelWidth: 140,
                   ),
                   if (data['lastLocationUpdate'] != null)
                     AdminDetailRow(
                       label: 'Last Updated',
                       value: _formatTimestamp(data['lastLocationUpdate']),
-                      labelWidth: 120,
+                      labelWidth: 140,
                     ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Current trip details (if on trip)
+            // ── Current Trip Details (if on trip) ──
             if (onTrip) ...[
               AdminSectionHeader(
                 title: 'Current Trip Details',
@@ -322,10 +360,239 @@ class _AmbulanceDetailPage extends StatelessWidget {
     );
   }
 
+  Widget _buildDocumentsSection(BuildContext context) {
+    final docs = <Map<String, String?>>[
+      {'label': 'Profile Photo', 'url': data['profileImageUrl']},
+      {'label': 'Driver License', 'url': data['licenseImageUrl']},
+      {'label': 'Ambulance Photo', 'url': data['ambulanceImageUrl']},
+      {'label': 'NID / Identity', 'url': data['nidImageUrl']},
+      {'label': 'Registration Papers', 'url': data['registrationPapersImageUrl']},
+    ];
+
+    final available = docs.where((d) => d['url'] != null && (d['url'] ?? '').isNotEmpty).toList();
+    final missing = docs.where((d) => d['url'] == null || (d['url'] ?? '').isEmpty).toList();
+
+    if (available.isEmpty) {
+      return GlassCard(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AdminTheme.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.folder_off_rounded, color: AdminTheme.red, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('No documents submitted yet', style: AdminTheme.body),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Document image grid
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: available.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.85,
+          ),
+          itemBuilder: (context, i) {
+            final doc = available[i];
+            return _DocumentCard(
+              label: doc['label']!,
+              imageUrl: doc['url']!,
+              onTap: () => _openImageFullScreen(context, doc['label']!, doc['url']!),
+            );
+          },
+        ),
+
+        // Missing docs notice
+        if (missing.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          GlassCard(
+            accentColor: AdminTheme.amber,
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: AdminTheme.amber, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Not submitted: ${missing.map((d) => d['label']).join(', ')}',
+                    style: AdminTheme.bodySmall.copyWith(color: AdminTheme.amber),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _openImageFullScreen(BuildContext context, String label, String url) {
+    Get.to(
+      () => _FullScreenImagePage(label: label, imageUrl: url),
+      transition: Transition.fadeIn,
+    );
+  }
+
   String _formatTimestamp(dynamic ts) {
     if (ts is Timestamp) {
       return DateFormat('dd MMM yyyy, hh:mm a').format(ts.toDate());
     }
     return 'N/A';
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// Document Thumbnail Card
+// ──────────────────────────────────────────────────────────
+
+class _DocumentCard extends StatelessWidget {
+  final String label;
+  final String imageUrl;
+  final VoidCallback onTap;
+
+  const _DocumentCard({required this.label, required this.imageUrl, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AdminTheme.bgCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AdminTheme.accent.withOpacity(0.15)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AdminTheme.bgSurface,
+                        child: const Icon(Icons.broken_image_rounded, color: AdminTheme.textMuted, size: 40),
+                      ),
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return Container(
+                          color: AdminTheme.bgSurface,
+                          child: const Center(
+                            child: CircularProgressIndicator(color: AdminTheme.accent, strokeWidth: 2),
+                          ),
+                        );
+                      },
+                    ),
+                    // Tap hint overlay
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.open_in_full_rounded, size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                color: AdminTheme.bgCard,
+                child: Text(
+                  label,
+                  style: AdminTheme.caption.copyWith(color: AdminTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// Full Screen Image Viewer
+// ──────────────────────────────────────────────────────────
+
+class _FullScreenImagePage extends StatelessWidget {
+  final String label;
+  final String imageUrl;
+
+  const _FullScreenImagePage({required this.label, required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(label, style: AdminTheme.heading3.copyWith(color: Colors.white)),
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 5.0,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.broken_image_rounded, color: Colors.white54, size: 60),
+                const SizedBox(height: 16),
+                Text('Failed to load image', style: AdminTheme.body.copyWith(color: Colors.white54)),
+              ],
+            ),
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return const CircularProgressIndicator(color: AdminTheme.accent);
+            },
+          ),
+        ),
+      ),
+    );
   }
 }

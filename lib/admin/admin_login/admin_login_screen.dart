@@ -8,6 +8,7 @@ import 'package:saver/components/alert.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../admin_dashboard/admin_dashboard.dart';
 import '../admin_theme.dart';
+import '../../config/api_keys_secret.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({Key? key}) : super(key: key);
@@ -62,7 +63,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       // ----------------------------------------------------
       // FIXED ADMIN CREDENTIALS BYPASS
       // ----------------------------------------------------
-      if (email == 'admin@saver.com' && password == 'ADMIN@105176@ADMIN105176') {
+      if (email == ApiKeysSecret.adminEmail && password == ApiKeysSecret.adminPassword) {
         try {
           await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
         } catch (e) {
