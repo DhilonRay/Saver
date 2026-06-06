@@ -219,7 +219,7 @@ class _GLMDashboardState extends State<GLMDashboard> {
   Widget _buildTripHistory() {
     return StreamBuilder<QuerySnapshot>(
       stream: _fs
-          .collection('trips')
+          .collection('orders')
           .where('glmId', isEqualTo: widget.glmId)
           .snapshots(),
       builder: (context, snapshot) {
@@ -247,8 +247,8 @@ class _GLMDashboardState extends State<GLMDashboard> {
         // Sort locally
         var sortedTrips = trips.toList()
           ..sort((a, b) {
-            var aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-            var bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+            var aTime = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+            var bTime = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
             if (aTime == null) return 1;
             if (bTime == null) return -1;
             return bTime.compareTo(aTime);
@@ -263,10 +263,10 @@ class _GLMDashboardState extends State<GLMDashboard> {
             var from = data['pickupAddress'] ?? data['pickupName'] ?? 'Pickup';
             var to = data['destinationAddress'] ?? data['destinationName'] ?? 'Destination';
             var status = (data['status'] ?? 'unknown').toString().toUpperCase();
-            var fare = data['fare'] ?? 0;
+            var fare = data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0;
             var dateStr = '';
-            if (data['createdAt'] != null) {
-              DateTime dt = (data['createdAt'] as Timestamp).toDate();
+            if (data['timestamp'] != null) {
+              DateTime dt = (data['timestamp'] as Timestamp).toDate();
               dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
             }
 
@@ -324,7 +324,7 @@ class _GLMDashboardState extends State<GLMDashboard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Ambulance: ${data['ambulanceName'] ?? 'Pending'}', style: AdminTheme.bodySmall),
+                        Text('Ambulance: ${data['ambulanceName'] ?? data['driverName'] ?? data['companyName'] ?? 'Pending'}', style: AdminTheme.bodySmall),
                         Text('৳$fare', style: AdminTheme.heading3.copyWith(color: AdminTheme.green)),
                       ],
                     ),

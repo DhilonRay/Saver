@@ -43,8 +43,8 @@ class AdminController extends GetxController {
       DateTime monthStart = DateTime(now.year, now.month, 1);
 
       QuerySnapshot tripsSnap = await _firestore
-          .collection('trips')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+          .collection('orders')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
           .get();
       totalTripsToday.value = tripsSnap.size;
 
@@ -58,7 +58,7 @@ class AdminController extends GetxController {
 
       // Revenue
       QuerySnapshot allTrips = await _firestore
-          .collection('trips')
+          .collection('orders')
           .where('status', isEqualTo: 'completed')
           .get();
       
@@ -68,10 +68,10 @@ class AdminController extends GetxController {
       
       for (var doc in allTrips.docs) {
         var data = doc.data() as Map<String, dynamic>;
-        double fare = (data['fare'] ?? 0).toDouble();
+        double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
         revTotal += fare;
         
-        Timestamp? ts = data['createdAt'] as Timestamp?;
+        Timestamp? ts = data['timestamp'] as Timestamp?;
         if (ts != null) {
           DateTime date = ts.toDate();
           if (date.isAfter(todayStart) || date.isAtSameMomentAs(todayStart)) {
@@ -141,7 +141,7 @@ class AdminController extends GetxController {
     }
 
     QuerySnapshot allCompleted = await _firestore
-        .collection('trips')
+        .collection('orders')
         .where('status', isEqualTo: 'completed')
         .get();
 
@@ -152,15 +152,15 @@ class AdminController extends GetxController {
     for (var doc in allCompleted.docs) {
       var data = doc.data() as Map<String, dynamic>;
       // Filter by date locally to avoid composite index requirement
-      if (data['createdAt'] != null) {
-        DateTime tripDate = (data['createdAt'] as Timestamp).toDate();
+      if (data['timestamp'] != null) {
+        DateTime tripDate = (data['timestamp'] as Timestamp).toDate();
         if (tripDate.isBefore(start)) continue;
       }
-      double fare = (data['fare'] ?? 0).toDouble();
+      double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
       revenue += fare;
       tripCount++;
 
-      String ambName = data['ambulanceName'] ?? 'Unknown';
+      String ambName = data['ambulanceName'] ?? data['driverName'] ?? data['companyName'] ?? 'Unknown';
       ambulanceEarnings[ambName] = (ambulanceEarnings[ambName] ?? 0) + fare;
     }
 

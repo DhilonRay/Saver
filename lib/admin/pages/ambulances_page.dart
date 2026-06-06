@@ -324,7 +324,7 @@ class _AmbulanceDetailPage extends StatelessWidget {
               ),
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('trips')
+                    .collection('orders')
                     .where('ambulanceId', isEqualTo: ambulanceId)
                     .where('status', whereIn: ['accepted', 'picked_up', 'in_progress'])
                     .limit(1)
@@ -340,13 +340,13 @@ class _AmbulanceDetailPage extends StatelessWidget {
                     accentColor: AdminTheme.red,
                     child: Column(
                       children: [
-                        AdminDetailRow(label: 'Fare', value: '৳${trip['fare'] ?? 'N/A'}', labelWidth: 120),
+                        AdminDetailRow(label: 'Fare', value: '৳${trip['fareAmount'] ?? trip['finalFare'] ?? trip['confirmedFare'] ?? trip['fare'] ?? 'N/A'}', labelWidth: 120),
                         AdminDetailRow(label: 'Pickup', value: trip['pickupAddress'] ?? 'N/A', labelWidth: 120),
                         AdminDetailRow(label: 'Destination', value: trip['destinationAddress'] ?? 'N/A', labelWidth: 120),
                         AdminDetailRow(label: 'Patient', value: trip['patientName'] ?? 'N/A', labelWidth: 120),
                         AdminDetailRow(label: 'Phone', value: trip['patientPhone'] ?? 'N/A', labelWidth: 120),
-                        if (trip['createdAt'] != null)
-                          AdminDetailRow(label: 'Started', value: _formatTimestamp(trip['createdAt']), labelWidth: 120),
+                        if (trip['timestamp'] != null)
+                          AdminDetailRow(label: 'Started', value: _formatTimestamp(trip['timestamp']), labelWidth: 120),
                       ],
                     ),
                   );

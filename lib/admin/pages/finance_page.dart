@@ -174,7 +174,7 @@ class _FinancePageState extends State<FinancePage> {
                 ),
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('trips')
+                      .collection('orders')
                       .where('status', isEqualTo: 'completed')
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -185,8 +185,8 @@ class _FinancePageState extends State<FinancePage> {
                     var trips = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
                     trips.sort((a, b) {
                       try {
-                        final aT = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                        final bT = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                        final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                        final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
                         if (aT == null) return 1;
                         if (bT == null) return -1;
                         return bT.compareTo(aT);
@@ -227,7 +227,7 @@ class _FinancePageState extends State<FinancePage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        t['ambulanceName'] ?? 'Ambulance',
+                                        t['ambulanceName'] ?? t['driverName'] ?? t['companyName'] ?? 'Ambulance',
                                         style: AdminTheme.heading3.copyWith(fontSize: 13),
                                       ),
                                       const SizedBox(height: 3),
@@ -241,7 +241,7 @@ class _FinancePageState extends State<FinancePage> {
                                   ),
                                 ),
                                 Text(
-                                  '৳${t['fare'] ?? 0}',
+                                  '৳${t['fareAmount'] ?? t['finalFare'] ?? t['confirmedFare'] ?? t['fare'] ?? 0}',
                                   style: AdminTheme.heading3.copyWith(color: AdminTheme.green),
                                 ),
                               ],

@@ -475,13 +475,13 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                 }
                 var trips = snapshot.data!.docs.where((doc) {
                   var d = doc.data() as Map<String, dynamic>;
-                  if (d['createdAt'] == null) return false;
-                  return (d['createdAt'] as Timestamp).toDate().isAfter(start);
+                  if (d['timestamp'] == null) return false;
+                  return (d['timestamp'] as Timestamp).toDate().isAfter(start);
                 }).toList();
                 trips.sort((a, b) {
                   try {
-                    final aT = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                    final bT = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                    final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                    final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
                     if (aT == null) return 1;
                     if (bT == null) return -1;
                     return bT.compareTo(aT);
@@ -510,10 +510,10 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: Text(t['ambulanceName'] ?? 'Ambulance', style: AdminTheme.heading3.copyWith(fontSize: 13)),
+                                  child: Text(t['ambulanceName'] ?? t['driverName'] ?? t['companyName'] ?? 'Ambulance', style: AdminTheme.heading3.copyWith(fontSize: 13)),
                                 ),
                                 Text(
-                                  '৳${t['fare'] ?? 0}',
+                                  '৳${t['fareAmount'] ?? t['finalFare'] ?? t['confirmedFare'] ?? t['fare'] ?? 0}',
                                   style: AdminTheme.heading3.copyWith(color: AdminTheme.green),
                                 ),
                               ],
@@ -522,10 +522,10 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                             AdminDetailRow(label: 'Driver Phone', value: t['driverPhone'] ?? 'N/A'),
                             AdminDetailRow(label: 'From', value: t['pickupAddress'] ?? 'N/A'),
                             AdminDetailRow(label: 'To', value: t['destinationAddress'] ?? 'N/A'),
-                            if (t['createdAt'] != null)
+                            if (t['timestamp'] != null)
                               AdminDetailRow(
                                 label: 'Date',
-                                value: DateFormat('dd MMM yyyy, hh:mm a').format((t['createdAt'] as Timestamp).toDate()),
+                                value: DateFormat('dd MMM yyyy, hh:mm a').format((t['timestamp'] as Timestamp).toDate()),
                               ),
                           ],
                         ),
@@ -544,7 +544,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
 
   Stream<QuerySnapshot> _buildTripQuery() {
     return FirebaseFirestore.instance
-        .collection('trips')
+        .collection('orders')
         .where('glmId', isEqualTo: widget.glmId)
         .snapshots();
   }

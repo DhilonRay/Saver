@@ -368,7 +368,7 @@ class _UsersPageState extends State<UsersPage> {
                 ),
                 StreamBuilder<QuerySnapshot>(
                   stream: _firestore
-                      .collection('trips')
+                      .collection('orders')
                       .where('userId', isEqualTo: uid)
                       .snapshots(),
                   builder: (context, snap) {
@@ -388,8 +388,8 @@ class _UsersPageState extends State<UsersPage> {
                     var docs = List<QueryDocumentSnapshot>.from(snap.data!.docs);
                     docs.sort((a, b) {
                       try {
-                        final aT = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                        final bT = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                        final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                        final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
                         if (aT == null) return 1;
                         if (bT == null) return -1;
                         return bT.compareTo(aT);
@@ -408,13 +408,13 @@ class _UsersPageState extends State<UsersPage> {
                         children: [
                           AdminDetailRow(label: 'From', value: trip['pickupAddress'] ?? 'N/A'),
                           AdminDetailRow(label: 'To', value: trip['destinationAddress'] ?? 'N/A'),
-                          AdminDetailRow(label: 'Ambulance', value: trip['ambulanceName'] ?? 'N/A'),
-                          AdminDetailRow(label: 'Fare', value: '৳${trip['fare'] ?? 'N/A'}'),
-                          if (trip['createdAt'] != null)
+                          AdminDetailRow(label: 'Ambulance', value: trip['ambulanceName'] ?? trip['driverName'] ?? trip['companyName'] ?? 'N/A'),
+                          AdminDetailRow(label: 'Fare', value: '৳${trip['fareAmount'] ?? trip['finalFare'] ?? trip['confirmedFare'] ?? trip['fare'] ?? 'N/A'}'),
+                          if (trip['timestamp'] != null)
                             AdminDetailRow(
                               label: 'Date',
                               value: DateFormat('dd MMM yyyy, hh:mm a')
-                                  .format((trip['createdAt'] as Timestamp).toDate()),
+                                  .format((trip['timestamp'] as Timestamp).toDate()),
                             ),
                         ],
                       ),
