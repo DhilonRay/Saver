@@ -820,10 +820,11 @@ class HomePartnerController extends GetxController {
 
     // Initialize FCM token specifically for this partner
     _initializeFCM();
-    
+
     // Check for initial request from notifications (Deep-linking)
     if (Get.arguments != null && Get.arguments['initialRequest'] != null) {
-      final request = Map<String, dynamic>.from(Get.arguments['initialRequest']);
+      final request =
+          Map<String, dynamic>.from(Get.arguments['initialRequest']);
       // Ensure it has an ID field that the bottom sheet expects
       final String? reqId = request['id'] ?? request['orderId'];
 
@@ -866,9 +867,7 @@ class HomePartnerController extends GetxController {
     // Show success dialog for new driver signups
     if (isNewSignup) {
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (Get.context != null) {
-         
-        }
+        if (Get.context != null) {}
       });
     }
   }
@@ -922,7 +921,8 @@ class HomePartnerController extends GetxController {
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        debugPrint('🏠 HomePartner: Location permission denied, using default position');
+        debugPrint(
+            '🏠 HomePartner: Location permission denied, using default position');
         if (currentPosition.value == null) {
           currentPosition.value = defaultPosition;
           isLoadingLocation.value = false;
@@ -934,7 +934,8 @@ class HomePartnerController extends GetxController {
       // Also check if location service is enabled
       final isServiceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!isServiceEnabled) {
-        debugPrint('🏠 HomePartner: Location service disabled, using default position');
+        debugPrint(
+            '🏠 HomePartner: Location service disabled, using default position');
         if (currentPosition.value == null) {
           currentPosition.value = defaultPosition;
           isLoadingLocation.value = false;
@@ -965,7 +966,8 @@ class HomePartnerController extends GetxController {
       // Safety fallback: if no position received within 10 seconds, use default
       Future.delayed(const Duration(seconds: 10), () {
         if (currentPosition.value == null) {
-          debugPrint('🏠 HomePartner: No position after 10s, using default position');
+          debugPrint(
+              '🏠 HomePartner: No position after 10s, using default position');
           currentPosition.value = defaultPosition;
           isLoadingLocation.value = false;
           isInitialLoading.value = false;
@@ -1117,7 +1119,7 @@ class HomePartnerController extends GetxController {
         final declinedKey = 'declined_requests_${user.uid}';
         final declinedIds = prefs.getStringList(declinedKey) ?? [];
         declinedRequestIds.addAll(declinedIds);
-        
+
         // Load interacted IDs (new)
         final interactedKey = 'interacted_requests_${user.uid}';
         final interactedIds = prefs.getStringList(interactedKey) ?? [];
@@ -1136,7 +1138,7 @@ class HomePartnerController extends GetxController {
       if (user != null) {
         final declinedKey = 'declined_requests_${user.uid}';
         await prefs.setStringList(declinedKey, declinedRequestIds.toList());
-        
+
         final interactedKey = 'interacted_requests_${user.uid}';
         await prefs.setStringList(interactedKey, interactedRequestIds.toList());
       }
@@ -1242,7 +1244,8 @@ class HomePartnerController extends GetxController {
               'timestamp': Timestamp.now(),
             },
           });
-          debugPrint('🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
+          debugPrint(
+              '🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
         }
       }
     } catch (e) {}
@@ -1262,19 +1265,22 @@ class HomePartnerController extends GetxController {
           .where('partnerId', isEqualTo: user.uid)
           .snapshots()
           .listen((snapshot) {
-             // Log each document and handle state recovery
+            // Log each document and handle state recovery
             for (var doc in snapshot.docs) {
               final data = doc.data();
               debugPrint(
                   '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
-              
+
               // If user sent a counter offer, we MUST show it again even if driver previously interacted
-              final negotiation = data['negotiation'] as Map<String, dynamic>? ?? {};
-              if (negotiation['status'] == 'counter' && negotiation['counterBy'] == 'user') {
+              final negotiation =
+                  data['negotiation'] as Map<String, dynamic>? ?? {};
+              if (negotiation['status'] == 'counter' &&
+                  negotiation['counterBy'] == 'user') {
                 if (interactedRequestIds.contains(doc.id)) {
                   interactedRequestIds.remove(doc.id);
                   _saveHandledRequestIds();
-                  debugPrint('♻️ Order ${doc.id} removed from interacted set due to user counter-offer');
+                  debugPrint(
+                      '♻️ Order ${doc.id} removed from interacted set due to user counter-offer');
                 }
               }
             }
@@ -1287,7 +1293,7 @@ class HomePartnerController extends GetxController {
                     ...doc.data(),
                   };
                 })
-                .where((request) => 
+                .where((request) =>
                     !declinedRequestIds.contains(request['id']) &&
                     !interactedRequestIds.contains(request['id']))
                 .toList();
@@ -1305,7 +1311,7 @@ class HomePartnerController extends GetxController {
               final firstNewRequest = newRequests.first;
               shownRequestIds.add(firstNewRequest['id']); // Mark as shown
               showRequestBottomSheet.value = true;
-              
+
               // Start listening to THIS specific request to detect when user accepts
               _startActiveNegotiationListener(firstNewRequest);
 
@@ -1330,19 +1336,16 @@ class HomePartnerController extends GetxController {
       _activeOrdersSubscription = FirebaseFirestore.instance
           .collection('orders')
           .where('acceptedBy', isEqualTo: user.uid)
-          .where('status', whereIn: [
-            'accepted',
-            'in_transit',
-            'pickup',
-            'to_destination'
-          ])
+          .where('status',
+              whereIn: ['accepted', 'in_transit', 'pickup', 'to_destination'])
           .snapshots()
           .listen((snapshot) {
             if (snapshot.docs.isNotEmpty) {
               // Get the most recent active order
               final activeOrder = snapshot.docs.first;
               activeOrderId.value = activeOrder.id;
-              debugPrint('🏠 HomePartner: Detected active order: ${activeOrder.id}');
+              debugPrint(
+                  '🏠 HomePartner: Detected active order: ${activeOrder.id}');
             } else {
               activeOrderId.value = null;
             }
@@ -1353,6 +1356,11 @@ class HomePartnerController extends GetxController {
   }
 
   void _showRequestBottomSheet(Map<String, dynamic> request) {
+    bool isFareConfirmed = request['status'] == 'accepted' || 
+                           request['status'] == 'confirmed' || 
+                           request['negotiation']?['status'] == 'confirmed' || 
+                           request['negotiation']?['status'] == 'accepted';
+
     Get.bottomSheet(
       Container(
         constraints: BoxConstraints(maxHeight: Get.height * 0.7),
@@ -1469,7 +1477,9 @@ class HomePartnerController extends GetxController {
                     _buildInfoRow(
                       Icons.phone,
                       'ফোন',
-                      request['phone'] ?? 'ফোন নম্বর নেই - ইমেইল চেক করুন',
+                      isFareConfirmed 
+                          ? (request['phone'] ?? 'ফোন নম্বর নেই - ইমেইল চেক করুন') 
+                          : 'ভাড়া কনফার্ম হওয়ার পর দেখা যাবে',
                       Colors.blue.shade700,
                     ),
                     if (request['email'] != null &&
@@ -1477,7 +1487,9 @@ class HomePartnerController extends GetxController {
                       _buildInfoRow(
                         Icons.email,
                         'ইমেইল',
-                        request['email'],
+                        isFareConfirmed 
+                            ? request['email'] 
+                            : 'ভাড়া কনফার্ম হওয়ার পর দেখা যাবে',
                         Colors.blue.shade700,
                       ),
                     if (request['patientAge'] != null)
@@ -1930,12 +1942,13 @@ class HomePartnerController extends GetxController {
 
   void _startActiveNegotiationListener(Map<String, dynamic> request) {
     _stopActiveNegotiationListener(); // Cancel any existing one
-    
+
     final requestId = request['id'];
     if (requestId == null) return;
 
-    debugPrint('HomePartner: Starting active negotiation listener for $requestId');
-    
+    debugPrint(
+        'HomePartner: Starting active negotiation listener for $requestId');
+
     _activeNegotiationSubscription = FirebaseFirestore.instance
         .collection('orders')
         .doc(requestId)
@@ -1946,12 +1959,16 @@ class HomePartnerController extends GetxController {
         if (data == null) return;
 
         final status = data['status']?.toString().toLowerCase();
-        final negotiationStatus = data['negotiation']?['status']?.toString().toLowerCase();
+        final negotiationStatus =
+            data['negotiation']?['status']?.toString().toLowerCase();
 
-        debugPrint('HomePartner: Active negotiation update. status: $status, negStatus: $negotiationStatus');
+        debugPrint(
+            'HomePartner: Active negotiation update. status: $status, negStatus: $negotiationStatus');
 
-        if (status == 'accepted' || status == 'confirmed' || 
-            negotiationStatus == 'confirmed' || negotiationStatus == 'accepted') {
+        if (status == 'accepted' ||
+            status == 'confirmed' ||
+            negotiationStatus == 'confirmed' ||
+            negotiationStatus == 'accepted') {
           _handleRideConfirmed(requestId!, data);
         }
       }
@@ -2326,11 +2343,14 @@ class HomePartnerController extends GetxController {
       if (!doc.exists) return;
       final data = doc.data();
       final status = data?['status']?.toString().toLowerCase();
-      final negStatus = data?['negotiation']?['status']?.toString().toLowerCase();
+      final negStatus =
+          data?['negotiation']?['status']?.toString().toLowerCase();
 
       // Broad triggers to catch ride start regardless of update order
-      if (status == 'confirmed' || status == 'accepted' || 
-          negStatus == 'confirmed' || negStatus == 'accepted') {
+      if (status == 'confirmed' ||
+          status == 'accepted' ||
+          negStatus == 'confirmed' ||
+          negStatus == 'accepted') {
         debugPrint('✅ Negotiation confirmed/accepted for order $orderId');
         _handleRideConfirmed(orderId, data!);
       } else if (data?['negotiation']?['status'] == 'counter' &&
@@ -2342,7 +2362,7 @@ class HomePartnerController extends GetxController {
 
         // Mark as NOT shown so the main listener (or this one) can trigger the UI
         shownRequestIds.remove(orderId);
-        
+
         // Remove from interacted list list so it reappears for responding
         if (interactedRequestIds.contains(orderId)) {
           interactedRequestIds.remove(orderId);
@@ -2744,9 +2764,11 @@ class HomePartnerController extends GetxController {
                   : currentPosition.value!.longitude,
             ),
           );
-          await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
+          await controller
+              .animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
         } catch (e) {
-          debugPrint('🏠 HomePartner: showRouteToUser animateCamera failed: $e');
+          debugPrint(
+              '🏠 HomePartner: showRouteToUser animateCamera failed: $e');
         }
       }
 

@@ -90,6 +90,21 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
               bool isActive = data['isActive'] ?? false;
               bool onTrip = data['onTrip'] ?? false;
 
+              if (isActive) {
+                final lastUpdated = data['lastLocationUpdate'] as Timestamp?;
+                if (lastUpdated != null) {
+                  final difference = DateTime.now().difference(lastUpdated.toDate());
+                  if (difference.inMinutes > 10) {
+                    isActive = false;
+                  }
+                } else {
+                  isActive = false;
+                }
+              }
+              
+              // Update the map so detail view gets the correct status
+              data['isActive'] = isActive;
+
               final statusColor = !isActive
                   ? AdminTheme.red
                   : onTrip

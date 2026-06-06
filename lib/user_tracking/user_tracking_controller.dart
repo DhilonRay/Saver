@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../home_user/home_user.dart';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -32,6 +33,7 @@ class UserTrackingController extends GetxController {
   // Partner info
   var partnerName = 'NeoSaver Partner'.obs;
   var partnerImage = Rx<String?>(null);
+  var partnerPhone = Rx<String?>(null);
 
   // Route polyline variables
   var routePoints = <LatLng>[].obs;
@@ -561,10 +563,15 @@ class UserTrackingController extends GetxController {
 
       if (driverDoc.exists) {
         final data = driverDoc.data();
-        if (data != null && data['name'] != null) {
-          partnerName.value = data['name'];
-          debugPrint(
-              'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
+        if (data != null) {
+          if (data['name'] != null) {
+            partnerName.value = data['name'];
+            debugPrint(
+                'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
+          }
+          if (data['phone'] != null || data['contact'] != null) {
+            partnerPhone.value = data['phone'] ?? data['contact'];
+          }
         }
       }
 
@@ -585,12 +592,15 @@ class UserTrackingController extends GetxController {
           if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
             partnerName.value = data['name'];
           }
+          if (partnerPhone.value == null && (data['phone'] != null || data['contact'] != null)) {
+            partnerPhone.value = data['phone'] ?? data['contact'];
+          }
         }
       }
 
       // 3. Fallback to "users" collection if still missing
       if (partnerName.value == 'NeoSaver Partner' ||
-          partnerImage.value == null) {
+          partnerImage.value == null || partnerPhone.value == null) {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(partnerId)
@@ -604,6 +614,9 @@ class UserTrackingController extends GetxController {
             }
             if (partnerImage.value == null) {
               partnerImage.value = data['profileImageUrl'];
+            }
+            if (partnerPhone.value == null && data['phone'] != null) {
+              partnerPhone.value = data['phone'];
             }
           }
         }
@@ -847,12 +860,16 @@ class UserTrackingController extends GetxController {
   }
 
   void callPartner() async {
-    final phone = orderData.value?['partnerPhone'] ?? orderData.value?['phone'];
-    if (phone != null) {
-      final url = 'tel:$phone';
-      // Use url_launcher or similar here if available
-      debugPrint('UserTracking: Calling partner at $url');
-      // For now, it's just a log/placeholder if url_launcher is not imported
+    final phone = partnerPhone.value ?? orderData.value?['partnerPhone'] ?? orderData.value?['driverPhone'] ?? orderData.value?['phone'];
+    if (phone != null && phone.toString().isNotEmpty) {
+      final Uri uri = Uri.parse('tel:$phone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        debugPrint('Could not launch $uri');
+      }
+    } else {
+      Get.snackbar('Error', 'ফোন নম্বর পাওয়া যায়নি');
     }
   }
 

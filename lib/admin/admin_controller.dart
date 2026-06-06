@@ -35,7 +35,17 @@ class AdminController extends GetxController {
           .collection('partners')
           .where('isOnline', isEqualTo: true)
           .get();
-      activeAmbulances.value = ambSnap.size;
+
+      int activeCount = 0;
+      final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
+      for (var doc in ambSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final lastUpdated = data['lastUpdated'] as Timestamp?;
+        if (lastUpdated != null && lastUpdated.toDate().isAfter(tenMinsAgo)) {
+          activeCount++;
+        }
+      }
+      activeAmbulances.value = activeCount;
 
       // Today's trips
       DateTime now = DateTime.now();

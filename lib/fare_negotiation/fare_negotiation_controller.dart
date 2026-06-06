@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:saver/components/alert.dart';
+import 'package:saver/components/constants/alert.dart';
+import '../services/notification_service.dart';
 
 /// Controller for fare negotiation between user and driver.
 /// Manages the Accept / Reject / Counter Offer flow.
@@ -168,6 +169,9 @@ class FareNegotiationController extends GetxController {
     try {
       isLoading.value = true;
 
+      final orderDoc = await _firestore.collection('orders').doc(requestId).get();
+      final partnerId = orderDoc.data()?['partnerId'];
+
       await _firestore.collection('orders').doc(requestId).update({
         'negotiation.userAccepted': false,
         'negotiation.status': 'rejected',
@@ -175,6 +179,19 @@ class FareNegotiationController extends GetxController {
         'negotiation.updatedAt': Timestamp.now(),
         'status': 'cancelled',
       });
+      
+      if (partnerId != null) {
+        final partnerDoc = await _firestore.collection('partners').doc(partnerId).get();
+        final fcmToken = partnerDoc.data()?['fcmToken'];
+        if (fcmToken != null) {
+          await NotificationService.sendFCMNotification(
+            token: fcmToken,
+            title: 'অর্ডার বাতিল',
+            body: 'গ্রাহক আপনার ভাড়ার প্রস্তাব প্রত্যাখ্যান করেছেন এবং ট্রিপটি বাতিল করেছেন।',
+            data: {'type': 'order_cancelled', 'orderId': requestId},
+          );
+        }
+      }
 
       negotiationStatus.value = 'rejected';
       statusMessage.value = 'আপনি ভাড়া প্রত্যাখ্যান করেছেন';

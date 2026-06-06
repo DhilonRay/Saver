@@ -926,6 +926,9 @@ class AcceptMapsController extends GetxController {
           stopLiveTracking();
         }
 
+        final orderDoc = await FirebaseFirestore.instance.collection('orders').doc(requestId).get();
+        final userId = orderDoc.data()?['userId'];
+
         await FirebaseFirestore.instance
             .collection('orders')
             .doc(requestId)
@@ -933,6 +936,19 @@ class AcceptMapsController extends GetxController {
           'status': 'cancelled',
           'cancelledAt': Timestamp.now(),
         });
+        
+        if (userId != null) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+          final fcmToken = userDoc.data()?['fcmToken'];
+          if (fcmToken != null) {
+            await NotificationService.sendFCMNotification(
+              token: fcmToken,
+              title: 'অর্ডার বাতিল',
+              body: 'চালক আপনার অ্যাম্বুলেন্স ট্রিপটি বাতিল করেছেন।',
+              data: {'type': 'order_cancelled', 'orderId': requestId},
+            );
+          }
+        }
 
         Get.back(); // Go back to home partner page
         _showSuccessDialog(
@@ -1007,6 +1023,8 @@ class AcceptMapsController extends GetxController {
     final userId = requestData.value!['userId'];
 
     try {
+      // OTP SYSTEM BYPASSED FOR TEST PHASE
+      /*
       // Generate 4-digit OTP
       final otp = (1000 + Random().nextInt(9000)).toString();
 
@@ -1048,6 +1066,7 @@ class AcceptMapsController extends GetxController {
         if (success) {
         } else {}
       } else {}
+      */
     } catch (e) {}
   }
 
@@ -1057,6 +1076,8 @@ class AcceptMapsController extends GetxController {
     final requestId = requestData.value!['id'];
 
     try {
+      // OTP SYSTEM BYPASSED FOR TEST PHASE
+      /*
       // Fetch the latest order data from Firestore to get the stored OTP
       final orderDoc = await FirebaseFirestore.instance
           .collection('orders')
@@ -1075,6 +1096,7 @@ class AcceptMapsController extends GetxController {
       }
 
       if (enteredOTP == storedOTP.toString()) {
+      */
         // Update order status to pickup (patient picked up)
         await FirebaseFirestore.instance
             .collection('orders')
@@ -1097,9 +1119,11 @@ class AcceptMapsController extends GetxController {
         goToDestination();
 
         return true;
+      /*
       } else {
         return false;
       }
+      */
     } catch (e) {
       return false;
     }

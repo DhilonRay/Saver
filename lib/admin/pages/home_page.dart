@@ -425,6 +425,24 @@ class _AdminHomePageState extends State<AdminHomePage> {
           bool isActive = rawData['isOnline'] ?? false;
           bool onTrip = rawData['onTrip'] ?? false;
 
+          // Check if the ambulance is truly active based on last updated location
+          if (isActive) {
+            Timestamp? lastUpdated = rawData['lastUpdated'] as Timestamp?;
+            if (lastUpdated != null) {
+              final difference = DateTime.now().difference(lastUpdated.toDate());
+              if (difference.inMinutes > 10) {
+                isActive = false;
+              }
+            } else {
+              isActive = false;
+            }
+          }
+
+          // ONLY ACTIVE AMBULANCES SHOULD BE SHOWN ON MAP
+          if (!isActive) {
+            continue;
+          }
+
           // Normalize the data format to be compatible with UI expectations
           Map<String, dynamic> data = {
             'name': rawData['companyName'] ?? rawData['name'] ?? 'Ambulance',
@@ -436,9 +454,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           };
 
           BitmapDescriptor markerIcon;
-          if (!isActive) {
-            markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-          } else if (onTrip) {
+          if (onTrip) {
             markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
           } else {
             markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);

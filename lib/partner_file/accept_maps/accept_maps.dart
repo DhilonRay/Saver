@@ -623,7 +623,13 @@ class AcceptMapsPage extends StatelessWidget {
 
                         if (status == 'in_transit') {
                           buttonText = 'Picked Up';
-                          onPressed = () => _showPickupOTPDialog(controller);
+                          // onPressed = () => _showPickupOTPDialog(controller);
+                          onPressed = () async {
+                            final success = await controller.confirmPickupOTP('');
+                            if (success) {
+                              Get.snackbar('✅ সফল', 'পিকআপ সফলভাবে নিশ্চিত হয়েছে!', backgroundColor: Colors.green.shade50, colorText: Colors.green.shade800);
+                            }
+                          };
                           debugPrint(
                               'Button: Picked Up (status is in_transit)');
                         } else if (status == 'pickup') {
@@ -638,7 +644,13 @@ class AcceptMapsPage extends StatelessWidget {
                               'Button: Complete Ride (status is to_destination)');
                         } else if (isTracking) {
                           buttonText = 'Picked Up';
-                          onPressed = () => _showPickupOTPDialog(controller);
+                          // onPressed = () => _showPickupOTPDialog(controller);
+                          onPressed = () async {
+                            final success = await controller.confirmPickupOTP('');
+                            if (success) {
+                              Get.snackbar('✅ সফল', 'পিকআপ সফলভাবে নিশ্চিত হয়েছে!', backgroundColor: Colors.green.shade50, colorText: Colors.green.shade800);
+                            }
+                          };
                           debugPrint('Button: Picked Up (is tracking)');
                         } else {
                           buttonText = 'Start Tracking';

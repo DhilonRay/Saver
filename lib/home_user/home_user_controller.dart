@@ -123,6 +123,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   // Default position (Dhaka, Bangladesh) in case location fails
   static const LatLng defaultPosition = LatLng(23.8103, 90.4125);
 
+  // Track if we've shown the no nearby ambulance popup
+  bool _hasShownNoAmbulancePopup = false;
+
   // Controllers
   final TextEditingController destinationController = TextEditingController();
 
@@ -543,6 +546,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       // Add nearby markers
       _addNearbyMarkers();
 
+      // One-time check for nearby ambulances to show popup
+      if (!_hasShownNoAmbulancePopup && currentPosition.value != null) {
+        _checkNearbyAmbulances(currentPosition.value!);
+      }
+
       isLoadingLocation.value = false;
       // initial loading finished
       isInitialLoading.value = false;
@@ -563,9 +571,105 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       // Add nearby markers even with default location
       _addNearbyMarkers();
 
+      // One-time check for nearby ambulances to show popup
+      if (!_hasShownNoAmbulancePopup && currentPosition.value != null) {
+        _checkNearbyAmbulances(currentPosition.value!);
+      }
+
       isLoadingLocation.value = false;
       // initial loading finished (even on error)
       isInitialLoading.value = false;
+    }
+  }
+
+  Future<void> _checkNearbyAmbulances(LatLng position) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('partners')
+          .where('isOnline', isEqualTo: true)
+          .get();
+
+      bool foundNearby = false;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final lat = data['latitude'] as double?;
+        final lng = data['longitude'] as double?;
+        
+        // Also check if recently active
+        final lastUpdated = data['lastUpdated'] as Timestamp?;
+        bool isRecentlyActive = true;
+        if (lastUpdated != null) {
+          final difference = DateTime.now().difference(lastUpdated.toDate());
+          if (difference.inMinutes > 5) {
+            isRecentlyActive = false;
+          }
+        }
+        
+        if (lat != null && lng != null && isRecentlyActive) {
+          double distance = Geolocator.distanceBetween(
+              position.latitude, position.longitude, lat, lng);
+          if (distance <= 20000) { // 20km
+            foundNearby = true;
+            break;
+          }
+        }
+      }
+
+      if (!foundNearby) {
+        _hasShownNoAmbulancePopup = true;
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (Get.isDialogOpen == false) {
+            Get.dialog(
+              AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.warning_amber_rounded,
+                          color: Colors.orange.shade700),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'কাছাকাছি অ্যাম্বুলেন্স নেই',
+                        style:
+                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                content: const Text(
+                  'আপনার আশেপাশে ২০ কিলোমিটারের মধ্যে কোনো সক্রিয় অ্যাম্বুলেন্স পাওয়া যায়নি। জরুরি প্রয়োজনে কল সেন্টারে যোগাযোগ করুন অথবা দূরের অ্যাম্বুলেন্স বুক করুন।',
+                  style: TextStyle(fontSize: 15, height: 1.4),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue.shade700,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text('ঠিক আছে',
+                        style:
+                            TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ],
+              ),
+              barrierDismissible: true,
+            );
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking nearby ambulances: $e');
     }
   }
 
@@ -799,17 +903,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
               'Using approximate straight-line route because detailed directions were not available.');
         }
 
-        // Add start marker if not already present
-        if (!markers.any((marker) => marker.markerId.value == 'start')) {
-          markers.add(
-            Marker(
-              markerId: const MarkerId('start'),
-              position: currentPosition.value!,
-              infoWindow: InfoWindow(title: 'Your Location'),
-              icon: currentLocationIcon,
-            ),
-          );
-        }
+        // Start marker is already represented by 'currentLocation' marker
       } else {
         // Fallback to straight line if directions fail
         polylines.clear();
