@@ -10,6 +10,7 @@ import 'package:saver/auth/log_in/login_screen.dart';
 import 'package:saver/compo/success_dialog.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/partner/partner.dart';
+import '../../partner_file/home_partner/home_partner.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -266,7 +267,13 @@ class SignUpController extends GetxController {
 
       // Navigate based on role
       if (selectedRole.value == 'driver') {
-        Get.offAll(() => PartnerPage(uid: userCredential.user!.uid));
+        SuccessDialog.show(
+          title: 'Account Created',
+          message: 'Your partner account has been created successfully!',
+        );
+        Future.delayed(const Duration(seconds: 2), () {
+          Get.offAll(() => HomePartnerPage());
+        });
       } else {
         SuccessDialog.show(
           title: 'Account Created',
@@ -328,6 +335,8 @@ class SignUpController extends GetxController {
     }
 
     // Driver specific validation
+    // Temporarily disabled so users can create driver accounts without uploading details immediately
+    /*
     if (selectedRole.value == 'driver') {
       if (licenseImage.value == null) {
         _showErrorSnackbar('Error', 'Please upload your License photo');
@@ -350,6 +359,7 @@ class SignUpController extends GetxController {
         return false;
       }
     }
+    */
 
     return true;
   }
