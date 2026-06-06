@@ -33,7 +33,7 @@ import '../user_tracking/user_tracking_page.dart';
 import '../services/fares_service.dart';
 import '../widgets/fares_widgets.dart';
 import 'package:saver/components/constants/alert.dart';
-
+import '../config/api_keys.dart';
 class HomeController extends GetxController with WidgetsBindingObserver {
   final bool isNewSignup;
 
@@ -334,9 +334,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     ever(showAmbulances, (_) => _addNearbyMarkers());
     // Initialize Google Places API client
     _places = places.GoogleMapsPlaces(
-        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+        apiKey: ApiKeys.googleMapsApiKey);
     _directions = directions.GoogleMapsDirections(
-        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+        apiKey: ApiKeys.googleMapsApiKey);
     _getCurrentLocation();
     _loadUserName();
     _loadProfileImage();

@@ -10,7 +10,7 @@ import 'package:google_maps_webservice/directions.dart' as directions;
 import 'package:lottie/lottie.dart' as lottie hide Marker;
 import '../../services/notification_service.dart';
 import '../home_partner/home_partner.dart';
-
+import '../../config/api_keys.dart';
 class AcceptMapsController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
 
@@ -221,7 +221,7 @@ class AcceptMapsController extends GetxController {
     try {
       // Initialize Google Maps Directions API
       _directions = directions.GoogleMapsDirections(
-          apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+          apiKey: ApiKeys.googleMapsApiKey);
     } catch (e) {}
   }
 

@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'trip_rating_page.dart';
+import '../config/api_keys.dart';
 
 class UserTrackingController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -61,7 +62,7 @@ class UserTrackingController extends GetxController {
 
   void _initializeDirections() {
     _directions = directions.GoogleMapsDirections(
-        apiKey: 'AIzaSyBA3JoadngwpKChme9kg0_Z4_hWO1dXg6o');
+        apiKey: ApiKeys.googleMapsApiKey);
   }
 
   @override
