@@ -9,4 +9,8 @@ class ApiKeys {
   
   // Google Maps API Key
   static const String googleMapsApiKey = ApiKeysSecret.googleMapsApiKey;
+
+  // Supabase Configuration
+  static const String supabaseUrl = ApiKeysSecret.supabaseUrl;
+  static const String supabaseAnonKey = ApiKeysSecret.supabaseAnonKey;
 }

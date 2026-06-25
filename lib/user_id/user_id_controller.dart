@@ -1,13 +1,11 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -45,26 +43,21 @@ class UserIdController extends GetxController {
 
   Future<void> fetchUserData() async {
     isLoading.value = true;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final client = Supabase.instance.client;
+    final uid = client.auth.currentUser?.id;
     if (uid != null) {
       try {
         // Check users collection first, then drivers
-        DocumentSnapshot userDoc =
-            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        var userDoc = await client.from('users').select().eq('id', uid).maybeSingle();
         String collectionName = 'users';
-        if (!userDoc.exists) {
-          userDoc = await FirebaseFirestore.instance
-              .collection('drivers')
-              .doc(uid)
-              .get();
+        if (userDoc == null) {
+          userDoc = await client.from('drivers').select().eq('id', uid).maybeSingle();
           collectionName = 'drivers';
         }
         userCollection.value = collectionName;
-        final userDocRef =
-            FirebaseFirestore.instance.collection(collectionName).doc(uid);
 
-        if (userDoc.exists) {
-          userData.value = userDoc.data() as Map<String, dynamic>?;
+        if (userDoc != null) {
+          userData.value = userDoc;
           nameController.text = userData.value?['name'] ?? '';
           phoneController.text = userData.value?['phone'] ?? '';
           addressController.text = userData.value?['address'] ?? '';
@@ -72,28 +65,26 @@ class UserIdController extends GetxController {
           profileImageUrl.value = userData.value?['profileImageUrl'];
         } else {
           userData.value = {
+            'id': uid,
             'name': 'N/A',
-            'email': FirebaseAuth.instance.currentUser!.email,
+            'email': client.auth.currentUser!.email,
             'phone': 'N/A',
             'address': 'N/A',
             'uid': uid,
             'role': 'user', // Default role for users
-            'createdAt': Timestamp.now(),
+            'createdAt': DateTime.now().toIso8601String(),
           };
           nameController.text = 'N/A';
           phoneController.text = 'N/A';
           addressController.text = 'N/A';
           emailController.text =
-              FirebaseAuth.instance.currentUser!.email ?? 'N/A';
-          await userDocRef.set(userData.value!);
+              client.auth.currentUser!.email ?? 'N/A';
+          await client.from(collectionName).insert(userData.value!);
         }
 
-        final partnerDoc = await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(uid)
-            .get();
-        if (partnerDoc.exists) {
-          partnerData.value = partnerDoc.data();
+        final partnerDoc = await client.from('partners').select().eq('id', uid).maybeSingle();
+        if (partnerDoc != null) {
+          partnerData.value = partnerDoc;
           vehicleNumberController.text =
               partnerData.value?['vehicleNumber'] ?? '';
           licenseNumberController.text =
@@ -135,31 +126,26 @@ class UserIdController extends GetxController {
   }
 
   Future<void> updateUserData() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final client = Supabase.instance.client;
+    final uid = client.auth.currentUser?.id;
     if (uid != null) {
       try {
-        await FirebaseFirestore.instance
-            .collection(userCollection.value)
-            .doc(uid)
-            .update({
+        await client.from(userCollection.value).update({
           'name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'address': addressController.text.trim(),
           'email': emailController.text.trim(),
-        });
+        }).eq('id', uid);
 
         if (partnerData.value != null) {
-          await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(uid)
-              .update({
+          await client.from('partners').update({
             'vehicleNumber': vehicleNumberController.text.trim(),
             'licenseNumber': licenseNumberController.text.trim(),
             'ambulanceType': ambulanceTypeController.text.trim(),
             'coverageArea': coverageAreaController.text.trim(),
             'contact': contactController.text.trim(),
             'companyName': companyNameController.text.trim(),
-          });
+          }).eq('id', uid);
           partnerData.value = {
             ...partnerData.value!,
             'vehicleNumber': vehicleNumberController.text.trim(),
@@ -200,13 +186,11 @@ class UserIdController extends GetxController {
   Future<void> _updateLocation(String uid) async {
     try {
       Position position = await _getCurrentLocation();
-      await FirebaseFirestore.instance
-          .collection(userCollection.value)
-          .doc(uid)
-          .update({
+      final client = Supabase.instance.client;
+      await client.from(userCollection.value).update({
         'latitude': position.latitude,
         'longitude': position.longitude,
-      });
+      }).eq('id', uid);
     } catch (e) {
       // Silently fail to avoid disrupting user experience
     }
@@ -377,74 +361,39 @@ class UserIdController extends GetxController {
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) {
         throw 'User not authenticated';
       }
 
       // Create a unique filename
       final fileName =
-          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images/${user.uid}/$fileName');
+          'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${user.id}/$fileName';
 
       debugPrint('📤 Starting profile image upload: $fileName');
 
-      // Upload the file with optimized settings
-      final uploadTask = storageRef.putFile(
-        imageFile,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {
-            'uploadedAt': DateTime.now().toIso8601String(),
-            'userId': user.uid,
-          },
-        ),
+      await client.storage.from('profile_images').upload(path, imageFile);
+      uploadProgress.value = 1.0; // Complete progress
+
+      final downloadUrl = client.storage.from('profile_images').getPublicUrl(path);
+      debugPrint(
+          '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
+
+      // Update Supabase with the new image URL
+      await client.from(userCollection.value).update({
+        'profileImageUrl': downloadUrl,
+      }).eq('id', user.id);
+
+      // Update local state
+      profileImageUrl.value = downloadUrl;
+
+      debugPrint('✅ Profile image updated successfully');
+      SuccessDialog.show(
+        title: 'Profile Updated',
+        message: 'Your profile image has been updated successfully!',
       );
-
-      // Monitor upload progress with optimized updates
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        // Only update progress if it's significant change (>1%) to reduce UI updates
-        if ((progress - uploadProgress.value).abs() > 0.01) {
-          uploadProgress.value = progress;
-          debugPrint(
-              '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
-        }
-      });
-
-      final snapshot = await uploadTask
-          .whenComplete(() => debugPrint('✅ Upload task completed'));
-
-      // Check if upload was successful
-      if (snapshot.state == TaskState.success) {
-        uploadProgress.value = 1.0; // Complete progress
-
-        // Get the download URL
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint(
-            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
-
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection(userCollection.value)
-            .doc(user.uid)
-            .update({
-          'profileImageUrl': downloadUrl,
-        });
-
-        // Update local state
-        profileImageUrl.value = downloadUrl;
-
-        debugPrint('✅ Profile image updated successfully');
-        SuccessDialog.show(
-          title: 'Profile Updated',
-          message: 'Your profile image has been updated successfully!',
-        );
-      } else {
-        throw 'Upload failed with state: ${snapshot.state}';
-      }
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
 
@@ -633,16 +582,14 @@ class UserIdController extends GetxController {
 
   Future<void> removeProfileImage() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection(userCollection.value)
-          .doc(user.uid)
-          .update({
-        'profileImageUrl': FieldValue.delete(),
-      });
+      // Remove from Supabase
+      await client.from(userCollection.value).update({
+        'profileImageUrl': null,
+      }).eq('id', user.id);
 
       // Update local state
       profileImageUrl.value = null;

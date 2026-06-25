@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:saver/components/alert.dart';
 import 'package:saver/home_user/home_user.dart';
 
@@ -9,8 +9,7 @@ class TripRatingController extends GetxController {
   final Map<String, dynamic> orderData;
   TripRatingController({required this.orderData});
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   // State variables
   var driverRating = 0.obs;
@@ -35,28 +34,28 @@ class TripRatingController extends GetxController {
     isSubmitting.value = true;
 
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       final orderId = orderData['id'] ?? orderData['orderId'];
       final partnerId = orderData['partnerId'];
 
-      await _firestore.collection('order_reviews').add({
+      await _supabase.from('order_reviews').insert({
         'orderId': orderId,
-        'userId': user?.uid,
+        'userId': user?.id,
         'partnerId': partnerId,
         'companyName': orderData['companyName'] ?? 'Unknown Company',
         'driverRating': driverRating.value,
         'companyRating': companyRating.value,
         'complaint': complaintController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
       });
 
       // Update the order document to mark as reviewed (optional but good)
       if (orderId != null) {
-        await _firestore.collection('orders').doc(orderId).update({
+        await _supabase.from('orders').update({
           'isReviewed': true,
           'driverRating': driverRating.value,
           'companyRating': companyRating.value,
-        });
+        }).eq('id', orderId);
       }
 
       await Alert.success('আপনার মতামতের জন্য ধন্যবাদ!');

@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -413,11 +413,11 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   Future<void> _loadAmbulanceLocations() async {
     try {
-      QuerySnapshot snap =
-          await FirebaseFirestore.instance.collection('partners').get();
+      List<Map<String, dynamic>> snap =
+          await Supabase.instance.client.from('partners').select();
       Set<Marker> markers = {};
-      for (var doc in snap.docs) {
-        var rawData = doc.data() as Map<String, dynamic>;
+      for (var doc in snap) {
+        var rawData = doc;
         double? lat = rawData['latitude']?.toDouble();
         double? lng = rawData['longitude']?.toDouble();
 
@@ -427,9 +427,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           // Check if the ambulance is truly active based on last updated location
           if (isActive) {
-            Timestamp? lastUpdated = rawData['lastUpdated'] as Timestamp?;
+            String? lastUpdated = rawData['lastUpdated'] as String?;
             if (lastUpdated != null) {
-              final difference = DateTime.now().difference(lastUpdated.toDate());
+              final difference = DateTime.now().difference(DateTime.parse(lastUpdated));
               if (difference.inMinutes > 10) {
                 isActive = false;
               }
@@ -462,7 +462,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           markers.add(
             Marker(
-              markerId: MarkerId(doc.id),
+              markerId: MarkerId(doc['id']),
               position: LatLng(lat, lng),
               icon: markerIcon,
               infoWindow: InfoWindow(
@@ -470,7 +470,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 snippet:
                     '${data['driverName']} | ${isActive ? (onTrip ? 'On Trip' : 'Idle') : 'Inactive'}',
               ),
-              onTap: () => _showAmbulanceQuickInfo(doc.id, data),
+              onTap: () => _showAmbulanceQuickInfo(doc['id'], data),
             ),
           );
         }

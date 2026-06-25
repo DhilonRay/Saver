@@ -1,7 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../admin_controller.dart';
 import '../admin_theme.dart';
 import '../pages/home_page.dart';
@@ -106,7 +107,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         onPressed: () async {
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool('isAdminLoggedIn', false);
-                          await FirebaseAuth.instance.signOut();
+                          await Supabase.instance.client.auth.signOut();
                           Get.offAll(() => const LoginPage());
                         },
                         style: ElevatedButton.styleFrom(

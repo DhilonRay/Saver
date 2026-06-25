@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 
 class AdminController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   // Dashboard Stats
   var activeAmbulances = 0.obs;
@@ -31,18 +31,20 @@ class AdminController extends GetxController {
   Future<void> loadDashboardStats() async {
     try {
       // Active ambulances
-      QuerySnapshot ambSnap = await _firestore
-          .collection('partners')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final ambList = await _supabase
+          .from('partners')
+          .select()
+          .eq('isOnline', true);
 
       int activeCount = 0;
       final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
-      for (var doc in ambSnap.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final lastUpdated = data['lastUpdated'] as Timestamp?;
-        if (lastUpdated != null && lastUpdated.toDate().isAfter(tenMinsAgo)) {
-          activeCount++;
+      for (var data in ambList) {
+        final lastUpdatedStr = data['lastUpdated'];
+        if (lastUpdatedStr != null) {
+          final lastUpdated = DateTime.tryParse(lastUpdatedStr.toString());
+          if (lastUpdated != null && lastUpdated.isAfter(tenMinsAgo)) {
+            activeCount++;
+          }
         }
       }
       activeAmbulances.value = activeCount;
@@ -52,38 +54,37 @@ class AdminController extends GetxController {
       DateTime todayStart = DateTime(now.year, now.month, now.day);
       DateTime monthStart = DateTime(now.year, now.month, 1);
 
-      QuerySnapshot tripsSnap = await _firestore
-          .collection('orders')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
-          .get();
-      totalTripsToday.value = tripsSnap.size;
+      final tripsSnap = await _supabase
+          .from('orders')
+          .select()
+          .gte('timestamp', todayStart.toIso8601String());
+      totalTripsToday.value = tripsSnap.length;
 
       // Total users
-      QuerySnapshot usersSnap = await _firestore.collection('users').get();
-      totalUsers.value = usersSnap.size;
+      final usersSnap = await _supabase.from('users').select('id');
+      totalUsers.value = usersSnap.length;
 
       // Total GLMs
-      QuerySnapshot glmSnap = await _firestore.collection('glm_accounts').get();
-      totalGLMs.value = glmSnap.size;
+      final glmSnap = await _supabase.from('glm_accounts').select('id');
+      totalGLMs.value = glmSnap.length;
 
       // Revenue
-      QuerySnapshot allTrips = await _firestore
-          .collection('orders')
-          .where('status', isEqualTo: 'completed')
-          .get();
+      final allTrips = await _supabase
+          .from('orders')
+          .select()
+          .eq('status', 'completed');
       
       double revToday = 0;
       double revMonth = 0;
       double revTotal = 0;
       
-      for (var doc in allTrips.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+      for (var data in allTrips) {
         double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
         revTotal += fare;
         
-        Timestamp? ts = data['timestamp'] as Timestamp?;
-        if (ts != null) {
-          DateTime date = ts.toDate();
+        final tsStr = data['timestamp'];
+        if (tsStr != null) {
+          DateTime date = DateTime.parse(tsStr.toString());
           if (date.isAfter(todayStart) || date.isAtSameMomentAs(todayStart)) {
             revToday += fare;
           }
@@ -103,18 +104,18 @@ class AdminController extends GetxController {
   }
 
   void listenForAlerts() {
-    _firestore
-        .collection('admin_alerts')
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .listen((snapshot) {
-      var alertList = snapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
-          .toList();
+    _supabase
+        .from('admin_alerts')
+        .stream(primaryKey: ['id'])
+        .eq('isRead', false)
+        .listen((dataList) {
+      var alertList = List<Map<String, dynamic>>.from(dataList);
       // Sort locally to avoid needing a composite Firestore index
       alertList.sort((a, b) {
-        final aTime = a['createdAt'] as Timestamp?;
-        final bTime = b['createdAt'] as Timestamp?;
+        final aTimeStr = a['createdAt'];
+        final bTimeStr = b['createdAt'];
+        DateTime? aTime = aTimeStr != null ? DateTime.tryParse(aTimeStr.toString()) : null;
+        DateTime? bTime = bTimeStr != null ? DateTime.tryParse(bTimeStr.toString()) : null;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
         return bTime.compareTo(aTime);
@@ -127,9 +128,9 @@ class AdminController extends GetxController {
   }
 
   Future<void> markAlertRead(String alertId) async {
-    await _firestore.collection('admin_alerts').doc(alertId).update({
+    await _supabase.from('admin_alerts').update({
       'isRead': true,
-    });
+    }).eq('id', alertId);
   }
 
   // Finance helpers
@@ -150,20 +151,19 @@ class AdminController extends GetxController {
         start = now.subtract(const Duration(days: 7));
     }
 
-    QuerySnapshot allCompleted = await _firestore
-        .collection('orders')
-        .where('status', isEqualTo: 'completed')
-        .get();
+    final allCompleted = await _supabase
+        .from('orders')
+        .select()
+        .eq('status', 'completed');
 
     double revenue = 0;
     int tripCount = 0;
     Map<String, double> ambulanceEarnings = {};
 
-    for (var doc in allCompleted.docs) {
-      var data = doc.data() as Map<String, dynamic>;
+    for (var data in allCompleted) {
       // Filter by date locally to avoid composite index requirement
       if (data['timestamp'] != null) {
-        DateTime tripDate = (data['timestamp'] as Timestamp).toDate();
+        DateTime tripDate = DateTime.parse(data['timestamp'].toString());
         if (tripDate.isBefore(start)) continue;
       }
       double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
@@ -200,7 +200,8 @@ class AdminController extends GetxController {
     required String glmId,
     required String password,
   }) async {
-    await _firestore.collection('glm_accounts').doc(glmId).set({
+    await _supabase.from('glm_accounts').upsert({
+      'id': glmId,
       'name': name,
       'phone': phone,
       'hospital': hospital,
@@ -210,7 +211,7 @@ class AdminController extends GetxController {
       'totalTripsOrdered': 0,
       'score': 0,
       'isActive': true,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now().toIso8601String(),
     });
   }
 }

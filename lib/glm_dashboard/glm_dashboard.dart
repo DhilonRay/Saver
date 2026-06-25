@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:saver/admin/admin_theme.dart';
@@ -16,7 +16,7 @@ class GLMDashboard extends StatefulWidget {
 }
 
 class _GLMDashboardState extends State<GLMDashboard> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   Map<String, dynamic>? _glmData;
   bool _isLoading = true;
 
@@ -28,10 +28,10 @@ class _GLMDashboardState extends State<GLMDashboard> {
 
   Future<void> _loadGLMProfile() async {
     try {
-      DocumentSnapshot doc = await _fs.collection('glm_accounts').doc(widget.glmId).get();
-      if (doc.exists) {
+      final doc = await _supabase.from('glm_accounts').select().eq('id', widget.glmId).maybeSingle();
+      if (doc != null) {
         setState(() {
-          _glmData = doc.data() as Map<String, dynamic>;
+          _glmData = doc;
           _isLoading = false;
         });
       } else {
@@ -217,16 +217,16 @@ class _GLMDashboardState extends State<GLMDashboard> {
   }
 
   Widget _buildTripHistory() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _fs
-          .collection('orders')
-          .where('glmId', isEqualTo: widget.glmId)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase
+          .from('orders')
+          .stream(primaryKey: ['id'])
+          .eq('glmId', widget.glmId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: AdminTheme.purple));
         }
-        var trips = snapshot.data!.docs;
+        var trips = snapshot.data!;
         if (trips.isEmpty) {
           return GlassCard(
             child: Center(
@@ -247,8 +247,8 @@ class _GLMDashboardState extends State<GLMDashboard> {
         // Sort locally
         var sortedTrips = trips.toList()
           ..sort((a, b) {
-            var aTime = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-            var bTime = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+            var aTime = a['timestamp'] != null ? DateTime.tryParse(a['timestamp'].toString()) : null;
+            var bTime = b['timestamp'] != null ? DateTime.tryParse(b['timestamp'].toString()) : null;
             if (aTime == null) return 1;
             if (bTime == null) return -1;
             return bTime.compareTo(aTime);
@@ -259,14 +259,14 @@ class _GLMDashboardState extends State<GLMDashboard> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sortedTrips.length,
           itemBuilder: (context, index) {
-            var data = sortedTrips[index].data() as Map<String, dynamic>;
+            var data = sortedTrips[index];
             var from = data['pickupAddress'] ?? data['pickupName'] ?? 'Pickup';
             var to = data['destinationAddress'] ?? data['destinationName'] ?? 'Destination';
             var status = (data['status'] ?? 'unknown').toString().toUpperCase();
             var fare = data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0;
             var dateStr = '';
             if (data['timestamp'] != null) {
-              DateTime dt = (data['timestamp'] as Timestamp).toDate();
+              DateTime dt = DateTime.parse(data['timestamp'].toString());
               dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
             }
 

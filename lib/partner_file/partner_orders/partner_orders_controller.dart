@@ -1,29 +1,25 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../services/notification_service.dart';
 
 class PartnerOrdersController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   final RxString partnerId = ''.obs;
-  final RxList<QueryDocumentSnapshot> activeOrders =
-      <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> completedOrders =
-      <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> cancelledOrders =
-      <QueryDocumentSnapshot>[].obs;
+  final RxList<Map<String, dynamic>> activeOrders = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> completedOrders = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> cancelledOrders = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
 
-  StreamSubscription<QuerySnapshot>? _ordersSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
 
   @override
   void onInit() {
     super.onInit();
-    partnerId.value = _auth.currentUser?.uid ?? '';
+    partnerId.value = _supabase.auth.currentUser?.id ?? '';
     if (partnerId.value.isNotEmpty) {
       _setupOrdersStream();
     }
@@ -36,11 +32,8 @@ class PartnerOrdersController extends GetxController {
   }
 
   void _setupOrdersStream() {
-    _ordersSubscription = getOrdersStream().listen((snapshot) {
-      final docs = snapshot.docs;
-
-      activeOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+    _ordersSubscription = getOrdersStream().listen((dataList) {
+      activeOrders.value = dataList.where((data) {
         return data['status'] == 'active' ||
             data['status'] == 'accepted' ||
             data['status'] == 'in_transit' ||
@@ -48,13 +41,11 @@ class PartnerOrdersController extends GetxController {
             data['status'] == 'declined';
       }).toList();
 
-      completedOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      completedOrders.value = dataList.where((data) {
         return data['status'] == 'completed';
       }).toList();
 
-      cancelledOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      cancelledOrders.value = dataList.where((data) {
         return data['status'] == 'cancelled';
       }).toList();
 
@@ -64,10 +55,10 @@ class PartnerOrdersController extends GetxController {
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore
-          .collection('orders')
-          .doc(orderId)
-          .update({'status': newStatus});
+      await _supabase
+          .from('orders')
+          .update({'status': newStatus})
+          .eq('id', orderId);
 
       // Send notification to user about status change
       await _sendStatusChangeNotification(orderId, newStatus);
@@ -97,18 +88,17 @@ class PartnerOrdersController extends GetxController {
       String orderId, String status) async {
     try {
       // Get order data to find userId
-      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
-      if (!orderDoc.exists) return;
+      final orderDoc = await _supabase.from('orders').select().eq('id', orderId).maybeSingle();
+      if (orderDoc == null) return;
 
-      final orderData = orderDoc.data();
-      final userId = orderData?['userId'];
+      final userId = orderDoc['userId'];
       if (userId == null) return;
 
       // Get user's FCM token
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      if (!userDoc.exists) return;
+      final userDoc = await _supabase.from('users').select().eq('id', userId).maybeSingle();
+      if (userDoc == null) return;
 
-      final fcmToken = userDoc.data()?['fcmToken'];
+      final fcmToken = userDoc['fcmToken'];
       if (fcmToken != null && fcmToken.isNotEmpty) {
         String title = 'Order Status Update';
         String body = 'Your order status has been updated to: $status';
@@ -160,22 +150,21 @@ class PartnerOrdersController extends GetxController {
 
   Future<Map<String, dynamic>?> getUserData(String userId) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      return userDoc.data();
+      return await _supabase.from('users').select().eq('id', userId).maybeSingle();
     } catch (e) {
       return null;
     }
   }
 
-  Stream<QuerySnapshot> getOrdersStream() {
+  Stream<List<Map<String, dynamic>>> getOrdersStream() {
     if (partnerId.value.isEmpty) {
       return const Stream.empty();
     }
 
-    return _firestore
-        .collection('orders')
-        .where('partnerId', isEqualTo: partnerId.value)
-        .snapshots();
+    return _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('partnerId', partnerId.value);
   }
 
   void showOrderDetails(BuildContext context, String? userId, String? userName,

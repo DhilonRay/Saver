@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../components/alert.dart';
 import '../home_partner/home_partner.dart';
 
@@ -52,30 +52,33 @@ class PartnerController extends GetxController {
       'companyName': companyNameController.text.trim(),
       'referenceId': referenceId.text.trim(),
       'uid': uid,
-      'createdAt': Timestamp.now(),
+      'createdAt': DateTime.now().toIso8601String(),
     };
 
-    print('🚑 Saving partner data to Firestore...');
+    print('🚑 Saving partner data to Supabase...');
     print('👤 User ID: $uid');
     print('📊 Data to save: $partnerData');
 
     try {
-      // Save partner data to Firestore
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(uid)
-          .set(partnerData, SetOptions(merge: true));
+      final client = Supabase.instance.client;
+      
+      // Save partner data to Supabase using upsert
+      await client.from('partners').upsert({
+        'id': uid, // Map uid to id for Supabase
+        ...partnerData,
+      });
 
       // Verify data was saved by reading it back
-      final savedDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(uid)
-          .get();
+      final savedData = await client
+          .from('partners')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
 
-      if (savedDoc.exists) {
-        print('✅ Partner data successfully saved to Firestore');
-        print('📄 Document ID: ${savedDoc.id}');
-        print('📊 Saved Data: ${savedDoc.data()}');
+      if (savedData != null) {
+        print('✅ Partner data successfully saved to Supabase');
+        print('📄 Document ID: $uid');
+        print('📊 Saved Data: $savedData');
 
         Alert.info('Partner info submitted successfully');
 

@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import '../admin_theme.dart';
 
@@ -11,7 +11,7 @@ class AdminPartnersScreen extends StatefulWidget {
 }
 
 class _AdminPartnersScreenState extends State<AdminPartnersScreen> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
+  final SupabaseClient _fs = Supabase.instance.client;
   final TextEditingController _searchCtrl = TextEditingController();
   String _sq = '';
 
@@ -24,19 +24,19 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen> {
         decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
         child: Column(children: [
           Padding(padding: const EdgeInsets.all(16), child: AdminSearchBar(controller: _searchCtrl, hintText: 'Search partners by name or phone...', onChanged: (v) => setState(() => _sq = v.toLowerCase()), onClear: () { _searchCtrl.clear(); setState(() => _sq = ''); })),
-          Expanded(child: StreamBuilder<QuerySnapshot>(
-            stream: _fs.collection('partners').snapshots(),
+          Expanded(child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client.from('partners').stream(primaryKey: ['id']),
             builder: (context, snap) {
               if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: AdminTheme.body));
               if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-              var partners = snap.data!.docs.where((d) {
-                var data = d.data() as Map<String, dynamic>;
+              var partners = snap.data!.where((d) {
+                var data = d;
                 return (data['name'] ?? '').toString().toLowerCase().contains(_sq) || (data['phone'] ?? '').toString().contains(_sq);
               }).toList();
               if (partners.isEmpty) return _empty('No partners found');
               return ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: partners.length, itemBuilder: (ctx, i) {
-                var pd = partners[i].data() as Map<String, dynamic>;
-                var pid = partners[i].id;
+                var pd = partners[i];
+                var pid = partners[i]['id'] as String? ?? '';
                 bool approved = pd['isApproved'] ?? false;
                 bool active = pd['isActive'] ?? true;
                 return Padding(padding: const EdgeInsets.only(bottom: 12), child: GlassCard(padding: const EdgeInsets.all(14), child: Row(children: [
@@ -86,7 +86,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen> {
         AdminDetailRow(label: 'Partner ID', value: pid), AdminDetailRow(label: 'Approval', value: (pd['isApproved'] ?? false) ? 'Approved' : 'Pending'),
         AdminDetailRow(label: 'Status', value: (pd['isActive'] ?? true) ? 'Active' : 'Suspended'),
         AdminDetailRow(label: 'Orders', value: '${pd['completedOrders'] ?? 0}'), AdminDetailRow(label: 'Earnings', value: '৳${pd['totalEarnings'] ?? 0}'),
-        AdminDetailRow(label: 'Joined', value: pd['createdAt'] != null ? (pd['createdAt'] as Timestamp).toDate().toString().split('.')[0] : 'N/A'),
+        AdminDetailRow(label: 'Joined', value: pd['createdAt'] != null ? DateTime.parse(pd['createdAt'].toString()).toString().split('.')[0] : 'N/A'),
         const SizedBox(height: 20),
         SizedBox(width: double.infinity, child: TextButton(onPressed: () => Get.back(), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.white.withOpacity(0.08)))), child: const Text('Close', style: TextStyle(color: AdminTheme.textSecondary)))),
       ]))))));
@@ -108,14 +108,14 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen> {
   }
 
   void _approve(String pid, Map<String, dynamic> pd) => _confirm('Approve Partner?', 'Approve ${pd['name']} as a delivery partner?', AdminTheme.green, 'Approve', () async {
-    await _fs.collection('partners').doc(pid).update({'isApproved': true}); Get.back(); Get.snackbar('Success', 'Partner approved', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await Supabase.instance.client.from('partners').update({'isApproved': true}); Get.back(); Get.snackbar('Success', 'Partner approved', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
   });
 
   void _toggle(String pid, Map<String, dynamic> pd) { bool ns = !(pd['isActive'] ?? true); _confirm(ns ? 'Activate?' : 'Suspend?', ns ? 'Partner can accept orders.' : 'Partner cannot accept orders.', ns ? AdminTheme.green : AdminTheme.orange, ns ? 'Activate' : 'Suspend', () async {
-    await _fs.collection('partners').doc(pid).update({'isActive': ns}); Get.back(); Get.snackbar('Success', 'Partner ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await Supabase.instance.client.from('partners').update({'isActive': ns}); Get.back(); Get.snackbar('Success', 'Partner ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
   }); }
 
   void _delete(String pid, Map<String, dynamic> pd) => _confirm('Delete Partner?', 'Permanently delete ${pd['name']}?', AdminTheme.red, 'Delete', () async {
-    await _fs.collection('partners').doc(pid).delete(); Get.back(); Get.snackbar('Success', 'Partner deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await Supabase.instance.client.from('partners').delete().eq('id', pid); Get.back(); Get.snackbar('Success', 'Partner deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
   });
 }

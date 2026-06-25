@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../admin_theme.dart';
 
@@ -12,7 +12,7 @@ class UsersPage extends StatefulWidget {
 }
 
 class _UsersPageState extends State<UsersPage> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   String _selectedPeriod = 'month';
@@ -48,8 +48,8 @@ class _UsersPageState extends State<UsersPage> {
 
           // Users list
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('users').snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client.from('users').stream(primaryKey: ['id']),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
@@ -58,9 +58,9 @@ class _UsersPageState extends State<UsersPage> {
                   return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
                 }
 
-                var users = snapshot.data!.docs.where((doc) {
+                var users = snapshot.data!.where((doc) {
                   if (_searchQuery.isEmpty) return true;
-                  var data = doc.data() as Map<String, dynamic>;
+                  var data = doc;
                   String phone = (data['phone'] ?? '').toString();
                   String name = (data['name'] ?? '').toString().toLowerCase();
                   return phone.contains(_searchQuery) ||
@@ -91,8 +91,8 @@ class _UsersPageState extends State<UsersPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: users.length,
                   itemBuilder: (context, index) {
-                    var data = users[index].data() as Map<String, dynamic>;
-                    var uid = users[index].id;
+                    var data = users[index];
+                    var uid = users[index]['id'] as String? ?? '';
                     final nameStr = (data['name'] ?? '').toString().trim();
                     final initial = nameStr.isNotEmpty ? nameStr[0].toUpperCase() : 'U';
 
@@ -175,10 +175,10 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Widget _buildUsersBanner() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('users').snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client.from('users').stream(primaryKey: ['id']),
       builder: (context, snapshot) {
-        int totalUsers = snapshot.hasData ? snapshot.data!.docs.length : 0;
+        int totalUsers = snapshot.hasData ? snapshot.data!.length : 0;
 
         int periodUsers = totalUsers;
         if (snapshot.hasData) {
@@ -201,10 +201,10 @@ class _UsersPageState extends State<UsersPage> {
               start = DateTime(now.year, now.month, 1);
           }
 
-          periodUsers = snapshot.data!.docs.where((doc) {
-            var data = doc.data() as Map<String, dynamic>;
+          periodUsers = snapshot.data!.where((doc) {
+            var data = doc;
             if (data['createdAt'] == null) return false;
-            DateTime created = (data['createdAt'] as Timestamp).toDate();
+            DateTime created = DateTime.parse(data['createdAt'].toString());
             return created.isAfter(start);
           }).length;
         }
@@ -356,7 +356,7 @@ class _UsersPageState extends State<UsersPage> {
                   AdminDetailRow(
                     label: 'Joined',
                     value: DateFormat('dd MMM yyyy').format(
-                      (data['createdAt'] as Timestamp).toDate(),
+                      DateTime.parse(data['createdAt'].toString()),
                     ),
                   ),
                 const SizedBox(height: 20),
@@ -366,13 +366,13 @@ class _UsersPageState extends State<UsersPage> {
                   title: 'Last Trip',
                   icon: Icons.route_rounded,
                 ),
-                StreamBuilder<QuerySnapshot>(
-                  stream: _firestore
-                      .collection('orders')
-                      .where('userId', isEqualTo: uid)
-                      .snapshots(),
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _supabase
+                      .from('orders')
+                      .stream(primaryKey: ['id'])
+                      .eq('userId', uid),
                   builder: (context, snap) {
-                    if (!snap.hasData || snap.data!.docs.isEmpty) {
+                    if (!snap.hasData || snap.data!.isEmpty) {
                       return Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
@@ -385,17 +385,17 @@ class _UsersPageState extends State<UsersPage> {
                       );
                     }
                     // Sort locally to find most recent trip (avoids composite index)
-                    var docs = List<QueryDocumentSnapshot>.from(snap.data!.docs);
+                    var docs = List<Map<String, dynamic>>.from(snap.data!);
                     docs.sort((a, b) {
                       try {
-                        final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                        final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                        final aT = (a)['timestamp'] as String?;
+                        final bT = (b)['timestamp'] as String?;
                         if (aT == null) return 1;
                         if (bT == null) return -1;
                         return bT.compareTo(aT);
                       } catch (_) { return 0; }
                     });
-                    var trip = docs.first.data() as Map<String, dynamic>;
+                    var trip = docs.first;
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -414,7 +414,7 @@ class _UsersPageState extends State<UsersPage> {
                             AdminDetailRow(
                               label: 'Date',
                               value: DateFormat('dd MMM yyyy, hh:mm a')
-                                  .format((trip['timestamp'] as Timestamp).toDate()),
+                                  .format(DateTime.parse(trip['timestamp'].toString())),
                             ),
                         ],
                       ),

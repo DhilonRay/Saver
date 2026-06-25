@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
@@ -35,8 +35,8 @@ class PartnerProfileController extends GetxController {
   // Location address
   var locationAddress = Rx<String?>(null);
 
-  StreamSubscription<DocumentSnapshot>? _personalInfoSubscription;
-  StreamSubscription<DocumentSnapshot>? _partnerInfoSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _personalInfoSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _partnerInfoSubscription;
 
   @override
   void onInit() {
@@ -53,7 +53,8 @@ class PartnerProfileController extends GetxController {
   }
 
   void _setupRealTimeListeners() {
-    final user = FirebaseAuth.instance.currentUser;
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
     if (user == null) {
       error.value = 'User not logged in.';
       isLoading.value = false;
@@ -61,50 +62,51 @@ class PartnerProfileController extends GetxController {
     }
 
     // Set up real-time listener for personal info
-    _personalInfoSubscription = FirebaseFirestore.instance
-        .collection('drivers')
-        .doc(user.uid)
-        .snapshots()
+    _personalInfoSubscription = client
+        .from('drivers')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.id)
         .listen(
-      (userDoc) {
-        if (userDoc.exists && userDoc.data() != null) {
-          personalInfo.value = userDoc.data()!;
+      (data) {
+        if (data.isNotEmpty) {
+          personalInfo.value = data.first;
         } else {
           personalInfo.value = {
-            'name': user.displayName ?? '',
+            'name': user.userMetadata?['name'] ?? '',
             'email': user.email ?? '',
-            'phone': user.phoneNumber ?? '',
-            'uid': user.uid,
+            'phone': user.phone ?? '',
+            'id': user.id,
           };
         }
         _checkLoadingComplete();
       },
       onError: (e) {
         personalInfo.value = {
-          'name': user.displayName ?? '',
+          'name': user.userMetadata?['name'] ?? '',
           'email': user.email ?? '',
-          'phone': user.phoneNumber ?? '',
-          'uid': user.uid,
+          'phone': user.phone ?? '',
+          'id': user.id,
         };
         _checkLoadingComplete();
       },
     );
 
     // Set up real-time listener for partner info
-    _partnerInfoSubscription = FirebaseFirestore.instance
-        .collection('partners')
-        .doc(user.uid)
-        .snapshots()
+    _partnerInfoSubscription = client
+        .from('partners')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.id)
         .listen(
-      (doc) async {
-        if (doc.exists && doc.data() != null) {
-          partnerInfo.value = doc.data()!;
-          profileImageUrl.value = doc.data()!['profileImageUrl'];
-          ambulanceImageUrl.value = doc.data()!['ambulanceImageUrl'];
+      (data) async {
+        if (data.isNotEmpty) {
+          final docData = data.first;
+          partnerInfo.value = docData;
+          profileImageUrl.value = docData['profileImageUrl'];
+          ambulanceImageUrl.value = docData['ambulanceImageUrl'];
 
           // Convert coordinates to address if available
-          final latitude = doc.data()!['latitude'];
-          final longitude = doc.data()!['longitude'];
+          final latitude = docData['latitude'];
+          final longitude = docData['longitude'];
           if (latitude != null && longitude != null) {
             await _updateLocationAddress(latitude, longitude);
           } else {
@@ -147,7 +149,8 @@ class PartnerProfileController extends GetxController {
 
   Future<void> saveChanges() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) return;
 
       // Check if rates were changed and update timestamp
@@ -159,26 +162,20 @@ class PartnerProfileController extends GetxController {
 
       if (originalServiceRate != currentServiceRate) {
         ratesChanged = true;
-        partnerInfo['ratesLastUpdated'] = FieldValue.serverTimestamp();
+        partnerInfo['ratesLastUpdated'] = DateTime.now().toIso8601String();
         print('💰 Service rate updated: $currentServiceRate');
       }
 
-      // Update partner info in Firestore
+      // Update partner info in Supabase
       if (partnerInfo.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update(partnerInfo);
-        print('✅ Partner info updated in Firestore');
+        await client.from('partners').update(partnerInfo).eq('id', user.id);
+        print('✅ Partner info updated in Supabase');
       }
 
       // Update personal info in users collection
       if (personalInfo.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.uid)
-            .update(personalInfo);
-        print('✅ Personal info updated in Firestore');
+        await client.from('drivers').update(personalInfo).eq('id', user.id);
+        print('✅ Personal info updated in Supabase');
       }
 
       isEditing.value = false;
@@ -210,19 +207,16 @@ class PartnerProfileController extends GetxController {
     if (pickedFile != null) {
       File file = File(pickedFile.path);
       try {
-        final user = FirebaseAuth.instance.currentUser;
+        final client = Supabase.instance.client;
+        final user = client.auth.currentUser;
         if (user == null) return;
-        String fileName = 'profile_${user.uid}.jpg';
-        Reference ref =
-            FirebaseStorage.instance.ref().child('profile_images/$fileName');
-        await ref.putFile(file);
-        String downloadUrl = await ref.getDownloadURL();
+        String fileName = 'profile_${user.id}.jpg';
+        final path = '${user.id}/$fileName';
+        await client.storage.from('profile_images').upload(path, file);
+        String downloadUrl = client.storage.from('profile_images').getPublicUrl(path);
         personalInfo['profileImageUrl'] = downloadUrl;
-        // Update Firestore
-        await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.uid)
-            .update({'profileImageUrl': downloadUrl});
+        // Update Supabase
+        await client.from('drivers').update({'profileImageUrl': downloadUrl}).eq('id', user.id);
         SuccessDialog.show(
           title: 'Profile Picture Updated',
           message: 'Your profile picture has been updated successfully!',
@@ -364,48 +358,31 @@ class PartnerProfileController extends GetxController {
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) {
         throw 'User not authenticated';
       }
 
       // Create a unique filename
       final fileName =
-          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images/${user.uid}/$fileName');
+          'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${user.id}/$fileName';
 
       print('📤 Starting profile image upload: $fileName');
 
-      // Upload the file with progress monitoring
-      final uploadTask = storageRef.putFile(imageFile);
+      // Upload the file
+      await client.storage.from('profile_images').upload(path, imageFile);
+      uploadProgress.value = 1.0;
 
-      // Monitor upload progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        uploadProgress.value = progress;
-        print('📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
-      });
+      final downloadUrl = client.storage.from('profile_images').getPublicUrl(path);
 
-      final snapshot =
-          await uploadTask.whenComplete(() => print('✅ Upload task completed'));
+      print('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
-      // Check if upload was successful
-      if (snapshot.state == TaskState.success) {
-        uploadProgress.value = 1.0; // Complete progress
-
-        // Get the download URL
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        print('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
-
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update({
-          'profileImageUrl': downloadUrl,
-        });
+      // Update Supabase with the new image URL
+      await client.from('partners').update({
+        'profileImageUrl': downloadUrl,
+      }).eq('id', user.id);
 
         // Update local state
         profileImageUrl.value = downloadUrl;
@@ -415,9 +392,6 @@ class PartnerProfileController extends GetxController {
           title: 'Profile Picture Updated',
           message: 'Your profile picture has been updated successfully!',
         );
-      } else {
-        throw 'Upload failed with state: ${snapshot.state}';
-      }
     } catch (e) {
       print('❌ Error uploading profile image: $e');
 
@@ -598,16 +572,14 @@ class PartnerProfileController extends GetxController {
 
   Future<void> removeProfileImage() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
-        'profileImageUrl': FieldValue.delete(),
-      });
+      // Remove from Supabase
+      await client.from('partners').update({
+        'profileImageUrl': null,
+      }).eq('id', user.id);
 
       // Update local state
       profileImageUrl.value = null;
@@ -828,44 +800,29 @@ class PartnerProfileController extends GetxController {
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) {
         throw 'User not authenticated';
       }
 
       final fileName =
-          'ambulance_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('ambulance_images/${user.uid}/$fileName');
+          'ambulance_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${user.id}/$fileName';
 
       print('📤 Starting ambulance image upload: $fileName');
 
-      final uploadTask = storageRef.putFile(imageFile);
+      await client.storage.from('ambulance_images').upload(path, imageFile);
+      ambulanceUploadProgress.value = 1.0;
 
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        ambulanceUploadProgress.value = progress;
-        print(
-            '📊 Ambulance upload progress: ${(progress * 100).toStringAsFixed(1)}%');
-      });
+      final downloadUrl = client.storage.from('ambulance_images').getPublicUrl(path);
 
-      final snapshot = await uploadTask
-          .whenComplete(() => print('✅ Ambulance image upload completed'));
+      print('🔗 Ambulance image URL obtained');
 
-      if (snapshot.state == TaskState.success) {
-        ambulanceUploadProgress.value = 1.0;
-
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        print('🔗 Ambulance image URL obtained');
-
-        // Use set with merge to handle both new and existing documents
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .set({
-          'ambulanceImageUrl': downloadUrl,
-        }, SetOptions(merge: true));
+      // Update Supabase
+      await client.from('partners').update({
+        'ambulanceImageUrl': downloadUrl,
+      }).eq('id', user.id);
 
         ambulanceImageUrl.value = downloadUrl;
 
@@ -875,9 +832,6 @@ class PartnerProfileController extends GetxController {
           message:
               'Your ambulance photo has been uploaded successfully! Users can now see your ambulance before booking.',
         );
-      } else {
-        throw 'Upload failed with state: ${snapshot.state}';
-      }
     } catch (e) {
       print('❌ Error uploading ambulance image: $e');
 
@@ -998,15 +952,13 @@ class PartnerProfileController extends GetxController {
 
   Future<void> removeAmbulanceImage() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
-        'ambulanceImageUrl': FieldValue.delete(),
-      });
+      await client.from('partners').update({
+        'ambulanceImageUrl': null,
+      }).eq('id', user.id);
 
       ambulanceImageUrl.value = null;
 
@@ -1172,15 +1124,16 @@ class PartnerProfileController extends GetxController {
   Future<void> calculateEarnings() async {
     try {
       isCalculatingEarnings.value = true;
-      final user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user == null) return;
 
       // Get all completed orders for this partner
-      final ordersSnapshot = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('partnerId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
+      final orders = await client
+          .from('orders')
+          .select()
+          .eq('partnerId', user.id)
+          .eq('status', 'completed');
 
       double total = 0.0;
       int rides = 0;
@@ -1189,10 +1142,9 @@ class PartnerProfileController extends GetxController {
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
 
-      for (var doc in ordersSnapshot.docs) {
-        final data = doc.data();
+      for (var data in orders) {
         final fareAmount = data['fareAmount'] ?? data['totalFare'] ?? 0.0;
-        final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+        final timestamp = data['timestamp'] != null ? DateTime.parse(data['timestamp'].toString()) : null;
 
         if (fareAmount is num) {
           total += fareAmount.toDouble();

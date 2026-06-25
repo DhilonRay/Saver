@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
 import 'package:saver/compo/success_dialog.dart';
@@ -30,8 +29,7 @@ class ForgotPasswordController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Initialize Firebase if not already initialized
-    _initializeFirebase();
+
     // Start cooldown timer if cooldown is active
     _startCooldownTimer();
   }
@@ -44,17 +42,7 @@ class ForgotPasswordController extends GetxController {
     super.onClose();
   }
 
-  Future<void> _initializeFirebase() async {
-    try {
-      await Firebase.initializeApp();
-      // Configure Firebase Auth settings for better email deliverability
-      await FirebaseAuth.instance.setSettings(
-        appVerificationDisabledForTesting: false,
-      );
-    } catch (e) {
-      debugPrint('Firebase initialization error: $e');
-    }
-  }
+
 
   void _startCooldownTimer() {
     _cooldownTimer?.cancel();
@@ -158,10 +146,9 @@ class ForgotPasswordController extends GetxController {
     requestCount.value++; // Increment request count
 
     try {
-      await Firebase.initializeApp();
-      final auth = FirebaseAuth.instance;
+      final client = Supabase.instance.client;
 
-      await auth.sendPasswordResetEmail(email: email);
+      await client.auth.resetPasswordForEmail(email);
 
       // Activate cooldown after successful reset
       lastResetTime.value = DateTime.now().millisecondsSinceEpoch;
@@ -189,24 +176,16 @@ class ForgotPasswordController extends GetxController {
       debugPrint('Password reset failed: $e');
 
       String errorMessage = 'Failed to send reset email';
-      if (e is FirebaseAuthException) {
-        switch (e.code) {
-          case 'user-not-found':
-            errorMessage = 'No account found with this email address';
-            break;
-          case 'invalid-email':
-            errorMessage = 'Invalid email address';
-            break;
-          case 'too-many-requests':
+      if (e is AuthException) {
+        errorMessage = e.message;
+        // Optionally handle rate limits
+        if (e.message.toLowerCase().contains('too many requests') || e.message.toLowerCase().contains('rate limit')) {
             errorMessage = 'Too many requests. Please try again later';
-            // Activate longer cooldown for Firebase rate limit
+            // Activate longer cooldown
             lastResetTime.value = DateTime.now().millisecondsSinceEpoch;
             isCooldownActive.value = true;
             cooldownSeconds.value = 300; // 5 minutes cooldown
             _startCooldownTimer(); // Start the countdown timer
-            break;
-          default:
-            errorMessage = e.message ?? 'An error occurred';
         }
       }
 

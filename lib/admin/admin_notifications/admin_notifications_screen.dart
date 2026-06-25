@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import '../admin_theme.dart';
 
@@ -11,7 +11,7 @@ class AdminNotificationsScreen extends StatefulWidget {
 }
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
+  final SupabaseClient _fs = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _msgCtrl = TextEditingController();
@@ -29,18 +29,18 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       String message = _msgCtrl.text.trim();
       List<String> tokens = [];
       if (_selectedTarget == 'all_users' || _selectedTarget == 'all') {
-        var snap = await _fs.collection('users').get();
-        for (var doc in snap.docs) { var d = doc.data(); if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
+        var snap = await Supabase.instance.client.from('users').select();
+        for (var doc in snap) { var d = doc; if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
       }
       if (_selectedTarget == 'all_partners' || _selectedTarget == 'all') {
-        var snap = await _fs.collection('partners').get();
-        for (var doc in snap.docs) { var d = doc.data(); if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
+        var snap = await Supabase.instance.client.from('partners').select();
+        for (var doc in snap) { var d = doc; if (d['fcmToken'] != null) tokens.add(d['fcmToken']); }
       }
       if (tokens.isEmpty) {
         Get.snackbar('No Recipients', 'No FCM tokens found for the selected target', backgroundColor: AdminTheme.orange, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
         setState(() => _isSending = false); return;
       }
-      await _fs.collection('admin_notifications').add({'title': title, 'message': message, 'target': _selectedTarget, 'recipientCount': tokens.length, 'sentAt': FieldValue.serverTimestamp()});
+      await _fs.from('admin_notifications').insert({'title': title, 'message': message, 'target': _selectedTarget, 'recipientCount': tokens.length, 'sentAt': DateTime.now().toIso8601String()});
       Get.snackbar('Success', 'Notification sent to ${tokens.length} recipients', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
       _titleCtrl.clear(); _msgCtrl.clear();
     } catch (e) {
@@ -106,15 +106,15 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
             // History
             const AdminSectionHeader(title: 'Notification History', icon: Icons.history_rounded),
-            StreamBuilder<QuerySnapshot>(
-              stream: _fs.collection('admin_notifications').orderBy('sentAt', descending: true).limit(20).snapshots(),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _fs.from('admin_notifications').stream(primaryKey: ['id']).order('sentAt', ascending: false).limit(20),
               builder: (ctx, snap) {
                 if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: AdminTheme.body));
                 if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-                var notifs = snap.data!.docs;
+                var notifs = snap.data!;
                 if (notifs.isEmpty) return GlassCard(child: Center(child: Text('No notifications sent yet', style: AdminTheme.body.copyWith(color: AdminTheme.textMuted))));
                 return ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: notifs.length, itemBuilder: (ctx, i) {
-                  var d = notifs[i].data() as Map<String, dynamic>;
+                  var d = notifs[i];
                   return Padding(padding: const EdgeInsets.only(bottom: 10), child: GlassCard(
                     padding: const EdgeInsets.all(14),
                     child: Row(children: [
@@ -125,7 +125,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                         const SizedBox(height: 3), Text(d['message'] ?? 'No Message', maxLines: 2, overflow: TextOverflow.ellipsis, style: AdminTheme.bodySmall),
                         const SizedBox(height: 4),
                         Text('To: ${_getTargetLabel(d['target'])} (${d['recipientCount']} recipients)', style: AdminTheme.caption),
-                        if (d['sentAt'] != null) Text((d['sentAt'] as Timestamp).toDate().toString().split('.')[0], style: AdminTheme.caption),
+                        if (d['sentAt'] != null) Text(DateTime.parse(d['sentAt'].toString()).toString().split('.')[0], style: AdminTheme.caption),
                       ])),
                     ]),
                   ));

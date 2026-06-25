@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:saver/components/constants/alert.dart';
 import '../services/notification_service.dart';
 
 /// Controller for fare negotiation between user and driver.
 /// Manages the Accept / Reject / Counter Offer flow.
 class FareNegotiationController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   // ── Arguments passed when navigating ──
   late String requestId;
@@ -27,7 +27,7 @@ class FareNegotiationController extends GetxController {
   final RxBool isWaitingForDriver = false.obs;
   final RxString statusMessage = ''.obs;
 
-  StreamSubscription<DocumentSnapshot>? _negotiationListener;
+  StreamSubscription<List<Map<String, dynamic>>>? _negotiationListener;
   bool _hasNavigated = false; // Guard to prevent multiple navigations
 
   // Service charge
@@ -57,16 +57,16 @@ class FareNegotiationController extends GetxController {
     super.onClose();
   }
 
-  /// Listen to Firestore for real-time negotiation updates
+  /// Listen to Supabase for real-time negotiation updates
   void _startListeningToNegotiation() {
-    _negotiationListener = _firestore
-        .collection('orders')
-        .doc(requestId)
-        .snapshots()
-        .listen((snapshot) {
-      if (!snapshot.exists) return;
+    _negotiationListener = _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', requestId)
+        .listen((dataList) {
+      if (dataList.isEmpty) return;
 
-      final data = snapshot.data()!;
+      final data = dataList.first;
       final negotiation = data['negotiation'] as Map<String, dynamic>? ?? {};
 
       // Update local state from Firestore
@@ -124,29 +124,35 @@ class FareNegotiationController extends GetxController {
     try {
       isLoading.value = true;
 
-      await _firestore.collection('orders').doc(requestId).update({
-        'negotiation.userAccepted': true,
-        'negotiation.status': 'accepted', // Both are agreeing
-        'negotiation.updatedAt': Timestamp.now(),
-      });
+      await _supabase.from('orders').update({
+        'negotiation': {
+          'userAccepted': true,
+          'status': 'accepted', // Both are agreeing
+          'updatedAt': DateTime.now().toIso8601String(),
+        }
+      }).eq('id', requestId);
 
       isUserAccepted.value = true;
 
       // If driver already accepted (which they do by sending an offer), both accepted → confirmed
       if (isDriverAccepted.value && !_hasNavigated) {
         _hasNavigated = true;
-        await _firestore.collection('orders').doc(requestId).update({
+        await _supabase.from('orders').update({
           'status': 'accepted', // Order status becomes accepted for ride start
-          'negotiation.status': 'confirmed',
           'confirmedFare': currentFare.value,
-        });
+          'negotiation': {
+            'status': 'confirmed',
+            'userAccepted': true,
+            'driverAccepted': true,
+          }
+        }).eq('id', requestId);
         negotiationStatus.value = 'confirmed';
         statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে! ট্র্যাকিং পেজে যাচ্ছে...';
         
         // Fetch fresh order data to pass to tracking page
-        final orderDoc = await _firestore.collection('orders').doc(requestId).get();
-        if (orderDoc.exists) {
-          _navigateToTracking(orderDoc.data()!);
+        final orderDoc = await _supabase.from('orders').select().eq('id', requestId).maybeSingle();
+        if (orderDoc != null) {
+          _navigateToTracking(orderDoc);
         }
       } else if (!isDriverAccepted.value) {
         isWaitingForDriver.value = true;
@@ -169,20 +175,22 @@ class FareNegotiationController extends GetxController {
     try {
       isLoading.value = true;
 
-      final orderDoc = await _firestore.collection('orders').doc(requestId).get();
-      final partnerId = orderDoc.data()?['partnerId'];
+      final orderDoc = await _supabase.from('orders').select().eq('id', requestId).maybeSingle();
+      final partnerId = orderDoc?['partnerId'];
 
-      await _firestore.collection('orders').doc(requestId).update({
-        'negotiation.userAccepted': false,
-        'negotiation.status': 'rejected',
-        'negotiation.rejectedBy': 'user',
-        'negotiation.updatedAt': Timestamp.now(),
+      await _supabase.from('orders').update({
         'status': 'cancelled',
-      });
+        'negotiation': {
+          'userAccepted': false,
+          'status': 'rejected',
+          'rejectedBy': 'user',
+          'updatedAt': DateTime.now().toIso8601String(),
+        }
+      }).eq('id', requestId);
       
       if (partnerId != null) {
-        final partnerDoc = await _firestore.collection('partners').doc(partnerId).get();
-        final fcmToken = partnerDoc.data()?['fcmToken'];
+        final partnerDoc = await _supabase.from('partners').select().eq('id', partnerId).maybeSingle();
+        final fcmToken = partnerDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -225,14 +233,16 @@ class FareNegotiationController extends GetxController {
     try {
       isLoading.value = true;
 
-      await _firestore.collection('orders').doc(requestId).update({
-        'negotiation.counterFare': newFare,
-        'negotiation.counterBy': 'user',
-        'negotiation.status': 'counter',
-        'negotiation.userAccepted': true, // User agrees to their own proposal
-        'negotiation.driverAccepted': false, // Now waiting for driver to agree
-        'negotiation.updatedAt': Timestamp.now(),
-      });
+      await _supabase.from('orders').update({
+        'negotiation': {
+          'counterFare': newFare,
+          'counterBy': 'user',
+          'status': 'counter',
+          'userAccepted': true, // User agrees to their own proposal
+          'driverAccepted': false, // Now waiting for driver to agree
+          'updatedAt': DateTime.now().toIso8601String(),
+        }
+      }).eq('id', requestId);
 
       currentFare.value = newFare;
       counterFare.value = newFare;

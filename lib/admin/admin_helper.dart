@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 /// Helper class to create and manage admin users
 ///
@@ -16,8 +16,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// );
 /// ```
 class AdminHelper {
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final GoTrueClient _auth = Supabase.instance.client.auth;
+  static final SupabaseClient _supabase = Supabase.instance.client;
 
   /// Creates a new admin user in Firebase Auth and Firestore
   ///
@@ -30,20 +30,20 @@ class AdminHelper {
   }) async {
     try {
       // Create user in Firebase Authentication
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
+      AuthResponse userCredential =
+          await _auth.signUp(
         email: email,
         password: password,
       );
 
-      String uid = userCredential.user!.uid;
+      String uid = userCredential.user!.id;
 
       // Create admin document in Firestore
-      await _firestore.collection('admins').doc(uid).set({
+      await Supabase.instance.client.from('admins').upsert({'id': uid, 
         'email': email,
         'name': name,
         'role': 'admin',
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': DateTime.now().toIso8601String(),
       });
 
       print('✅ Admin user created successfully!');
@@ -61,9 +61,9 @@ class AdminHelper {
   /// Check if a user is an admin
   static Future<bool> isAdmin(String uid) async {
     try {
-      DocumentSnapshot doc =
-          await _firestore.collection('admins').doc(uid).get();
-      return doc.exists;
+      Map<String, dynamic>? doc =
+          await Supabase.instance.client.from('admins').select().eq('id', uid).maybeSingle();
+      return doc != null;
     } catch (e) {
       print('Error checking admin status: $e');
       return false;
@@ -73,7 +73,7 @@ class AdminHelper {
   /// Remove admin privileges from a user
   static Future<void> removeAdmin(String uid) async {
     try {
-      await _firestore.collection('admins').doc(uid).delete();
+      await Supabase.instance.client.from('admins').delete().eq('id', uid);
       print('✅ Admin privileges removed for UID: $uid');
     } catch (e) {
       print('❌ Error removing admin: $e');
@@ -84,11 +84,11 @@ class AdminHelper {
   /// Get all admins
   static Future<List<Map<String, dynamic>>> getAllAdmins() async {
     try {
-      QuerySnapshot snapshot = await _firestore.collection('admins').get();
-      return snapshot.docs
+      List<Map<String, dynamic>> snapshot = await Supabase.instance.client.from('admins').select();
+      return snapshot
           .map((doc) => {
-                'uid': doc.id,
-                ...doc.data() as Map<String, dynamic>,
+                'uid': doc['id'],
+                ...doc,
               })
           .toList();
     } catch (e) {
@@ -131,9 +131,9 @@ void createFirstAdmin() async {
 
 // Check if current user is admin
 void checkAdminStatus() async {
-  User? currentUser = FirebaseAuth.instance.currentUser;
+  User? currentUser = Supabase.instance.client.auth.currentUser;
   if (currentUser != null) {
-    bool isAdmin = await AdminHelper.isAdmin(currentUser.uid);
+    bool isAdmin = await AdminHelper.isAdmin(currentUser.id);
     if (isAdmin) {
       print('Current user is an admin');
       // Navigate to admin panel

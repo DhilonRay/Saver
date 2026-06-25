@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -27,7 +27,7 @@ class HomePartnerController extends GetxController {
 
   HomePartnerController({this.isNewSignup = false});
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final Completer<GoogleMapController> _controller = Completer();
 
   // Dynamic ambulance rate (can be changed by partner)
@@ -73,13 +73,13 @@ class HomePartnerController extends GetxController {
   final RxSet<String> interactedRequestIds =
       <String>{}.obs; // Track requests already responded to or accepted
   var activeOrderId = Rx<String?>(null); // Track currently active order ID
-  StreamSubscription<QuerySnapshot>? _activeOrdersSubscription;
-  StreamSubscription<QuerySnapshot>? _requestsSubscription;
-  StreamSubscription<DocumentSnapshot>? _nameSubscription;
-  StreamSubscription<DocumentSnapshot>? _imageSubscription;
-  StreamSubscription<DocumentSnapshot>? _rateSubscription;
-  StreamSubscription<DocumentSnapshot>? _fareResponseSubscription;
-  StreamSubscription<DocumentSnapshot>? _approvalSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _activeOrdersSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _requestsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _nameSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _imageSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _rateSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _fareResponseSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _approvalSubscription;
 
   // Fare input controller for driver fare entry
   final TextEditingController _fareInputController = TextEditingController();
@@ -138,22 +138,19 @@ class HomePartnerController extends GetxController {
 
   void _loadPartnerRates() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       _rateSubscription?.cancel();
-      _rateSubscription = FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .snapshots()
-          .listen((doc) {
-        if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
-          // Load specific rates to match Profile Page
+      _rateSubscription = _supabase
+          .from('partners')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((dataList) {
+        if (dataList.isNotEmpty) {
+          final data = dataList.first;
           indoorRate.value = data['indoorCityRate'] ?? defaultServiceRate;
           outdoorRate.value = data['outdoorCityRate'] ?? defaultServiceRate;
-
-          // Also set serviceRate for legacy support
           serviceRate.value = data['serviceRate'] ?? defaultServiceRate;
         } else {
           indoorRate.value = defaultServiceRate;
@@ -170,42 +167,40 @@ class HomePartnerController extends GetxController {
 
   void _loadPartnerName() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       _nameSubscription?.cancel();
-      _nameSubscription = FirebaseFirestore.instance
-          .collection('drivers')
-          .doc(user.uid)
-          .snapshots()
-          .listen((doc) {
-        if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
-          partnerName.value =
-              data['name'] ?? user.displayName ?? 'NeoSaver Partner';
+      _nameSubscription = _supabase
+          .from('drivers')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((dataList) {
+        if (dataList.isNotEmpty) {
+          final data = dataList.first;
+          partnerName.value = data['name'] ?? user.userMetadata?['name'] ?? 'NeoSaver Partner';
         } else {
-          partnerName.value = user.displayName ?? 'NeoSaver Partner';
+          partnerName.value = user.userMetadata?['name'] ?? 'NeoSaver Partner';
         }
       }, onError: (e) {
-        partnerName.value =
-            _auth.currentUser?.displayName ?? 'NeoSaver Partner';
+        partnerName.value = _supabase.auth.currentUser?.userMetadata?['name'] ?? 'NeoSaver Partner';
       });
     } catch (e) {}
   }
 
   void _loadProfileImage() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       _imageSubscription?.cancel();
-      _imageSubscription = FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .snapshots()
-          .listen((doc) {
-        if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
+      _imageSubscription = _supabase
+          .from('partners')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((dataList) {
+        if (dataList.isNotEmpty) {
+          final data = dataList.first;
           profileImageUrl.value = data['profileImageUrl'];
         }
       }, onError: (e) {});
@@ -288,90 +283,39 @@ class HomePartnerController extends GetxController {
   Future<void> uploadProfileImage(File imageFile) async {
     try {
       isUploadingImage.value = true;
-      uploadProgress.value = 0.0; // Reset progress
+      uploadProgress.value = 0.5;
 
-      // Check network connectivity first
       final isConnected = await _isConnected();
       if (!isConnected) {
         Alert.info('Please check your internet connection and try again.');
         return;
       }
 
-      final user = _auth.currentUser;
-      if (user == null) {
-        throw 'User not authenticated';
-      }
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw 'User not authenticated';
 
-      // Create a unique filename
-      final fileName =
-          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images/${user.uid}/$fileName');
+      final fileName = 'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${user.id}/$fileName';
 
-      // Upload the file with progress monitoring
-      final uploadTask = storageRef.putFile(imageFile);
+      await _supabase.storage.from('profile_images').upload(path, imageFile);
+      uploadProgress.value = 1.0;
+      
+      final downloadUrl = _supabase.storage.from('profile_images').getPublicUrl(path);
 
-      // Monitor upload progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        uploadProgress.value = progress;
-      });
+      await _supabase.from('partners').update({'profileImageUrl': downloadUrl}).eq('id', user.id);
 
-      final snapshot = await uploadTask
-          .whenComplete(() => debugPrint('✅ Upload task completed'));
-
-      // Check if upload was successful
-      if (snapshot.state == TaskState.success) {
-        uploadProgress.value = 1.0; // Complete progress
-
-        // Get the download URL
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint(
-            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
-
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update({
-          'profileImageUrl': downloadUrl,
-        });
-
-        // Update local state
-        profileImageUrl.value = downloadUrl;
-
-        if (Get.context != null) {
-          Alert.info('Your profile image has been updated successfully!');
-        }
-      } else {
-        throw 'Upload failed with state: ${snapshot.state}';
-      }
+      profileImageUrl.value = downloadUrl;
+      if (Get.context != null) Alert.info('Your profile image has been updated successfully!');
     } catch (e) {
-      // Provide more specific error messages
       String errorMessage = 'Failed to upload profile image. Please try again.';
-      if (e.toString().contains('network') ||
-          e.toString().contains('unavailable')) {
-        errorMessage =
-            'Network error. Please check your connection and try again.';
-        // Offer retry option for network errors
-        if (Get.context != null) {
-          Alert.info('Network error occurred. Please try again.');
-        }
-        return; // Don't show the default error snackbar
-      } else if (e.toString().contains('permission') ||
-          e.toString().contains('denied')) {
-        errorMessage =
-            'Permission denied. Please grant storage permissions and try again.';
-      } else if (e.toString().contains('cancelled')) {
-        errorMessage = 'Upload was cancelled.';
-        return; // Don't show error snackbar for cancelled uploads
+      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+        if (Get.context != null) Alert.info('Network error occurred. Please try again.');
+        return;
       }
-
       Alert.info(errorMessage);
     } finally {
       isUploadingImage.value = false;
-      uploadProgress.value = 0.0; // Reset progress
+      uploadProgress.value = 0.0;
     }
   }
 
@@ -514,30 +458,18 @@ class HomePartnerController extends GetxController {
 
   Future<void> removeProfileImage() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
-        'profileImageUrl': FieldValue.delete(),
-      });
-
-      // Update local state
+      await _supabase.from('partners').update({'profileImageUrl': null}).eq('id', user.id);
       profileImageUrl.value = null;
 
-      debugPrint('🗑️ Profile image removed successfully');
       if (Get.context != null) {
         Alert.info('Your profile image has been removed successfully!');
       }
     } catch (e) {
-      debugPrint('❌ Error removing profile image: $e');
       if (Get.context != null) {
-        Alert.info(
-          'Failed to remove profile image. Please try again.',
-        );
+        Alert.info('Failed to remove profile image. Please try again.');
       }
     }
   }
@@ -585,35 +517,27 @@ class HomePartnerController extends GetxController {
 
   Future<bool> updatePartnerRates(int newIndoorRate, int newOutdoorRate) async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) {
         Alert.info('You must be logged in to update rates');
         return false;
       }
 
-      // Validate rates
       if (newIndoorRate < 500 || newOutdoorRate < 500) {
         Alert.info('Service rates must be at least ৳500');
         return false;
       }
 
-      // Update Firestore with BOTH fields to sync with Profile Page
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
+      await _supabase.from('partners').update({
         'indoorCityRate': newIndoorRate,
         'outdoorCityRate': newOutdoorRate,
-        'serviceRate':
-            newIndoorRate, // Keeping base service rate synced with indoor
-        'ratesLastUpdated': Timestamp.now(),
-      });
+        'serviceRate': newIndoorRate,
+        'ratesLastUpdated': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
 
-      // Update local reactive variables
       indoorRate.value = newIndoorRate;
       outdoorRate.value = newOutdoorRate;
       serviceRate.value = newIndoorRate;
-
       return true;
     } catch (e) {
       Alert.info('Failed to update rates: $e');
@@ -832,14 +756,15 @@ class HomePartnerController extends GetxController {
         request['id'] = reqId; // Normalize to 'id'
         Future.delayed(const Duration(milliseconds: 800), () async {
           try {
-            // Re-verify status from Firestore to ensure it's still pending
-            final doc = await FirebaseFirestore.instance
-                .collection('orders')
-                .doc(reqId)
-                .get();
+            // Re-verify status from Supabase to ensure it's still pending
+            final doc = await Supabase.instance.client
+                .from('orders')
+                .select()
+                .eq('id', reqId)
+                .maybeSingle();
 
-            if (doc.exists) {
-              final status = doc.data()?['status']?.toString().toLowerCase();
+            if (doc != null) {
+              final status = doc['status']?.toString().toLowerCase();
               if (status == 'pending') {
                 _showRequestBottomSheet(request);
               } else {
@@ -874,17 +799,17 @@ class HomePartnerController extends GetxController {
 
   void _listenToApprovalStatus() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       _approvalSubscription?.cancel();
-      _approvalSubscription = FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .snapshots()
-          .listen((doc) {
-        if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
+      _approvalSubscription = _supabase
+          .from('partners')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((dataList) {
+        if (dataList.isNotEmpty) {
+          final data = dataList.first;
           isApproved.value = data['isApproved'] ?? false;
           debugPrint('🛡️ Approval Status: ${isApproved.value}');
         }
@@ -1113,15 +1038,13 @@ class HomePartnerController extends GetxController {
   Future<void> _loadHandledRequestIds() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user != null) {
-        // Load declined IDs (legacy)
-        final declinedKey = 'declined_requests_${user.uid}';
+        final declinedKey = 'declined_requests_${user.id}';
         final declinedIds = prefs.getStringList(declinedKey) ?? [];
         declinedRequestIds.addAll(declinedIds);
 
-        // Load interacted IDs (new)
-        final interactedKey = 'interacted_requests_${user.uid}';
+        final interactedKey = 'interacted_requests_${user.id}';
         final interactedIds = prefs.getStringList(interactedKey) ?? [];
         interactedRequestIds.addAll(interactedIds);
       }
@@ -1134,12 +1057,12 @@ class HomePartnerController extends GetxController {
   Future<void> _saveHandledRequestIds() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user != null) {
-        final declinedKey = 'declined_requests_${user.uid}';
+        final declinedKey = 'declined_requests_${user.id}';
         await prefs.setStringList(declinedKey, declinedRequestIds.toList());
 
-        final interactedKey = 'interacted_requests_${user.uid}';
+        final interactedKey = 'interacted_requests_${user.id}';
         await prefs.setStringList(interactedKey, interactedRequestIds.toList());
       }
     } catch (e) {
@@ -1220,30 +1143,23 @@ class HomePartnerController extends GetxController {
 
   Future<void> _updatePartnerLocation() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user != null && currentPosition.value != null) {
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update({
+        await _supabase.from('partners').update({
           'latitude': currentPosition.value!.latitude,
           'longitude': currentPosition.value!.longitude,
-          'lastUpdated': Timestamp.now(),
-          'isOnline': isOnline.value, // Use the observable value
-        });
+          'lastUpdated': DateTime.now().toIso8601String(),
+          'isOnline': isOnline.value,
+        }).eq('id', user.id);
 
-        // Also update active order tracking if exists
         if (activeOrderId.value != null && isOnline.value) {
-          await FirebaseFirestore.instance
-              .collection('orders')
-              .doc(activeOrderId.value)
-              .update({
+          await _supabase.from('orders').update({
             'partnerLiveLocation': {
               'latitude': currentPosition.value!.latitude,
               'longitude': currentPosition.value!.longitude,
-              'timestamp': Timestamp.now(),
+              'timestamp': DateTime.now().toIso8601String(),
             },
-          });
+          }).eq('id', activeOrderId.value!);
           debugPrint(
               '🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
         }
@@ -1253,46 +1169,42 @@ class HomePartnerController extends GetxController {
 
   void _listenForRequests() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) {
         return;
       }
 
-      _requestsSubscription = FirebaseFirestore.instance
-          .collection('orders')
-          .where('type', isEqualTo: 'ambulance')
-          .where('status', whereIn: ['pending', 'counter'])
-          .where('partnerId', isEqualTo: user.uid)
-          .snapshots()
-          .listen((snapshot) {
+      _requestsSubscription = _supabase
+          .from('orders')
+          .stream(primaryKey: ['id'])
+          .eq('partnerId', user.id)
+          .listen((dataList) {
+            final activeDataList = dataList.where((data) =>
+                data['type'] == 'ambulance' &&
+                (data['status'] == 'pending' || data['status'] == 'counter')).toList();
+
             // Log each document and handle state recovery
-            for (var doc in snapshot.docs) {
-              final data = doc.data();
+            for (var data in activeDataList) {
+              final docId = data['id'];
               debugPrint(
-                  '📄 Document ${doc.id}: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
+                  '📄 Document $docId: status=${data['status']}, type=${data['type']}, partnerId=${data['partnerId']}');
 
               // If user sent a counter offer, we MUST show it again even if driver previously interacted
               final negotiation =
                   data['negotiation'] as Map<String, dynamic>? ?? {};
               if (negotiation['status'] == 'counter' &&
                   negotiation['counterBy'] == 'user') {
-                if (interactedRequestIds.contains(doc.id)) {
-                  interactedRequestIds.remove(doc.id);
+                if (interactedRequestIds.contains(docId)) {
+                  interactedRequestIds.remove(docId);
                   _saveHandledRequestIds();
                   debugPrint(
-                      '♻️ Order ${doc.id} removed from interacted set due to user counter-offer');
+                      '♻️ Order $docId removed from interacted set due to user counter-offer');
                 }
               }
             }
 
             // Filter out declined and interacted requests
-            final allRequests = snapshot.docs
-                .map((doc) {
-                  return {
-                    'id': doc.id,
-                    ...doc.data(),
-                  };
-                })
+            final allRequests = activeDataList
                 .where((request) =>
                     !declinedRequestIds.contains(request['id']) &&
                     !interactedRequestIds.contains(request['id']))
@@ -1329,23 +1241,24 @@ class HomePartnerController extends GetxController {
 
   void _listenForActiveOrders() {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       _activeOrdersSubscription?.cancel();
-      _activeOrdersSubscription = FirebaseFirestore.instance
-          .collection('orders')
-          .where('acceptedBy', isEqualTo: user.uid)
-          .where('status',
-              whereIn: ['accepted', 'in_transit', 'pickup', 'to_destination'])
-          .snapshots()
-          .listen((snapshot) {
-            if (snapshot.docs.isNotEmpty) {
+      _activeOrdersSubscription = _supabase
+          .from('orders')
+          .stream(primaryKey: ['id'])
+          .eq('acceptedBy', user.id)
+          .listen((dataList) {
+            final activeDataList = dataList.where((data) =>
+                ['accepted', 'in_transit', 'pickup', 'to_destination'].contains(data['status'])).toList();
+
+            if (activeDataList.isNotEmpty) {
               // Get the most recent active order
-              final activeOrder = snapshot.docs.first;
-              activeOrderId.value = activeOrder.id;
+              final activeOrder = activeDataList.first;
+              activeOrderId.value = activeOrder['id'];
               debugPrint(
-                  '🏠 HomePartner: Detected active order: ${activeOrder.id}');
+                  '🏠 HomePartner: Detected active order: ${activeOrder['id']}');
             } else {
               activeOrderId.value = null;
             }
@@ -1949,14 +1862,13 @@ class HomePartnerController extends GetxController {
     debugPrint(
         'HomePartner: Starting active negotiation listener for $requestId');
 
-    _activeNegotiationSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(requestId)
-        .snapshots()
-        .listen((doc) {
-      if (doc.exists) {
-        final data = doc.data();
-        if (data == null) return;
+    _activeNegotiationSubscription = _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', requestId)
+        .listen((dataList) {
+      if (dataList.isNotEmpty) {
+        final data = dataList.first;
 
         final status = data['status']?.toString().toLowerCase();
         final negotiationStatus =
@@ -1969,7 +1881,7 @@ class HomePartnerController extends GetxController {
             status == 'confirmed' ||
             negotiationStatus == 'confirmed' ||
             negotiationStatus == 'accepted') {
-          _handleRideConfirmed(requestId!, data);
+          _handleRideConfirmed(requestId, data);
         }
       }
     }, onError: (e) {
@@ -2058,36 +1970,33 @@ class HomePartnerController extends GetxController {
 
   Future<void> acceptRequest(String requestId) async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) {
         Get.back();
         return;
       }
 
-      // Add to handled list and save to preferences to prevent reappearing as a "new" request
       interactedRequestIds.add(requestId);
       await _saveHandledRequestIds();
 
-      // Get the request data before updating status (since it will be filtered out)
       final request =
           pendingRequests.firstWhere((req) => req['id'] == requestId);
 
-      // Use the already stored totalAmount from user's original booking
-      // Don't recalculate - use what was already agreed upon
       final storedTotalAmount = request['totalAmount'] as double?;
 
       final updateData = {
         'status': 'accepted',
-        'acceptedBy': user.uid,
-        'acceptedAt': Timestamp.now(),
-        // Update negotiation map to show mutual agreement
-        'negotiation.status': 'confirmed',
-        'negotiation.driverAccepted': true,
-        'negotiation.userAccepted': true,
-        'negotiation.updatedAt': Timestamp.now(),
+        'acceptedBy': user.id,
+        'acceptedAt': DateTime.now().toIso8601String(),
+        'negotiation': {
+          ...(request['negotiation'] as Map<String, dynamic>? ?? {}),
+          'status': 'confirmed',
+          'driverAccepted': true,
+          'userAccepted': true,
+          'updatedAt': DateTime.now().toIso8601String(),
+        }
       };
 
-      // Add partner's current location if available
       if (currentPosition.value != null) {
         updateData['partnerLocation'] = {
           'latitude': currentPosition.value!.latitude,
@@ -2095,18 +2004,15 @@ class HomePartnerController extends GetxController {
         };
       }
 
-      // Use the stored fare amount if available, otherwise keep existing fareAmount
       if (storedTotalAmount != null) {
         updateData['fareAmount'] = storedTotalAmount.toInt();
         debugPrint(
             '✅ Using stored total amount: ৳${storedTotalAmount.toInt()}');
       } else {
-        // Fallback: calculate fare only if no stored amount exists
         double? fareAmount;
         final rates = await _fetchPartnerRates();
         final storedDistance = request['distance'] as double?;
 
-        // Calculate distance if not stored
         double? calculatedDistance;
         if (storedDistance != null) {
           calculatedDistance = storedDistance;
@@ -2122,7 +2028,6 @@ class HomePartnerController extends GetxController {
           );
         }
 
-        // Calculate final fare if distance is available
         if (calculatedDistance != null && calculatedDistance > 0) {
           final fareDetails = FareCalculationService.estimateFare(
             distanceKm: calculatedDistance,
@@ -2137,32 +2042,21 @@ class HomePartnerController extends GetxController {
         debugPrint('✅ Calculated fallback fare amount: ৳$fareAmount');
       }
 
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .update(updateData);
+      await _supabase.from('orders').update(updateData).eq('id', requestId);
 
       showRequestBottomSheet.value = false;
       debugPrint('✅ Request accepted: $requestId');
 
-      // Fetch the updated request data from Firestore
-      final updatedDoc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .get();
+      final updatedDoc = await _supabase.from('orders').select().eq('id', requestId).single();
 
-      final updatedRequest = {'id': requestId, ...updatedDoc.data()!};
+      final updatedRequest = {'id': requestId, ...updatedDoc};
       debugPrint('✅ Updated request status: ${updatedRequest['status']}');
 
-      // Send notification to user
       final userId = request['userId'];
       if (userId != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
+        final userDoc = await _supabase.from('users').select().eq('id', userId).maybeSingle();
 
-        final fcmToken = userDoc.data()?['fcmToken'];
+        final fcmToken = userDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -2171,17 +2065,15 @@ class HomePartnerController extends GetxController {
             data: {
               'type': 'order_accepted',
               'orderId': requestId,
-              'userId': userId // Add userId for background notification storage
+              'userId': userId
             },
           );
         }
       }
 
-      // Navigate to accept maps page with updated request data
       debugPrint(
           'HomePartner: Passing serviceRate to AcceptMaps: ${serviceRate.value}');
 
-      // Navigate to accept maps page with request data
       Get.to(() => AcceptMapsPage(), arguments: {
         'request': updatedRequest,
         'serviceRate': serviceRate.value
@@ -2193,13 +2085,9 @@ class HomePartnerController extends GetxController {
 
   Future<void> declineRequest(String requestId) async {
     try {
-      // First, get the request data to find userId
-      final doc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .get();
+      final doc = await _supabase.from('orders').select().eq('id', requestId).maybeSingle();
 
-      if (!doc.exists) {
+      if (doc == null) {
         debugPrint(
             '⚠️ Request $requestId already removed or processed (doc not found), returning quietly');
         if (Get.isBottomSheetOpen == true) {
@@ -2208,31 +2096,22 @@ class HomePartnerController extends GetxController {
         return;
       }
 
-      final requestData = doc.data()!;
+      final requestData = doc;
       final userId = requestData['userId'];
 
-      // Add to declined list and save to preferences
       declinedRequestIds.add(requestId);
       await _saveHandledRequestIds();
 
-      // Update status to declined
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .update({
+      await _supabase.from('orders').update({
         'status': 'declined',
-        'declinedAt': Timestamp.now(),
-        'declinedBy': _auth.currentUser?.uid,
-      });
+        'declinedAt': DateTime.now().toIso8601String(),
+        'declinedBy': _supabase.auth.currentUser?.id,
+      }).eq('id', requestId);
 
-      // Send notification to user if userId exists
       if (userId != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
+        final userDoc = await _supabase.from('users').select().eq('id', userId).maybeSingle();
 
-        final fcmToken = userDoc.data()?['fcmToken'];
+        final fcmToken = userDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -2241,7 +2120,7 @@ class HomePartnerController extends GetxController {
             data: {
               'type': 'order_cancelled',
               'orderId': requestId,
-              'userId': userId // Add userId for background notification storage
+              'userId': userId
             },
           );
         }
@@ -2263,40 +2142,33 @@ class HomePartnerController extends GetxController {
   Future<void> submitFareToUser(
       String requestId, double fareAmount, Map<String, dynamic> request) async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      // Update Firestore order with proposed fare in the negotiation map
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .update({
-        'status': 'pending', // Keep pending until both agree
-        'negotiation.status': 'counter',
-        'negotiation.counterFare': fareAmount,
-        'negotiation.counterBy': 'driver',
-        'negotiation.userAccepted': false,
-        'negotiation.driverAccepted':
-            true, // Driver agrees to their own proposal
-        'negotiation.updatedAt': FieldValue.serverTimestamp(),
+      await _supabase.from('orders').update({
+        'status': 'pending',
+        'negotiation': {
+          ...(request['negotiation'] as Map<String, dynamic>? ?? {}),
+          'status': 'counter',
+          'counterFare': fareAmount,
+          'counterBy': 'driver',
+          'userAccepted': false,
+          'driverAccepted': true,
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
         'driverName': partnerName.value,
-      });
+      }).eq('id', requestId);
 
-      // Add to interacted list so it doesn't show in the pending list until user counters
       interactedRequestIds.add(requestId);
       await _saveHandledRequestIds();
 
       debugPrint('✅ Fare proposed: ৳$fareAmount for order $requestId');
 
-      // Send FCM notification to user
       final userId = request['userId'];
       if (userId != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
+        final userDoc = await _supabase.from('users').select().eq('id', userId).maybeSingle();
 
-        final fcmToken = userDoc.data()?['fcmToken'];
+        final fcmToken = userDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -2308,8 +2180,7 @@ class HomePartnerController extends GetxController {
               'orderId': requestId,
               'driverFare': fareAmount.toString(),
               'driverName': partnerName.value,
-              'userId':
-                  userId, // Add userId for background notification storage
+              'userId': userId,
             },
           );
           debugPrint('✅ FCM notification sent to user $userId');
@@ -2318,10 +2189,8 @@ class HomePartnerController extends GetxController {
 
       showRequestBottomSheet.value = false;
 
-      // Start listening for fare response from user
       _listenForFareResponse(requestId);
 
-      // Delay alert to ensure overlay is available after bottom sheet closes
       Future.delayed(const Duration(milliseconds: 500), () {
         Alert.info(
             '✅ ভাড়া পাঠানো হয়েছে: ৳${fareAmount.toStringAsFixed(0)} ভাড়া ইউজারের কাছে পাঠানো হয়েছে। ইউজারের সম্মতির জন্য অপেক্ষা করুন।');
@@ -2335,50 +2204,44 @@ class HomePartnerController extends GetxController {
   /// Listen for user's response to the proposed fare
   void _listenForFareResponse(String orderId) {
     _fareResponseSubscription?.cancel();
-    _fareResponseSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
-        .listen((doc) {
-      if (!doc.exists) return;
-      final data = doc.data();
-      final status = data?['status']?.toString().toLowerCase();
+    _fareResponseSubscription = _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
+        .listen((dataList) {
+      if (dataList.isEmpty) return;
+      final data = dataList.first;
+      final status = data['status']?.toString().toLowerCase();
       final negStatus =
-          data?['negotiation']?['status']?.toString().toLowerCase();
+          data['negotiation']?['status']?.toString().toLowerCase();
 
-      // Broad triggers to catch ride start regardless of update order
       if (status == 'confirmed' ||
           status == 'accepted' ||
           negStatus == 'confirmed' ||
           negStatus == 'accepted') {
         debugPrint('✅ Negotiation confirmed/accepted for order $orderId');
-        _handleRideConfirmed(orderId, data!);
-      } else if (data?['negotiation']?['status'] == 'counter' &&
-          data?['negotiation']?['counterBy'] == 'user') {
-        // User sent a counter offer! Show the bottom sheet again for the driver to respond
+        _handleRideConfirmed(orderId, data);
+      } else if (data['negotiation']?['status'] == 'counter' &&
+          data['negotiation']?['counterBy'] == 'user') {
         final counterFare =
-            (data?['negotiation']?['counterFare'] as num?)?.toDouble() ?? 0.0;
+            (data['negotiation']?['counterFare'] as num?)?.toDouble() ?? 0.0;
         debugPrint('💰 User sent a counter offer: ৳$counterFare');
 
-        // Mark as NOT shown so the main listener (or this one) can trigger the UI
         shownRequestIds.remove(orderId);
 
-        // Remove from interacted list list so it reappears for responding
         if (interactedRequestIds.contains(orderId)) {
           interactedRequestIds.remove(orderId);
           _saveHandledRequestIds();
         }
 
-        // Update the input field with the user's offer to make it easy for the driver to accept or counter back
         _fareInputController.text = counterFare.toStringAsFixed(0);
 
-        // Show the bottom sheet if not already showing
         if (!showRequestBottomSheet.value) {
-          final requestData = {'id': orderId, ...data!};
+          final requestData = {'id': orderId, ...data};
           _showRequestBottomSheet(requestData);
         }
       } else if (status == 'cancelled' ||
-          data?['negotiation']?['status'] == 'rejected') {
+          data['negotiation']?['status'] == 'rejected') {
         _fareResponseSubscription?.cancel();
         debugPrint('❌ Negotiation rejected for order $orderId');
 
@@ -2393,18 +2256,14 @@ class HomePartnerController extends GetxController {
   /// Fetch request from Firestore and show bottom sheet
   Future<void> _fetchAndShowRequest(String orderId) async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .get();
+      final doc = await _supabase.from('orders').select().eq('id', orderId).maybeSingle();
 
-      if (doc.exists) {
+      if (doc != null) {
         final request = {
-          'id': doc.id,
-          ...doc.data()!,
+          'id': doc['id'] ?? orderId,
+          ...doc,
         };
 
-        // Mark as shown and show bottom sheet
         shownRequestIds.add(orderId);
         showRequestBottomSheet.value = true;
         _showRequestBottomSheet(request);
@@ -2421,53 +2280,42 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  /// Debug method to check orders in database
   Future<void> _debugCheckOrders() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) {
         debugPrint('❌ No user for debug check');
         return;
       }
 
-      debugPrint('🔍 DEBUG: Checking orders for partner: ${user.uid}');
+      debugPrint('🔍 DEBUG: Checking orders for partner: ${user.id}');
 
-      // Check all orders in the collection
-      final allOrders =
-          await FirebaseFirestore.instance.collection('orders').get();
+      final allOrders = await _supabase.from('orders').select();
 
-      debugPrint('📊 Total orders in database: ${allOrders.docs.length}');
+      debugPrint('📊 Total orders in database: ${allOrders.length}');
 
-      // Check orders with this partner ID
-      final partnerOrders = allOrders.docs.where((doc) {
-        final data = doc.data();
-        return data['partnerId'] == user.uid;
+      final partnerOrders = allOrders.where((data) {
+        return data['partnerId'] == user.id;
       }).toList();
 
       debugPrint('🎯 Orders for this partner: ${partnerOrders.length}');
 
-      // Check pending ambulance orders for this partner
-      final pendingAmbulance = partnerOrders.where((doc) {
-        final data = doc.data();
+      final pendingAmbulance = partnerOrders.where((data) {
         return data['type'] == 'ambulance' && data['status'] == 'pending';
       }).toList();
 
       debugPrint(
           '🚑 Pending ambulance orders for this partner: ${pendingAmbulance.length}');
 
-      // Log details of pending orders
-      for (var doc in pendingAmbulance) {
-        final data = doc.data();
+      for (var data in pendingAmbulance) {
         debugPrint(
-            '📋 Pending Order ${doc.id}: patient=${data['patientName']}, phone=${data['phone']}, urgency=${data['urgency']}');
+            '📋 Pending Order ${data['id']}: patient=${data['patientName']}, phone=${data['phone']}, urgency=${data['urgency']}');
       }
 
-      // Check if there are any orders for other partner IDs
-      final otherPartnerOrders = allOrders.docs.where((doc) {
-        final data = doc.data();
+      final otherPartnerOrders = allOrders.where((data) {
         final partnerId = data['partnerId'];
         return partnerId != null &&
-            partnerId != user.uid &&
+            partnerId != user.id &&
             data['status'] == 'pending';
       }).toList();
 
@@ -2476,12 +2324,11 @@ class HomePartnerController extends GetxController {
 
       if (pendingAmbulance.isNotEmpty) {
         debugPrint('✅ Found pending orders! Bottom sheet should show.');
-        // Force show the first one if not already showing
         if (!showRequestBottomSheet.value && pendingAmbulance.isNotEmpty) {
           final firstOrder = pendingAmbulance.first;
           final request = {
-            'id': firstOrder.id,
-            ...firstOrder.data(),
+            'id': firstOrder['id'],
+            ...firstOrder,
           };
           debugPrint('🔔 Force showing bottom sheet for debug');
           _showRequestBottomSheet(request);
@@ -2533,18 +2380,14 @@ class HomePartnerController extends GetxController {
 
   Future<void> signOut() async {
     try {
-      // Update online status to false
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update({
+        await _supabase.from('partners').update({
           'isOnline': false,
-        });
+        }).eq('id', user.id);
       }
 
-      await _auth.signOut();
+      await _supabase.auth.signOut();
       if (Get.context != null) {
         Get.offAll(() => LoginPage());
       }
@@ -2553,25 +2396,20 @@ class HomePartnerController extends GetxController {
     }
   }
 
-  /// Toggle online/offline status
   Future<void> toggleOnlineStatus() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) {
-        Alert.info(
-          'অনুগ্রহ করে লগইন করুন',
-        );
+        Alert.info('অনুগ্রহ করে লগইন করুন');
         return;
       }
 
-      // Show confirmation dialog when going offline
       if (isOnline.value) {
         final confirmed = await Get.dialog<bool>(
           AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded,
-                    color: Colors.orange.shade600),
+                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade600),
                 SizedBox(width: 8),
                 Text('অফলাইনে যেতে চান?'),
               ],
@@ -2583,10 +2421,7 @@ class HomePartnerController extends GetxController {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'আপনি অফলাইনে গেলে:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                Text('আপনি অফলাইনে গেলে:', style: TextStyle(fontWeight: FontWeight.w600)),
                 SizedBox(height: 8),
                 Text('• রোগীরা আপনার অ্যাম্বুলেন্স দেখতে পারবেন না'),
                 Text('• নতুন রাইড রিকোয়েস্ট পাবেন না'),
@@ -2607,7 +2442,6 @@ class HomePartnerController extends GetxController {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(Get.context!).pop(false),
-                    // ignore: sort_child_properties_last
                     child: Text('Cancel'),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.redAccent,
@@ -2636,51 +2470,37 @@ class HomePartnerController extends GetxController {
           ),
         );
 
-        if (confirmed != true) return; // User cancelled
+        if (confirmed != true) return;
       }
 
-      // Toggle the local status first for immediate UI update
       isOnline.value = !isOnline.value;
 
-      // Update in Firestore
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
+      await _supabase.from('partners').update({
         'isOnline': isOnline.value,
-        'lastStatusUpdate': Timestamp.now(),
-      });
+        'lastStatusUpdate': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
 
-      debugPrint(
-          '✅ Partner status updated to: ${isOnline.value ? "Online" : "Offline"}');
+      debugPrint('✅ Partner status updated to: ${isOnline.value ? "Online" : "Offline"}');
     } catch (e) {
-      // Revert the local status if Firestore update failed
       isOnline.value = !isOnline.value;
-
       debugPrint('❌ Error updating online status: $e');
     }
   }
 
-  /// Load initial online status from Firestore
   Future<void> _loadInitialOnlineStatus() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      // Force status to online initially on login/startup
       isOnline.value = true;
 
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
+      await _supabase.from('partners').update({
         'isOnline': true,
-        'lastStatusUpdate': Timestamp.now(),
-      });
+        'lastStatusUpdate': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
       debugPrint('✅ Initial online status loaded as ONLINE: true');
     } catch (e) {
       debugPrint('❌ Error setting initial online status: $e');
-      // Fallback
       isOnline.value = true;
     }
   }

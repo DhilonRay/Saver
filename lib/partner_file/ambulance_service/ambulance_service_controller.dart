@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -9,12 +9,9 @@ import 'dart:convert';
 import '../../user_id/userid.dart';
 
 class AmbulanceServiceController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
   // Reactive variables
   var isLoading = false.obs;
-  var ambulancePartners = <QueryDocumentSnapshot>[].obs;
+  var ambulancePartners = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -25,8 +22,8 @@ class AmbulanceServiceController extends GetxController {
   Future<void> fetchAmbulancePartners() async {
     try {
       isLoading.value = true;
-      final snapshot = await _firestore.collection('partners').get();
-      ambulancePartners.value = snapshot.docs;
+      final data = await Supabase.instance.client.from('partners').select();
+      ambulancePartners.value = List<Map<String, dynamic>>.from(data);
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -50,7 +47,7 @@ class AmbulanceServiceController extends GetxController {
   }
 
   Future<void> startAirAmbulanceChat(String partnerId, String companyName) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
       Get.snackbar(
         'Authentication Required',
@@ -66,7 +63,7 @@ class AmbulanceServiceController extends GetxController {
   }
 
   Future<void> showBookingDialog(String partnerId, String companyName) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
     String selectedUrgency = 'normal'; // normal, urgent, emergency
@@ -137,20 +134,20 @@ class AmbulanceServiceController extends GetxController {
     required String urgency,
     String? notes,
   }) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
     try {
       // Check if user already has a pending ambulance request to this specific partner
-      final existingRequests = await _firestore
-          .collection('orders')
-          .where('userId', isEqualTo: userId)
-          .where('partnerId', isEqualTo: partnerId)
-          .where('type', isEqualTo: 'ambulance')
-          .where('status', isEqualTo: 'pending')
-          .get();
+      final existingRequests = await Supabase.instance.client
+          .from('orders')
+          .select()
+          .eq('userId', userId)
+          .eq('partnerId', partnerId)
+          .eq('type', 'ambulance')
+          .eq('status', 'pending');
 
-      if (existingRequests.docs.isNotEmpty) {
+      if (existingRequests.isNotEmpty) {
         Get.snackbar(
           'Request Already Pending',
           'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
@@ -179,18 +176,16 @@ class AmbulanceServiceController extends GetxController {
         print('Could not get user location: $e');
       }
 
-      // Get user data from Firestore
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final userData = userDoc.data() ?? {};
+      // Get user data from Supabase
+      final userData = await Supabase.instance.client.from('users').select().eq('id', userId).maybeSingle() ?? {};
 
       debugPrint('🔍 Ambulance Request - User ID: $userId');
-      debugPrint('📄 User document exists: ${userDoc.exists}');
       debugPrint('👤 User data: $userData');
 
-      // Get current user info from Firebase Auth as fallback
-      final currentUser = _auth.currentUser;
-      final userName = userData['name'] ?? currentUser?.displayName ?? 'Patient';
-      final userPhone = userData['phone'] ?? currentUser?.phoneNumber ?? 'Contact required';
+      // Get current user info from Auth as fallback
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      final userName = userData['name'] ?? currentUser?.userMetadata?['name'] ?? 'Patient';
+      final userPhone = userData['phone'] ?? currentUser?.phone ?? 'Contact required';
       final userAddress = userData['address'] ?? 'Please update your address in profile';
       final userEmail = userData['email'] ?? currentUser?.email ?? '';
 
@@ -217,7 +212,7 @@ class AmbulanceServiceController extends GetxController {
         'userId': userId,
         'partnerId': partnerId,
         'status': 'pending',
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
@@ -239,7 +234,15 @@ class AmbulanceServiceController extends GetxController {
         orderData['pickupLng'] = userPosition.longitude;
       }
 
-      final orderRef = await _firestore.collection('orders').add(orderData);
+      final orderDataInsert = Map<String, dynamic>.from(orderData);
+      
+      final response = await Supabase.instance.client
+          .from('orders')
+          .insert(orderDataInsert)
+          .select()
+          .single();
+          
+      final orderId = response['id'];
 
       Get.snackbar(
         'Order Placed',
@@ -250,8 +253,8 @@ class AmbulanceServiceController extends GetxController {
       );
 
       // Trigger notification to nearby drivers
-      orderData['orderId'] = orderRef.id;
-      await notifyNearbyDrivers(orderRef.id, orderData);
+      orderData['orderId'] = orderId;
+      await notifyNearbyDrivers(orderId, orderData);
 
     } catch (e) {
       Get.snackbar(

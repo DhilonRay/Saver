@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../admin_theme.dart';
 
 class AdminAnalyticsScreen extends StatefulWidget {
@@ -10,7 +10,7 @@ class AdminAnalyticsScreen extends StatefulWidget {
 }
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   // Analytics Data
   int totalOrders = 0;
@@ -46,9 +46,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       DateTime monthStart = DateTime(now.year, now.month, 1);
 
       // Get all orders
-      QuerySnapshot allOrdersSnapshot =
-          await _firestore.collection('orders').get();
-      totalOrders = allOrdersSnapshot.size;
+      List<Map<String, dynamic>> allOrdersSnapshot =
+          await Supabase.instance.client.from('orders').select();
+      totalOrders = allOrdersSnapshot.length;
 
       // Calculate revenues
       double allRevenue = 0.0;
@@ -59,14 +59,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       int weekCount = 0;
       int monthCount = 0;
 
-      for (var doc in allOrdersSnapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+      for (var doc in allOrdersSnapshot) {
+        var data = doc;
         if (data['status'] == 'completed') {
           double amount = (data['totalAmount'] ?? 0).toDouble();
           allRevenue += amount;
 
           if (data['createdAt'] != null) {
-            DateTime orderDate = (data['createdAt'] as Timestamp).toDate();
+            DateTime orderDate = DateTime.parse(data['createdAt'].toString());
 
             if (orderDate.isAfter(todayStart)) {
               todayRev += amount;
@@ -93,21 +93,21 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       monthOrders = monthCount;
 
       // Get users stats
-      QuerySnapshot usersSnapshot = await _firestore.collection('users').get();
-      totalUsers = usersSnapshot.size;
-      activeUsers = usersSnapshot.docs
+      List<Map<String, dynamic>> usersSnapshot = await Supabase.instance.client.from('users').select();
+      totalUsers = usersSnapshot.length;
+      activeUsers = usersSnapshot
           .where(
-              (doc) => (doc.data() as Map<String, dynamic>)['isActive'] ?? true)
+              (doc) => (doc)['isActive'] ?? true)
           .length;
 
       // Get partners stats
-      QuerySnapshot partnersSnapshot =
-          await _firestore.collection('partners').get();
-      totalPartners = partnersSnapshot.size;
-      activePartners = partnersSnapshot.docs
+      List<Map<String, dynamic>> partnersSnapshot =
+          await Supabase.instance.client.from('partners').select();
+      totalPartners = partnersSnapshot.length;
+      activePartners = partnersSnapshot
           .where((doc) =>
-              ((doc.data() as Map<String, dynamic>)['isActive'] ?? true) &&
-              ((doc.data() as Map<String, dynamic>)['isApproved'] ?? false))
+              ((doc)['isActive'] ?? true) &&
+              ((doc)['isApproved'] ?? false))
           .length;
 
       if (mounted) {
@@ -247,16 +247,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
                       // Top Partners
                       const AdminSectionHeader(title: 'Top Performing Partners', icon: Icons.emoji_events_rounded, color: AdminTheme.amber),
-                      StreamBuilder<QuerySnapshot>(
-                        stream: _firestore
-                            .collection('partners')
-                            .orderBy('completedOrders', descending: true)
-                            .limit(5)
-                            .snapshots(),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _supabase
+                            .from('partners')
+                            .stream(primaryKey: ['id'])
+                            .order('completedOrders', ascending: false)
+                            .limit(5),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                          var partners = snapshot.data!.docs;
+                          var partners = snapshot.data!;
                           if (partners.isEmpty) {
                             return GlassCard(
                               child: const Center(child: Text('No partner data available', style: AdminTheme.body)),
@@ -267,7 +267,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                             accentColor: AdminTheme.amber,
                             child: Column(
                               children: partners.asMap().entries.map((entry) {
-                                var partnerData = entry.value.data() as Map<String, dynamic>;
+                                var partnerData = entry.value;
                                 List<String> emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
                                 return Padding(
                                   padding: EdgeInsets.only(
@@ -305,16 +305,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
                       // Recent Orders
                       const AdminSectionHeader(title: 'Recent Orders', icon: Icons.receipt_long_rounded, color: AdminTheme.blue),
-                      StreamBuilder<QuerySnapshot>(
-                        stream: _firestore
-                            .collection('orders')
-                            .orderBy('createdAt', descending: true)
-                            .limit(10)
-                            .snapshots(),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _supabase
+                            .from('orders')
+                            .stream(primaryKey: ['id'])
+                            .order('createdAt', ascending: false)
+                            .limit(10),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                          var orders = snapshot.data!.docs;
+                          var orders = snapshot.data!;
                           if (orders.isEmpty) {
                             return GlassCard(child: const Center(child: Text('No orders yet', style: AdminTheme.body)));
                           }
@@ -324,8 +324,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: orders.length,
                             itemBuilder: (context, index) {
-                              var orderData = orders[index].data() as Map<String, dynamic>;
-                              var orderId = orders[index].id;
+                              var orderData = orders[index];
+                              var orderId = orders[index]['id'] as String? ?? '';
                               final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
 
                               return Padding(

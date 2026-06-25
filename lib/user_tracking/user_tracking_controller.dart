@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../home_user/home_user.dart';
 
@@ -48,7 +48,7 @@ class UserTrackingController extends GetxController {
 
   // Live tracking variables
   var isLiveTracking = false.obs;
-  StreamSubscription<DocumentSnapshot>? _orderSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _orderSubscription;
 
   // Timing and performance optimization
   Timer? _etaUpdateTimer;
@@ -377,14 +377,14 @@ class UserTrackingController extends GetxController {
     _orderSubscription?.cancel();
 
     // Listen for order updates
-    _orderSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
-        .listen((doc) {
-      if (doc.exists) {
-        final data = doc.data();
-        final status = data?['orderStatus'] ?? data?['status'];
+    _orderSubscription = Supabase.instance.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
+        .listen((dataList) {
+      if (dataList.isNotEmpty) {
+        final data = dataList.first;
+        final status = data['orderStatus'] ?? data['status'];
 
         debugPrint('UserTracking: Order status update: $status');
 
@@ -557,68 +557,65 @@ class UserTrackingController extends GetxController {
       debugPrint('UserTracking: Fetching details for partner: $partnerId');
 
       // 1. Try to fetch Name from "drivers" collection (matching HomePartnerController logic)
-      final driverDoc = await FirebaseFirestore.instance
-          .collection('drivers')
-          .doc(partnerId)
-          .get();
+      final driverData = await Supabase.instance.client
+          .from('drivers')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (driverDoc.exists) {
-        final data = driverDoc.data();
-        if (data != null) {
-          if (data['name'] != null) {
-            partnerName.value = data['name'];
-            debugPrint(
-                'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
-          }
-          if (data['phone'] != null || data['contact'] != null) {
-            partnerPhone.value = data['phone'] ?? data['contact'];
-          }
+      if (driverData != null) {
+        final data = driverData;
+        if (data['name'] != null) {
+          partnerName.value = data['name'];
+          debugPrint(
+              'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
+        }
+        if (data['phone'] != null || data['contact'] != null) {
+          partnerPhone.value = data['phone'] ?? data['contact'];
         }
       }
 
       // 2. Try to fetch Profile Image from "partners" collection
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      final partnerData = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (partnerDoc.exists) {
-        final data = partnerDoc.data();
-        if (data != null) {
-          if (data['profileImageUrl'] != null) {
-            partnerImage.value = data['profileImageUrl'];
-            debugPrint('UserTracking: Fetched image from partners collection');
-          }
-          // If name wasn't in drivers, try partners
-          if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
-            partnerName.value = data['name'];
-          }
-          if (partnerPhone.value == null && (data['phone'] != null || data['contact'] != null)) {
-            partnerPhone.value = data['phone'] ?? data['contact'];
-          }
+      if (partnerData != null) {
+        final data = partnerData;
+        if (data['profileImageUrl'] != null) {
+          partnerImage.value = data['profileImageUrl'];
+          debugPrint('UserTracking: Fetched image from partners collection');
+        }
+        // If name wasn't in drivers, try partners
+        if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
+          partnerName.value = data['name'];
+        }
+        if (partnerPhone.value == null && (data['phone'] != null || data['contact'] != null)) {
+          partnerPhone.value = data['phone'] ?? data['contact'];
         }
       }
 
       // 3. Fallback to "users" collection if still missing
       if (partnerName.value == 'NeoSaver Partner' ||
           partnerImage.value == null || partnerPhone.value == null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(partnerId)
-            .get();
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', partnerId)
+            .maybeSingle();
 
-        if (userDoc.exists) {
-          final data = userDoc.data();
-          if (data != null) {
-            if (partnerName.value == 'NeoSaver Partner') {
-              partnerName.value = data['name'] ?? 'NeoSaver Partner';
-            }
-            if (partnerImage.value == null) {
-              partnerImage.value = data['profileImageUrl'];
-            }
-            if (partnerPhone.value == null && data['phone'] != null) {
-              partnerPhone.value = data['phone'];
-            }
+        if (userData != null) {
+          final data = userData;
+          if (partnerName.value == 'NeoSaver Partner') {
+            partnerName.value = data['name'] ?? 'NeoSaver Partner';
+          }
+          if (partnerImage.value == null) {
+            partnerImage.value = data['profileImageUrl'];
+          }
+          if (partnerPhone.value == null && data['phone'] != null) {
+            partnerPhone.value = data['phone'];
           }
         }
       }

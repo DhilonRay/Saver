@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/billing_breakdown_widget.dart';
@@ -14,7 +14,7 @@ class AdminOrdersScreen extends StatefulWidget {
 }
 
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   String _selectedFilter = 'all';
 
   @override
@@ -49,20 +49,20 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
             // Orders List
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _selectedFilter == 'all'
-                    ? _firestore.collection('orders').snapshots()
-                    : _firestore.collection('orders').where('status', isEqualTo: _selectedFilter).snapshots(),
+                    ? Supabase.instance.client.from('orders').stream(primaryKey: ['id'])
+                    : Supabase.instance.client.from('orders').stream(primaryKey: ['id']).eq('status', _selectedFilter),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
                   // Sort locally to avoid composite index requirement
-                  var orders = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+                  var orders = List<Map<String, dynamic>>.from(snapshot.data!);
                   orders.sort((a, b) {
                     try {
-                      final aT = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                      final bT = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                      final aT = (a)['createdAt'] as String?;
+                      final bT = (b)['createdAt'] as String?;
                       if (aT == null) return 1;
                       if (bT == null) return -1;
                       return bT.compareTo(aT);
@@ -89,8 +89,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: orders.length,
                     itemBuilder: (context, index) {
-                      var orderData = orders[index].data() as Map<String, dynamic>;
-                      var orderId = orders[index].id;
+                      var orderData = orders[index];
+                      var orderId = orders[index]['id'] as String? ?? '';
                       final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
 
                       return Padding(
@@ -116,7 +116,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 orderData['createdAt'] != null
-                                    ? DateFormat('dd MMM yyyy, hh:mm a').format((orderData['createdAt'] as Timestamp).toDate())
+                                    ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(orderData['createdAt'].toString()))
                                     : 'N/A',
                                 style: AdminTheme.bodySmall,
                               ),
@@ -184,7 +184,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   AdminDetailRow(
                     label: 'Order Date',
                     value: orderData['createdAt'] != null
-                        ? DateFormat('dd MMM yyyy, hh:mm a').format((orderData['createdAt'] as Timestamp).toDate())
+                        ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(orderData['createdAt'].toString()))
                         : 'N/A',
                   ),
                   const SizedBox(height: 16),
@@ -275,9 +275,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore.collection('orders').doc(orderId).update({
+      await Supabase.instance.client.from('orders').update({
         'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': DateTime.now().toIso8601String(),
       });
       Get.back();
       Get.snackbar('Success', 'Order status updated to $newStatus',

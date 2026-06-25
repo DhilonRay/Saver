@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+// TODO: Re-enable push notifications using OneSignal or keep FCM
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:saver/components/constants/alert.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/home_partner/home_partner.dart';
@@ -42,23 +41,15 @@ class LoginController extends GetxController {
   Future<void> initializeFirebaseAndGetToken() async {
     try {
       isLoadingToken.value = true;
-      await Firebase.initializeApp();
-
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        fcmToken.value = token;
-      }
+      
+      // TODO: Re-implement push notifications. 
+      // For now, we will leave the fcmToken empty since we removed Firebase.
+      fcmToken.value = 'dummy_token_for_now';
+      
       isLoadingToken.value = false;
-
-      debugPrint('FCM Token: $token');
-
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        debugPrint('FCM Token Refreshed: $newToken');
-        fcmToken.value = newToken;
-      });
     } catch (e) {
       isLoadingToken.value = false;
-      debugPrint('Error getting FCM token: $e');
+      debugPrint('Error getting token: $e');
     }
   }
 
@@ -73,15 +64,16 @@ class LoginController extends GetxController {
     isLoading.value = true;
     try {
       // Check if this matches a manually created GLM Account ID
-      DocumentSnapshot glmDoc = await FirebaseFirestore.instance
-          .collection('glm_accounts')
-          .doc(identifier)
-          .get();
+      final client = Supabase.instance.client;
+      final glmResponse = await client
+          .from('glm_accounts')
+          .select()
+          .eq('id', identifier)
+          .maybeSingle();
 
-      if (glmDoc.exists) {
-        var glmData = glmDoc.data() as Map<String, dynamic>;
+      if (glmResponse != null) {
         final String inputPass = passwordController.text.trim();
-        final String dbPass = glmData['password'] ?? '';
+        final String dbPass = glmResponse['password'] ?? '';
         if (inputPass == dbPass) {
           isLoading.value = false;
           final prefs = await SharedPreferences.getInstance();
@@ -114,11 +106,11 @@ class LoginController extends GetxController {
 
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
-      // Check if user is admin first
-      DocumentSnapshot adminDoc =
-          await FirebaseFirestore.instance.collection('admins').doc(uid).get();
+      final client = Supabase.instance.client;
 
-      if (adminDoc.exists) {
+      // Priority 1: Check admin
+      final adminDoc = await client.from('admins').select().eq('id', uid).maybeSingle();
+      if (adminDoc != null) {
         debugPrint('🔑 Admin user detected - navigating to admin dashboard');
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isAdminLoggedIn', true);
@@ -126,31 +118,24 @@ class LoginController extends GetxController {
         return;
       }
 
-      // Priority 1: Check Partners Collection
-      DocumentSnapshot partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(uid)
-          .get();
-
-      if (partnerDoc.exists) {
+      // Priority 2: Check partners
+      final partnerDoc = await client.from('partners').select().eq('id', uid).maybeSingle();
+      if (partnerDoc != null) {
         debugPrint('Navigating to HomePartnerPage (found in partners)');
         _navigateToPartner();
         return;
       }
 
-      // Priority 2: Check Drivers Collection
-      DocumentSnapshot driverDoc =
-          await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
-
-      if (driverDoc.exists) {
+      // Priority 3: Check drivers
+      final driverDoc = await client.from('drivers').select().eq('id', uid).maybeSingle();
+      if (driverDoc != null) {
         debugPrint('Navigating to HomePartnerPage (found in drivers)');
         _navigateToPartner();
         return;
       }
 
-      // Priority 3: Default to User Role
-      debugPrint(
-          'User/Driver doc not found in partner collections, defaulting to HomePage (User)');
+      // Priority 4: Default to User
+      debugPrint('User/Driver doc not found in partner collections, defaulting to HomePage (User)');
       _navigateToUser();
     } catch (e) {
       debugPrint('Error fetching user role: $e');
@@ -190,21 +175,24 @@ class LoginController extends GetxController {
     isLoading.value = true;
 
     try {
-      await Firebase.initializeApp();
+      final client = Supabase.instance.client;
 
       // ----------------------------------------------------
-      // FIXED ADMIN CREDENTIALS BYPASS
+      // ADMIN CREDENTIALS BYPASS
       // ----------------------------------------------------
       if (email == ApiKeysSecret.adminEmail && password == ApiKeysSecret.adminPassword) {
         try {
-          await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+          await client.auth.signInWithPassword(email: email, password: password);
         } catch (e) {
           try {
-            UserCredential uc = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
-            await FirebaseFirestore.instance.collection('admins').doc(uc.user!.uid).set({
-              'email': email,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
+            final authResponse = await client.auth.signUp(email: email, password: password);
+            if (authResponse.user != null) {
+              await client.from('admins').insert({
+                'id': authResponse.user!.id,
+                'email': email,
+                'createdAt': DateTime.now().toIso8601String(),
+              });
+            }
           } catch (_) {}
         }
         isLoading.value = false;
@@ -216,35 +204,29 @@ class LoginController extends GetxController {
       }
       // ----------------------------------------------------
 
-      final auth = FirebaseAuth.instance;
-
-      final userCredential = await auth.signInWithEmailAndPassword(
+      final authResponse = await client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (userCredential.user != null) {
-        // Store FCM token in user document
+      if (authResponse.user != null) {
+        // Store FCM token in user document (using upsert for merge-like behavior)
         if (fcmToken.value.isNotEmpty) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .update({
-            'fcmToken': fcmToken.value,
-            'lastLogin': Timestamp.now(),
-          }).catchError((error) {
-            // If update fails, try to set the token
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(userCredential.user!.uid)
-                .set({
+          try {
+            await client.from('users').upsert({
+              'id': authResponse.user!.id,
               'fcmToken': fcmToken.value,
-              'lastLogin': Timestamp.now(),
-            }, SetOptions(merge: true));
-          });
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          } catch (e) {
+            debugPrint('Failed to update fcmToken: $e');
+          }
         }
-        await _navigateBasedOnRole(userCredential.user!.uid);
+        await _navigateBasedOnRole(authResponse.user!.id);
       }
+    } on AuthException catch (e) {
+      debugPrint('Email login failed: ${e.message}');
+      Alert.error(e.message);
     } catch (e) {
       debugPrint('Email login failed: $e');
       Alert.error(e.toString());
@@ -265,23 +247,23 @@ class LoginController extends GetxController {
     isLoading.value = true;
 
     try {
-      await Firebase.initializeApp();
+      final client = Supabase.instance.client;
 
-      // Find user by phone number in Firestore
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phone', isEqualTo: phone)
-          .limit(1)
-          .get();
+      // Find user by phone number in Supabase
+      final querySnapshot = await client
+          .from('users')
+          .select()
+          .eq('phone', phone)
+          .limit(1);
 
       debugPrint('📱 Phone login: Searching for phone $phone');
-      debugPrint('📊 Found ${querySnapshot.docs.length} documents');
+      debugPrint('📊 Found ${querySnapshot.length} documents');
 
-      if (querySnapshot.docs.isEmpty) {
+      if (querySnapshot.isEmpty) {
         throw 'No account found with this phone number. Please sign up first.';
       }
 
-      final userData = querySnapshot.docs.first.data();
+      final userData = querySnapshot.first;
       final email = userData['email'] as String?;
       final userRole = userData['role'] as String?;
 
@@ -293,34 +275,29 @@ class LoginController extends GetxController {
       }
 
       // Sign in with email and password
-      final auth = FirebaseAuth.instance;
-      final userCredential = await auth.signInWithEmailAndPassword(
+      final authResponse = await client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (userCredential.user != null) {
+      if (authResponse.user != null) {
         // Store FCM token in user document
         if (fcmToken.value.isNotEmpty) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .update({
-            'fcmToken': fcmToken.value,
-            'lastLogin': Timestamp.now(),
-          }).catchError((error) {
-            // If update fails, try to set the token
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(userCredential.user!.uid)
-                .set({
+          try {
+            await client.from('users').upsert({
+              'id': authResponse.user!.id,
               'fcmToken': fcmToken.value,
-              'lastLogin': Timestamp.now(),
-            }, SetOptions(merge: true));
-          });
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          } catch (e) {
+            debugPrint('Failed to update fcmToken: $e');
+          }
         }
-        await _navigateBasedOnRole(userCredential.user!.uid);
+        await _navigateBasedOnRole(authResponse.user!.id);
       }
+    } on AuthException catch (e) {
+      debugPrint('Phone login failed: ${e.message}');
+      Alert.error(e.message);
     } catch (e) {
       debugPrint('Phone login failed: $e');
       Alert.error(e.toString());
@@ -345,16 +322,14 @@ class LoginController extends GetxController {
 
   Future<void> checkUserRole(String uid) async {
     try {
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final client = Supabase.instance.client;
+      final userDoc = await client.from('users').select().eq('id', uid).maybeSingle();
 
-      if (userDoc.exists) {
-        final userData = userDoc.data();
-        final role = userData?['role'] as String? ?? 'user';
-
+      if (userDoc != null) {
+        final role = userDoc['role'] as String? ?? 'user';
         Alert.info('Your role: $role\nUID: $uid');
       } else {
-        Alert.error('User document not found in Firestore');
+        Alert.error('User record not found in Supabase');
       }
     } catch (e) {
       Alert.error('Failed to check role: $e');

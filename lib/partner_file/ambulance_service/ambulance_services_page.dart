@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'ambulance_service_controller.dart';
@@ -73,14 +73,13 @@ class AmbulanceServicesPage extends StatelessWidget {
                   }
 
                   final partnerDoc = controller.ambulancePartners[index - 1];
-                  final partnerData = partnerDoc.data() as Map<String, dynamic>;
+                  final partnerData = partnerDoc;
 
                   final companyName = partnerData['companyName'] ?? 'N/A';
                   final ambulanceType = partnerData['ambulanceType'] ?? 'N/A';
                   final coverageArea = partnerData['coverageArea'] ?? 'N/A';
                   final createdAt = partnerData['createdAt'] != null
-                      ? (partnerData['createdAt'] as Timestamp)
-                          .toDate()
+                      ? DateTime.parse(partnerData['createdAt'].toString())
                           .toString()
                       : 'N/A';
                   final licenseNumber = partnerData['licenseNumber'] ?? 'N/A';
@@ -147,7 +146,7 @@ class AmbulanceServicesPage extends StatelessWidget {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () => controller.startAirAmbulanceChat(
-                                  partnerDoc.id, companyName),
+                                  partnerDoc['id'], companyName),
                               icon: const Icon(Icons.send, size: 18),
                               label: const Text('Book Now'),
                               style: ElevatedButton.styleFrom(

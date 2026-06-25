@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserNotification {
@@ -31,7 +31,7 @@ class UserNotification {
       title: data['title'] ?? '',
       message: data['message'] ?? '',
       type: data['type'] ?? 'info',
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: data['timestamp'] != null ? DateTime.tryParse(data['timestamp'].toString()) ?? DateTime.now() : DateTime.now(),
       isRead: data['isRead'] ?? false,
       data: data['data'],
     );
@@ -42,7 +42,7 @@ class UserNotification {
       'title': title,
       'message': message,
       'type': type,
-      'timestamp': Timestamp.fromDate(timestamp),
+      'timestamp': timestamp.toIso8601String(),
       'isRead': isRead,
       'data': data,
     };
@@ -50,17 +50,16 @@ class UserNotification {
 }
 
 class UserNotificationController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   final RxList<UserNotification> notifications = <UserNotification>[].obs;
   final RxBool isLoading = true.obs;
   final RxString error = ''.obs;
   final RxInt unreadCount = 0.obs;
 
-  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationsSubscription;
   SharedPreferences? _prefs;
-  String get _currentUserId => _auth.currentUser?.uid ?? '';
+  String get _currentUserId => _supabase.auth.currentUser?.id ?? '';
   String get _localStorageKey => 'user_notifications_${_currentUserId}';
 
   @override
@@ -140,24 +139,22 @@ class UserNotificationController extends GetxController {
   }
 
   void _setupNotificationsStream() {
-    final user = _auth.currentUser;
+    final user = _supabase.auth.currentUser;
     if (user == null) {
       error.value = 'User not logged in';
       isLoading.value = false;
       return;
     }
 
-    _notificationsSubscription = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('notifications')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
+    _notificationsSubscription = _supabase
+        .from('user_notifications')
+        .stream(primaryKey: ['id'])
+        .eq('userId', user.id)
+        .order('timestamp', ascending: false)
         .listen(
-          (snapshot) {
-            final docs = snapshot.docs;
-            notifications.value = docs.map((doc) {
-              return UserNotification.fromMap(doc.id, doc.data());
+          (dataList) {
+            notifications.value = dataList.map((data) {
+              return UserNotification.fromMap(data['id'], data);
             }).toList();
 
             // Update unread count
@@ -178,15 +175,14 @@ class UserNotificationController extends GetxController {
 
   Future<void> markAsRead(String notificationId) async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .update({'isRead': true});
+      await _supabase
+          .from('user_notifications')
+          .update({'isRead': true})
+          .eq('id', notificationId)
+          .eq('userId', user.id);
 
       // Update local list
       final index = notifications.indexWhere((n) => n.id == notificationId);
@@ -210,24 +206,18 @@ class UserNotificationController extends GetxController {
 
   Future<void> markAllAsRead() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
-      final unreadNotifications = notifications.where((n) => !n.isRead);
+      final unreadNotifications = notifications.where((n) => !n.isRead).toList();
 
       for (final notification in unreadNotifications) {
-        batch.update(
-          _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-          {'isRead': true},
-        );
+        await _supabase
+            .from('user_notifications')
+            .update({'isRead': true})
+            .eq('id', notification.id)
+            .eq('userId', user.id);
       }
-
-      await batch.commit();
 
       // Update local list
       for (int i = 0; i < notifications.length; i++) {
@@ -252,15 +242,14 @@ class UserNotificationController extends GetxController {
 
   Future<void> deleteNotification(String notificationId) async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .delete();
+      await _supabase
+          .from('user_notifications')
+          .delete()
+          .eq('id', notificationId)
+          .eq('userId', user.id);
 
       // Remove from local list
       notifications.removeWhere((n) => n.id == notificationId);
@@ -273,21 +262,14 @@ class UserNotificationController extends GetxController {
 
   Future<void> clearAllNotifications() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
-      for (final notification in notifications) {
-        batch.delete(
-          _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-        );
-      }
-
-      await batch.commit();
+      // Cannot easily batch delete without knowing IDs, but we can delete all matching userId
+      await _supabase
+          .from('user_notifications')
+          .delete()
+          .eq('userId', user.id);
       notifications.clear();
       unreadCount.value = 0;
       _saveNotificationsToLocal();
@@ -299,7 +281,7 @@ class UserNotificationController extends GetxController {
   // Method to add a test notification (for development)
   Future<void> addTestNotification() async {
     try {
-      final user = _auth.currentUser;
+      final user = _supabase.auth.currentUser;
       if (user == null) return;
 
       // Create different types of test notifications
@@ -338,12 +320,12 @@ class UserNotificationController extends GetxController {
         },
       );
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(testNotification.id)
-          .set(testNotification.toMap());
+      final insertData = testNotification.toMap();
+      insertData['userId'] = user.id;
+
+      await _supabase
+          .from('user_notifications')
+          .insert(insertData);
 
       Get.snackbar(
         'সফল', 

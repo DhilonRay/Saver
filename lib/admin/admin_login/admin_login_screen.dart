@@ -2,8 +2,8 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:saver/components/alert.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../admin_dashboard/admin_dashboard.dart';
@@ -65,13 +65,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       // ----------------------------------------------------
       if (email == ApiKeysSecret.adminEmail && password == ApiKeysSecret.adminPassword) {
         try {
-          await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+          await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
         } catch (e) {
           try {
-            UserCredential uc = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
-            await FirebaseFirestore.instance.collection('admins').doc(uc.user!.uid).set({
+            AuthResponse uc = await Supabase.instance.client.auth.signUp(email: email, password: password);
+            await Supabase.instance.client.from('admins').upsert({
+              'id': uc.user!.id,
               'email': email,
-              'createdAt': FieldValue.serverTimestamp(),
+              'createdAt': DateTime.now().toIso8601String(),
             });
           } catch (_) {
             // If creation fails (e.g. email exists with diff password), we just bypass.
@@ -86,21 +87,22 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       // ----------------------------------------------------
 
       // Normal Sign in with Firebase Auth
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
+      AuthResponse userCredential =
+          await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       // Check if user is admin
-      DocumentSnapshot adminDoc = await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(userCredential.user!.uid)
-          .get();
+      Map<String, dynamic>? adminDoc = await Supabase.instance.client
+          .from('admins')
+          .select()
+          .eq('id', userCredential.user!.id)
+          .maybeSingle();
 
-      if (!adminDoc.exists) {
+      if (adminDoc == null) {
         // Not an admin, sign out
-        await FirebaseAuth.instance.signOut();
+        await Supabase.instance.client.auth.signOut();
         Alert.info('Access Denied');
         setState(() => _isLoading = false);
         return;
@@ -111,7 +113,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       await prefs.setBool('isAdminLoggedIn', true);
       debugPrint('💾 AdminLoginScreen (Normal): Set isAdminLoggedIn = true successfully');
       Get.offAll(() => const AdminDashboard());
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
         if (mounted) setState(() => _isLoading = false);
         _showCreateAccountDialog();
@@ -347,13 +349,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                 final email = resetEmailController.text.trim();
                                 try {
                                   // Verify if the email is actually registered in admins collection
-                                  final adminQuery = await FirebaseFirestore.instance
-                                      .collection('admins')
-                                      .where('email', isEqualTo: email)
-                                      .limit(1)
-                                      .get();
+                                  final adminQuery = await Supabase.instance.client
+                                      .from('admins')
+                                      .select()
+                                      .eq('email', email)
+                                      .limit(1);
                                       
-                                  if (adminQuery.docs.isEmpty && email != 'admin@saver.com') {
+                                  if (adminQuery.isEmpty && email != 'admin@saver.com') {
                                     Alert.info('This email is not registered as an admin');
                                     setStateDialog(() {
                                       isResetLoading = false;
@@ -361,10 +363,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                     return;
                                   }
                                   
-                                  await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                                  await Supabase.instance.client.auth.resetPasswordForEmail(email);
                                   Get.back(); // close recovery dialog
                                   Alert.info('Password reset link has been sent to your email.');
-                                } on FirebaseAuthException catch (e) {
+                                } on AuthException catch (e) {
                                   String errorMsg = 'Failed to send reset link';
                                   if (e.code == 'user-not-found') {
                                     errorMsg = 'No user found with this email';

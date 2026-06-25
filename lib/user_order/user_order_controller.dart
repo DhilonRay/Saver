@@ -1,13 +1,12 @@
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserOrderController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _client = Supabase.instance.client;
 
   // Reactive variables
   final RxList<Map<String, dynamic>> orders = <Map<String, dynamic>>[].obs;
@@ -23,9 +22,9 @@ class UserOrderController extends GetxController {
 
   void initializeUser() async {
     try {
-      final currentUser = _auth.currentUser;
+      final currentUser = _client.auth.currentUser;
       if (currentUser != null) {
-        userId.value = currentUser.uid;
+        userId.value = currentUser.id;
         fetchOrders();
       } else {
         final prefs = await SharedPreferences.getInstance();
@@ -45,14 +44,14 @@ class UserOrderController extends GetxController {
     }
   }
 
-  Stream<QuerySnapshot> getOrdersStream() {
-    if (userId.isEmpty) return Stream.empty();
+  Stream<List<Map<String, dynamic>>> getOrdersStream() {
+    if (userId.isEmpty) return const Stream.empty();
 
     // Show all orders for the user
-    return _firestore
-        .collection('orders')
-        .where('userId', isEqualTo: userId.value)
-        .snapshots();
+    return _client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('userId', userId.value);
   }
 
   void fetchOrders() async {
@@ -62,22 +61,13 @@ class UserOrderController extends GetxController {
       isLoading.value = true;
       error.value = '';
 
-      final snapshot = await _firestore
-          .collection('orders')
-          .where('userId', isEqualTo: userId.value)
-          .get();
+      final snapshot = await _client
+          .from('orders')
+          .select()
+          .eq('userId', userId.value)
+          .order('timestamp', ascending: false);
 
-      // Sort in memory since we can't use orderBy in query
-      final ordersList = snapshot.docs.map((doc) => doc.data()).toList();
-      ordersList.sort((a, b) {
-        final aTime =
-            (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime =
-            (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-        return bTime.compareTo(aTime); // Descending order
-      });
-
-      orders.value = ordersList;
+      orders.value = snapshot;
     } catch (e) {
       error.value = 'Failed to fetch trips: ${e.toString()}';
     } finally {
@@ -100,10 +90,13 @@ class UserOrderController extends GetxController {
     }
   }
 
-  String formatDate(Timestamp? timestamp) {
+  String formatDate(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
-    final date = timestamp.toDate().toLocal();
-    return DateFormat('MMM d, h:mm a').format(date);
+    if (timestamp is String) {
+      final date = DateTime.parse(timestamp).toLocal();
+      return DateFormat('MMM d, h:mm a').format(date);
+    }
+    return 'N/A';
   }
 
   String getShortPartnerId(String? partnerId) {

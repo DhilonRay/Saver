@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -39,7 +39,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
   HomeController({this.isNewSignup = false});
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoTrueClient _auth = Supabase.instance.client.auth;
   final Completer<GoogleMapController> _controller = Completer();
 
   // Custom marker icons
@@ -74,8 +74,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   var partnerLiveLocation = Rx<LatLng?>(null);
   var partnerLocationTrail = <LatLng>[].obs;
   var isTrackingPartner = false.obs;
-  StreamSubscription<DocumentSnapshot>? _orderSubscription;
-  StreamSubscription<QuerySnapshot>? _partnersSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _orderSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _partnersSubscription;
   var currentTrackingOrderId = Rx<String?>(null);
 
   // Currently online ambulance providers cached as simple maps so UI can show a list
@@ -182,13 +182,13 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       }
 
       // Set up real-time listener for ambulance providers
-      _partnersSubscription = FirebaseFirestore.instance
-          .collection('partners')
-          .where('isOnline', isEqualTo: true) // Only show online partners
-          .snapshots()
+      _partnersSubscription = Supabase.instance.client
+          .from('partners')
+          .stream(primaryKey: ['id'])
+          .eq('isOnline', true)
           .listen((partnersSnapshot) {
         debugPrint(
-            '🚑 Real-time update: Found ${partnersSnapshot.docs.length} online ambulance providers');
+            '🚑 Real-time update: Found ${partnersSnapshot.length} online ambulance providers');
 
         // Clear existing ambulance markers
         markers.removeWhere(
@@ -197,8 +197,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         // Build a simple list of online ambulances for UI (drawer quick-access)
         final List<Map<String, dynamic>> onlineList = [];
 
-        for (var doc in partnersSnapshot.docs) {
-          final data = doc.data();
+        for (var doc in partnersSnapshot) {
+          final data = doc;
           final latitude = data['latitude'] as double?;
           final longitude = data['longitude'] as double?;
           final companyName = data['companyName'] as String? ?? 'Ambulance Service';
@@ -207,13 +207,13 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           final address = data['address'] as String? ?? data['coverageArea'] as String?;
           final ambulanceType = data['ambulanceType'] as String?;
           final isOnline = data['isOnline'] as bool? ?? false;
-          final lastUpdated = data['lastUpdated'] as Timestamp?;
+          final lastUpdated = data['lastUpdated'] as String?;
           
           // Check if the provider is recently active (within last 5 minutes)
           // This prevents showing drivers who closed the app without going offline
           bool isRecentlyActive = true;
           if (lastUpdated != null) {
-            final difference = DateTime.now().difference(lastUpdated.toDate());
+            final difference = DateTime.now().difference(DateTime.parse(lastUpdated));
             if (difference.inMinutes > 5) {
               isRecentlyActive = false;
             }
@@ -223,7 +223,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           if (latitude != null && longitude != null && isOnline && isRecentlyActive) {
             // Create a custom ambulance data object to pass to details
             final ambulanceData = {
-              'id': doc.id,
+              'id': doc['id'],
               'name': driverName,
               'driverName': driverName,
               'companyName': companyName,
@@ -241,7 +241,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
             // Add a compact representation to the list visible in drawer
             onlineList.add({
-              'id': doc.id,
+              'id': doc['id'],
               'name': driverName,
               'driverName': driverName,
               'companyName': companyName,
@@ -259,7 +259,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
             markers.add(
               Marker(
-                markerId: MarkerId('ambulance_${doc.id}'),
+                markerId: MarkerId('ambulance_${doc['id']}'),
                 position: LatLng(latitude, longitude),
                 infoWindow: InfoWindow(
                   title: '$companyName (Online)',
@@ -433,15 +433,15 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (userDoc.exists) {
-          final userData = userDoc.data();
-          userName.value = userData?['name'] ?? user.displayName ?? 'NeoSaver';
+        final userDoc = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', user.id)
+            .maybeSingle();
+        if (userDoc != null) {
+          userName.value = userDoc['name'] ?? user.userMetadata?['name'] ?? 'NeoSaver';
         } else {
-          userName.value = user.displayName ?? 'NeoSaver';
+          userName.value = user.userMetadata?['name'] ?? 'NeoSaver';
         }
         debugPrint('✅ Loaded user name: ${userName.value}');
       } else {
@@ -449,7 +449,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('❌ Error loading user name: $e');
-      userName.value = _auth.currentUser?.displayName ?? 'NeoSaver';
+      userName.value = _auth.currentUser?.userMetadata?['name'] ?? 'NeoSaver';
     }
   }
 
@@ -457,13 +457,13 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (userDoc.exists) {
-          final userData = userDoc.data();
-          profileImageUrl.value = userData?['profileImageUrl'];
+        final userDoc = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', user.id)
+            .maybeSingle();
+        if (userDoc != null) {
+          profileImageUrl.value = userDoc['profileImageUrl'];
         }
         debugPrint('✅ Loaded profile image URL: ${profileImageUrl.value}');
       }
@@ -584,22 +584,22 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _checkNearbyAmbulances(LatLng position) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('partners')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final snapshot = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('isOnline', true);
 
       bool foundNearby = false;
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
+      for (var doc in snapshot) {
+        final data = doc;
         final lat = data['latitude'] as double?;
         final lng = data['longitude'] as double?;
         
         // Also check if recently active
-        final lastUpdated = data['lastUpdated'] as Timestamp?;
+        final lastUpdated = data['lastUpdated'] as String?;
         bool isRecentlyActive = true;
         if (lastUpdated != null) {
-          final difference = DateTime.now().difference(lastUpdated.toDate());
+          final difference = DateTime.now().difference(DateTime.parse(lastUpdated));
           if (difference.inMinutes > 5) {
             isRecentlyActive = false;
           }
@@ -1453,11 +1453,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
             // Ambulance list
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('partners')
-                    .where('isOnline', isEqualTo: true)
-                    .snapshots(),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client
+                    .from('partners')
+                    .stream(primaryKey: ['id'])
+                    .eq('isOnline', true),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -1476,7 +1476,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                     );
                   }
 
-                  final ambulances = snapshot.data?.docs ?? [];
+                  final ambulances = snapshot.data ?? [];
 
                   if (ambulances.isEmpty) {
                     return const Center(
@@ -1506,7 +1506,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                     itemCount: ambulances.length,
                     itemBuilder: (context, index) {
                       final ambulance = ambulances[index];
-                      final data = ambulance.data() as Map<String, dynamic>;
+                      final data = ambulance;
                       final name = data['companyName'] ?? 'Ambulance Provider';
                       final phone = data['contact'] ?? '+8801581822846';
                       final address =
@@ -1522,7 +1522,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                           data['ambulanceImageUrl'] as String?;
 
                       return FutureBuilder<Map<String, int>>(
-                        future: _fetchPartnerRates(ambulance.id),
+                        future: _fetchPartnerRates(ambulance['id'] as String? ?? ''),
                         builder: (context, rateSnapshot) {
                           // Rates no longer displayed in list - calculated during booking
                           // final rates = rateSnapshot.data ??
@@ -1537,8 +1537,8 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: InkWell(
-                              onTap: () => _showAmbulanceBookingDialog(
-                                ambulance.id,
+                                onTap: () => _showAmbulanceBookingDialog(
+                                  ambulance['id'] as String? ?? '',
                                 name,
                                 phone,
                                 address,
@@ -1703,7 +1703,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
                                       const SizedBox(height: 12),
                                       FutureBuilder<Map<String, int>>(
                                         future:
-                                            _fetchPartnerRates(ambulance.id),
+                                            _fetchPartnerRates(ambulance['id'] as String? ?? ''),
                                         builder: (context, rateSnapshot) {
                                           if (rateSnapshot.connectionState ==
                                               ConnectionState.waiting) {
@@ -1765,13 +1765,14 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       }
 
       // Fetch from Firestore
-      final doc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      final doc = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
+      if (doc != null) {
+        final data = doc;
         final rates = {
           'serviceRate': (data['serviceRate'] as int?) ?? 2500,
         };
@@ -1802,7 +1803,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   }
 
   void _bookSpecificAmbulance(Map<String, dynamic> ambulanceData) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = _auth.currentUser?.id;
     if (userId == null) {
       Alert.error('You need to be logged in to place an order.');
       return;
@@ -2760,16 +2761,16 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
       if (isGLM && glmId != null) {
         userId = glmId;
-        final glmDoc = await FirebaseFirestore.instance
-            .collection('glm_accounts')
-            .doc(glmId)
-            .get();
-        if (glmDoc.exists) {
-          final data = glmDoc.data() ?? {};
+        final glmDoc = await Supabase.instance.client
+            .from('glm_accounts')
+            .select()
+            .eq('id', glmId)
+            .maybeSingle();
+        if (glmDoc != null) {
           userData = {
-            'name': data['hospitalName'] ?? data['fullName'] ?? 'GLM Partner',
-            'phone': data['phone'] ?? 'N/A',
-            'email': data['email'] ?? 'N/A',
+            'name': glmDoc['hospitalName'] ?? glmDoc['fullName'] ?? 'GLM Partner',
+            'phone': glmDoc['phone'] ?? 'N/A',
+            'email': glmDoc['email'] ?? 'N/A',
           };
         } else {
           userData = {
@@ -2779,16 +2780,17 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           };
         }
       } else {
-        userId = _auth.currentUser?.uid;
+        userId = _auth.currentUser?.id;
         if (userId == null) {
           Alert.error('User not authenticated');
           return null;
         }
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
-        userData = userDoc.data() ?? {};
+        final userDoc = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', userId)
+            .maybeSingle();
+        userData = userDoc ?? {};
       }
     } catch (e) {
       debugPrint('Error retrieving user session: $e');
@@ -2799,15 +2801,15 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     try {
 
       // Check if user already has a pending ambulance request to this specific partner
-      final existingRequests = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('userId', isEqualTo: userId)
-          .where('partnerId', isEqualTo: partnerId)
-          .where('type', isEqualTo: 'ambulance')
-          .where('status', isEqualTo: 'pending')
-          .get();
+      final existingRequests = await Supabase.instance.client
+          .from('orders')
+          .select()
+          .eq('userId', userId)
+          .eq('partnerId', partnerId)
+          .eq('type', 'ambulance')
+          .eq('status', 'pending');
 
-      if (existingRequests.docs.isNotEmpty) {
+      if (existingRequests.isNotEmpty) {
         Alert.info(
           'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
         );
@@ -2863,14 +2865,14 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         }
       }
 
-      final docRef = await FirebaseFirestore.instance.collection('orders').add({
+      final List<dynamic> response = await Supabase.instance.client.from('orders').insert({
         'userId': userId,
         'partnerId': partnerId,
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes,
         'status': 'pending',
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
         'type': 'ambulance',
         'userLocation': {
           'latitude': currentPosition.value?.latitude,
@@ -2894,14 +2896,16 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           'status': 'user_requested',
           'driverAccepted': false,
           'userAccepted': false,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': DateTime.now().toIso8601String(),
         },
-      });
+      }).select();
+
+      final String createdOrderId = response.first['id'].toString();
 
       // Start listening for driver offers for this specific order
-      _listenToOrderNegotiation(docRef.id, partnerId);
+      _listenToOrderNegotiation(createdOrderId, partnerId);
 
-      debugPrint('✅ Order created successfully with ID: ${docRef.id}');
+      debugPrint('✅ Order created successfully with ID: $createdOrderId');
 
       // Show success dialog immediately after order creation
       SuccessDialog.show(
@@ -2911,7 +2915,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
       // Send notification to ambulance partner (don't fail the request if this fails)
       final requestData = {
-        'orderId': docRef.id,
+        'orderId': createdOrderId,
         'partnerId': partnerId,
         'companyName': companyName,
         'urgency': urgency,
@@ -2951,22 +2955,22 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           type: 'ambulance',
           data: {
             'type': 'ambulance_request',
-            'requestId': docRef.id,
+            'requestId': createdOrderId,
             'partnerId': partnerId,
             'status': 'sent',
           },
         );
 
         // Send FCM push notification
-        final currentUser = FirebaseAuth.instance.currentUser;
+        final currentUser = Supabase.instance.client.auth.currentUser;
         if (currentUser != null) {
           await NotificationService.sendUserNotification(
-            userId: currentUser.uid,
+            userId: currentUser.id,
             title: '🚑 অ্যাম্বুলেন্স অনুরোধ পাঠানো হয়েছে',
             message: 'আপনার অ্যাম্বুলেন্স অনুরোধ সফলভাবে পাঠানো হয়েছে।',
             data: {
               'type': 'ambulance_request',
-              'requestId': docRef.id,
+              'requestId': createdOrderId,
               'status': 'sent',
             },
           );
@@ -2978,9 +2982,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       }
 
       // Listen for status updates
-      listenForRequestUpdates(docRef.id);
+      listenForRequestUpdates(createdOrderId);
 
-      return docRef.id;
+      return createdOrderId;
     } catch (e) {
       debugPrint('❌ Failed to create ambulance request: $e');
       Alert.error(
@@ -2992,14 +2996,14 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
   void _listenToOrderNegotiation(String orderId, String partnerId) {
     debugPrint('📡 Listening for negotiation updates for order: $orderId');
-    FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
+    Supabase.instance.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
         .listen((snapshot) {
-      if (!snapshot.exists) return;
+      if (snapshot.isEmpty) return;
 
-      final data = snapshot.data()!;
+      final data = snapshot.first;
       final negotiation = data['negotiation'] as Map<String, dynamic>? ?? {};
       final status = negotiation['status'] as String? ?? '';
       final counterBy = negotiation['counterBy'] as String? ?? '';
@@ -3047,13 +3051,13 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     currentTrackingOrderId.value = orderId;
 
     // Listen for order updates
-    _orderSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
-        .listen((doc) {
-      if (doc.exists) {
-        final data = doc.data();
+    _orderSubscription = Supabase.instance.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
+        .listen((snapshot) {
+      if (snapshot.isNotEmpty) {
+        final Map<String, dynamic>? data = snapshot.first;
         final status = data?['orderStatus'] ?? data?['status'];
 
         // Handle status updates
@@ -3109,10 +3113,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           );
 
           // Send FCM push notification
-          final user = FirebaseAuth.instance.currentUser;
+          final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
             NotificationService.sendUserNotification(
-              userId: user.uid,
+              userId: user.id,
               title: '✅ অ্যাম্বুলেন্স নিশ্চিত হয়েছে',
               message:
                   'আপনার অ্যাম্বুলেন্স অ্যাসাইন হয়েছে এবং আপনার দিকে আসছে।',
@@ -3151,10 +3155,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
             );
 
             // Send FCM push notification
-            final user = FirebaseAuth.instance.currentUser;
+            final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
               NotificationService.sendUserNotification(
-                userId: user.uid,
+                userId: user.id,
                 title: '🚑 অ্যাম্বুলেন্স পৌঁছেছে',
                 message:
                     'আপনার অ্যাম্বুলেন্স পিকআপ লোকেশনে পৌঁছেছে। OTP: $pickupOTP',
@@ -3191,10 +3195,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           );
 
           // Send FCM push notification
-          final user = FirebaseAuth.instance.currentUser;
+          final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
             NotificationService.sendUserNotification(
-              userId: user.uid,
+              userId: user.id,
               title: '🏥 রোগী তুলে নেয়া হয়েছে',
               message:
                   'অ্যাম্বুলেন্স রোগী তুলে নিয়েছে এবং গন্তব্যের দিকে যাচ্ছে।',
@@ -3233,10 +3237,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
             );
 
             // Send FCM push notification
-            final user = FirebaseAuth.instance.currentUser;
+            final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
               NotificationService.sendUserNotification(
-                userId: user.uid,
+                userId: user.id,
                 title: '🎯 গন্তব্যের দিকে যাচ্ছে',
                 message:
                     'আপনার অ্যাম্বুলেন্স এখন গন্তব্যের দিকে যাচ্ছে। OTP: $destinationOTP',
@@ -3311,10 +3315,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           );
 
           // Send FCM push notification
-          final user = FirebaseAuth.instance.currentUser;
+          final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
             NotificationService.sendUserNotification(
-              userId: user.uid,
+              userId: user.id,
               title: '🎉 সেবা সম্পন্ন হয়েছে',
               message: 'আপনার অ্যাম্বুলেন্স সেবা সম্পন্ন হয়েছে।',
               data: {
@@ -3357,10 +3361,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           );
 
           // Send FCM push notification
-          final user = FirebaseAuth.instance.currentUser;
+          final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
             NotificationService.sendUserNotification(
-              userId: user.uid,
+              userId: user.id,
               title: '❌ অর্ডার বাতিল',
               message:
                   'দুঃখিত, আপনার অ্যাম্বুলেন্স রিকুয়েস্ট বাতিল করা হয়েছে।',
@@ -3713,35 +3717,36 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   /// Accept the driver's proposed fare
   Future<void> _acceptProposedFare(String orderId, double driverFare) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
       // Update Firestore order to accepted
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
+      await Supabase.instance.client
+          .from('orders')
           .update({
         'status': 'accepted',
-        'fareAcceptedAt': Timestamp.now(),
-        'fareAcceptedBy': user.uid,
+        'fareAcceptedAt': DateTime.now().toIso8601String(),
+        'fareAcceptedBy': user.id,
         'totalAmount': driverFare,
         'fareAmount': driverFare.toInt(),
-      });
+      }).eq('id', orderId);
 
       debugPrint('✅ User accepted fare ৳$driverFare for order $orderId');
 
       // Send FCM notification to driver
-      final orderDoc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .get();
-      final partnerId = orderDoc.data()?['partnerId'];
+      final orderDoc = await Supabase.instance.client
+          .from('orders')
+          .select()
+          .eq('id', orderId)
+          .maybeSingle();
+      final partnerId = orderDoc?['partnerId'];
       if (partnerId != null) {
-        final partnerDoc = await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(partnerId)
-            .get();
-        final fcmToken = partnerDoc.data()?['fcmToken'];
+        final partnerDoc = await Supabase.instance.client
+            .from('partners')
+            .select()
+            .eq('id', partnerId)
+            .maybeSingle();
+        final fcmToken = partnerDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -3776,33 +3781,34 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   /// Reject the driver's proposed fare
   Future<void> _rejectProposedFare(String orderId) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
       // Update Firestore order to fare_rejected
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
+      await Supabase.instance.client
+          .from('orders')
           .update({
         'status': 'fare_rejected',
-        'fareRejectedAt': Timestamp.now(),
-        'fareRejectedBy': user.uid,
-      });
+        'fareRejectedAt': DateTime.now().toIso8601String(),
+        'fareRejectedBy': user.id,
+      }).eq('id', orderId);
 
       debugPrint('❌ User rejected fare for order $orderId');
 
       // Send FCM notification to driver
-      final orderDoc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .get();
-      final partnerId = orderDoc.data()?['partnerId'];
+      final orderDoc = await Supabase.instance.client
+          .from('orders')
+          .select()
+          .eq('id', orderId)
+          .maybeSingle();
+      final partnerId = orderDoc?['partnerId'];
       if (partnerId != null) {
-        final partnerDoc = await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(partnerId)
-            .get();
-        final fcmToken = partnerDoc.data()?['fcmToken'];
+        final partnerDoc = await Supabase.instance.client
+            .from('partners')
+            .select()
+            .eq('id', partnerId)
+            .maybeSingle();
+        final fcmToken = partnerDoc?['fcmToken'];
         if (fcmToken != null) {
           await NotificationService.sendFCMNotification(
             token: fcmToken,
@@ -3894,13 +3900,14 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   void navigateToUserTracking(String orderId) async {
     try {
       // Fetch the complete order data from Firestore
-      final doc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .get();
+      final doc = await Supabase.instance.client
+          .from('orders')
+          .select()
+          .eq('id', orderId)
+          .maybeSingle();
 
-      if (doc.exists) {
-        final orderData = {'id': orderId, ...doc.data()!};
+      if (doc != null) {
+        final orderData = {'id': orderId, ...doc};
         Get.to(() => const UserTrackingPage(), arguments: orderData);
       } else {
         Get.dialog(
@@ -4435,25 +4442,26 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
       // Get current user info
       final currentUser = _auth.currentUser;
-      final userId = currentUser?.uid ?? '';
+      final userId = currentUser?.id ?? '';
 
       // Get user data from Firestore
-      DocumentSnapshot? userDoc;
+      Map<String, dynamic>? userDoc;
       String userName = 'User';
       String userPhone = '';
       String userAddress = '';
 
       if (userId.isNotEmpty) {
-        userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
+        userDoc = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', userId)
+            .maybeSingle();
 
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>?;
-          userName = userData?['name'] ?? currentUser?.displayName ?? 'User';
-          userPhone = userData?['phone'] ?? currentUser?.phoneNumber ?? '';
-          userAddress = userData?['address'] ?? '';
+        if (userDoc != null) {
+          final userData = userDoc;
+          userName = userData['name'] ?? currentUser?.userMetadata?['name'] ?? 'User';
+          userPhone = userData['phone'] ?? currentUser?.phone ?? '';
+          userAddress = userData['address'] ?? '';
         }
       }
 
@@ -4533,16 +4541,16 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       print('🔍 Looking for nearby drivers within ${radiusInKm}km radius...');
 
       // Query nearby drivers from Firestore
-      final driversSnapshot = await FirebaseFirestore.instance
-          .collection('partners')
-          .where('role', isEqualTo: 'driver')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final driversSnapshot = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('role', 'driver')
+          .eq('isOnline', true);
 
       int notificationsSent = 0;
 
-      for (var driverDoc in driversSnapshot.docs) {
-        final driverData = driverDoc.data();
+      for (var driverDoc in driversSnapshot) {
+        final driverData = driverDoc;
         final driverLocation = driverData['currentLocation'];
         final fcmToken = driverData['fcmToken'];
 
@@ -4563,10 +4571,10 @@ class HomeController extends GetxController with WidgetsBindingObserver {
             // Send notification if driver is within radius
             if (distance <= radiusInKm) {
               print(
-                  '📍 Found nearby driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
+                  '📍 Found nearby driver: ${driverDoc['id']} at ${distance.toStringAsFixed(2)}km');
 
               await sendNotificationToDriver(
-                driverId: driverDoc.id,
+                driverId: driverDoc['id'],
                 fcmToken: fcmToken,
                 requestData: requestData,
               );
@@ -4599,18 +4607,18 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      // Get driver's FCM token from Firestore
-      final driverDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(driverId)
-          .get();
+      // Get driver's FCM token
+      final driverDoc = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('id', driverId)
+          .maybeSingle();
 
-      if (!driverDoc.exists) {
+      if (driverDoc == null) {
         return;
       }
 
-      final driverData = driverDoc.data();
-      final fcmToken = driverData?['fcmToken'] as String?;
+      final fcmToken = driverDoc['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         return;
@@ -4632,19 +4640,19 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         'destinationAddress': destinationAddress ?? 'Selected Destination',
         'notes': notes ?? '',
         'urgency': urgency,
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
       };
 
-      // Save request to Firestore
+      // Save request to Supabase
       final requestId = requestData['requestId'] as String;
-      await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .doc(requestId)
-          .set({
+      await Supabase.instance.client
+          .from('ride_requests')
+          .upsert({
+        'id': requestId,
         ...requestData,
-        'userId': currentUser.uid,
-        'createdAt': Timestamp.now(),
+        'userId': currentUser.id,
+        'createdAt': DateTime.now().toIso8601String(),
       });
 
       // Send push notification to driver
@@ -4694,19 +4702,19 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         'destinationAddress': destinationAddress ?? 'Selected Destination',
         'notes': notes ?? '',
         'urgency': urgency,
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
       };
 
-      // Save request to Firestore
+      // Save request to Supabase
       final requestId2 = requestData['requestId'] as String;
-      await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .doc(requestId2)
-          .set({
+      await Supabase.instance.client
+          .from('ride_requests')
+          .upsert({
+        'id': requestId2,
         ...requestData,
-        'userId': currentUser.uid,
-        'createdAt': Timestamp.now(),
+        'userId': currentUser.id,
+        'createdAt': DateTime.now().toIso8601String(),
       });
 
       // Send notifications to nearby drivers
@@ -4865,55 +4873,30 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
       // Create a unique filename
       final fileName =
-          'profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images/${user.uid}/$fileName');
+          'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${user.id}/$fileName';
 
       debugPrint('📤 Starting profile image upload: $fileName');
 
-      // Upload the file with optimized settings
-      final uploadTask = storageRef.putFile(
-        imageFile,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {
-            'uploadedAt': DateTime.now().toIso8601String(),
-            'userId': user.uid,
-          },
-        ),
-      );
+      // Upload file directly
+      await Supabase.instance.client.storage
+          .from('profile_images')
+          .upload(path, imageFile);
 
-      // Monitor upload progress with optimized updates
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        // Only update progress if it's significant change (>1%) to reduce UI updates
-        if ((progress - uploadProgress.value).abs() > 0.01) {
-          uploadProgress.value = progress;
-          debugPrint(
-              '📊 Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
-        }
-      });
+      // Get public URL
+      final downloadUrl = Supabase.instance.client.storage
+          .from('profile_images')
+          .getPublicUrl(path);
 
-      final snapshot = await uploadTask
-          .whenComplete(() => debugPrint('✅ Upload task completed'));
+      uploadProgress.value = 1.0; // Complete progress
+      debugPrint('🔗 Download URL obtained: $downloadUrl');
 
-      // Check if upload was successful
-      if (snapshot.state == TaskState.success) {
-        uploadProgress.value = 1.0; // Complete progress
-
-        // Get the download URL
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        debugPrint(
-            '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
-
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'profileImageUrl': downloadUrl,
-        });
+      // Update users table in Supabase
+      await Supabase.instance.client
+          .from('users')
+          .update({
+        'profileImageUrl': downloadUrl,
+      }).eq('id', user.id);
 
         // Update local state
         profileImageUrl.value = downloadUrl;
@@ -4923,9 +4906,6 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           title: 'Profile Updated',
           message: 'Your profile image has been updated successfully!',
         );
-      } else {
-        throw 'Upload failed with state: ${snapshot.state}';
-      }
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
 
@@ -5096,13 +5076,12 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
+      // Remove from Supabase
+      await Supabase.instance.client
+          .from('users')
           .update({
-        'profileImageUrl': FieldValue.delete(),
-      });
+        'profileImageUrl': null,
+      }).eq('id', user.id);
 
       // Update local state
       profileImageUrl.value = null;
@@ -5186,7 +5165,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
       final notificationData = {
@@ -5194,15 +5173,16 @@ class HomeController extends GetxController with WidgetsBindingObserver {
         'message': message,
         'type': type,
         'isRead': false,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
         'data': data ?? {},
       };
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .add(notificationData);
+      await Supabase.instance.client
+          .from('user_notifications')
+          .insert({
+        ...notificationData,
+        'userId': user.id,
+      });
 
       debugPrint('✅ User notification added: $title');
     } catch (e) {

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+
 import 'package:image_picker/image_picker.dart';
 import 'package:saver/components/alert.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 class FeedbackController extends GetxController {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoTrueClient _auth = Supabase.instance.client.auth;
+  final SupabaseClient _firestore = Supabase.instance.client;
 
   // Text controllers
   final nameController = TextEditingController();
@@ -112,30 +112,30 @@ class FeedbackController extends GetxController {
           final fileName =
               'feedback_${DateTime.now().millisecondsSinceEpoch}_${xFile.name}';
 
-          // Using profile_images/USER_ID path as it's confirmed to have permissions in logs
-          final storageRef = FirebaseStorage.instance
-              .ref()
-              .child('profile_images')
-              .child(user?.uid ?? 'anonymous')
-              .child('feedback')
-              .child(fileName);
+          final path = '${user?.id ?? 'anonymous'}/feedback/$fileName';
 
-          final uploadTask = await storageRef.putFile(file);
-          final url = await uploadTask.ref.getDownloadURL();
+          await Supabase.instance.client.storage
+              .from('profile_images')
+              .upload(path, file);
+
+          final url = Supabase.instance.client.storage
+              .from('profile_images')
+              .getPublicUrl(path);
+              
           attachmentUrls.add(url);
         }
         isUploading.value = false;
       }
 
       // 1. Save to feedback collection (for records)
-      await _firestore.collection('feedback').add({
+      await _firestore.from('feedback').insert({
         'name': nameController.text.trim(),
         'email': emailController.text.trim(),
         'feedback': feedbackController.text.trim(),
         'rating': rating.value,
-        'userId': user?.uid,
+        'userId': user?.id,
         'attachmentUrls': attachmentUrls,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
       });
 
       // 2. Open Mail App with pre-filled content (Guarantees delivery)

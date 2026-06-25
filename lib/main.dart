@@ -1,5 +1,5 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:saver/config/api_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/splash_page/splash_page.dart';
@@ -19,55 +19,16 @@ import 'package:saver/user_tracking/user_tracking_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-
-  await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    announcement: false,
-    badge: true,
-    carPlay: false,
-    criticalAlert: false,
-    provisional: false,
-    sound: true,
+  
+  await Supabase.initialize(
+    url: ApiKeys.supabaseUrl,
+    anonKey: ApiKeys.supabaseAnonKey,
   );
 
-  //06d22db9f1e31db564c7cd0ba23662f000b8f0a8
-
-  // Initialize comprehensive FCM setup
-  await NotificationService.setupFCMOnAppStart();
-
-  // Handle background messages
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // TODO: Replace Firebase Messaging with Supabase Edge Functions / OneSignal if needed
+  // await NotificationService.setupFCMOnAppStart();
 
   runApp(const MyApp());
-}
-
-// Background message handler
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  print('📩 BACKGROUND MESSAGE RECEIVED: ${message.messageId}');
-  print('📩 Message data: ${message.data}');
-  print(
-      '📩 Message notification: ${message.notification?.title} - ${message.notification?.body}');
-
-  // Initialize local notifications if needed
-  await NotificationService.initializeLocalNotificationsForBackground();
-
-  // Show local notification for background messages
-  await NotificationService.showBackgroundNotification(message);
-
-  // Add notification to partner's notification list for when app is opened
-  if (message.notification != null) {
-    try {
-      // We can't get current user in background, so we'll handle this when app opens
-      // The notification will be added when FirebaseMessaging.onMessageOpenedApp is triggered
-      print(
-          '📱 Background notification will be added to partner list when app opens');
-    } catch (e) {
-      print('❌ Error handling background notification: $e');
-    }
-  }
 }
 
 class MyApp extends StatelessWidget {

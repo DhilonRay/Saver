@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/notification_service.dart';
 
@@ -18,19 +18,19 @@ class RequestRideController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Get driver's FCM token from Firestore
-      final driverDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(driverId)
-          .get();
+      // Get driver's FCM token from Supabase
+      final driverData = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('id', driverId)
+          .maybeSingle();
 
-      if (!driverDoc.exists) {
+      if (driverData == null) {
         Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি');
         return;
       }
 
-      final driverData = driverDoc.data();
-      final fcmToken = driverData?['fcmToken'] as String?;
+      final fcmToken = driverData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
@@ -64,16 +64,19 @@ class RequestRideController extends GetxController {
         'destinationAddress': destinationAddress,
         'notes': notes ?? '',
         'urgency': urgency,
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
       };
 
-      // Save request to Firestore first
+      // Save request to Supabase first
       final requestId = requestData['requestId'] as String;
-      await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .doc(requestId)
-          .set(requestData);
+      
+      final insertData = Map<String, dynamic>.from(requestData);
+      insertData['id'] = requestId; // Ensure id is set if required by Supabase
+
+      await Supabase.instance.client
+          .from('ride_requests')
+          .upsert(insertData);
 
       // Send push notification to driver
       final success = await NotificationService.sendNotificationToDriver(
@@ -131,17 +134,16 @@ class RequestRideController extends GetxController {
       }
 
       // Find nearby drivers
-      final driversSnapshot = await FirebaseFirestore.instance
-          .collection('partners')
-          .where('role', isEqualTo: 'driver')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final driversData = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('role', 'driver')
+          .eq('isOnline', true);
 
       int notificationsSent = 0;
       nearbyDrivers.clear();
 
-      for (var driverDoc in driversSnapshot.docs) {
-        final driverData = driverDoc.data();
+      for (var driverData in driversData) {
         final driverLocation = driverData['currentLocation'];
         final fcmToken = driverData['fcmToken'];
         
@@ -160,8 +162,9 @@ class RequestRideController extends GetxController {
             
             // Add to nearby drivers list and send notification if within radius
             if (distance <= radiusInKm) {
+              final driverId = driverData['id'] ?? '';
               nearbyDrivers.add({
-                'id': driverDoc.id,
+                'id': driverId,
                 'name': driverData['name'] ?? 'Unknown Driver',
                 'distance': distance,
                 'fcmToken': fcmToken,
@@ -170,8 +173,8 @@ class RequestRideController extends GetxController {
 
               // Create ride request data
               final requestData = {
-                'requestId': '${DateTime.now().millisecondsSinceEpoch}_${driverDoc.id}',
-                'driverId': driverDoc.id,
+                'requestId': '${DateTime.now().millisecondsSinceEpoch}_$driverId',
+                'driverId': driverId,
                 'pickupLocation': {
                   'latitude': userPosition.latitude,
                   'longitude': userPosition.longitude,
@@ -179,27 +182,30 @@ class RequestRideController extends GetxController {
                 'destinationAddress': destinationAddress,
                 'notes': notes ?? '',
                 'urgency': urgency,
-                'timestamp': Timestamp.now(),
+                'timestamp': DateTime.now().toIso8601String(),
                 'status': 'pending',
                 'distance': distance,
               };
 
-              // Save request to Firestore
+              // Save request to Supabase
               final requestId2 = requestData['requestId'] as String;
-              await FirebaseFirestore.instance
-                  .collection('ride_requests')
-                  .doc(requestId2)
-                  .set(requestData);
+              
+              final insertData = Map<String, dynamic>.from(requestData);
+              insertData['id'] = requestId2; // Add ID mapping
+
+              await Supabase.instance.client
+                  .from('ride_requests')
+                  .upsert(insertData);
 
               // Send notification to this driver
               final success = await NotificationService.sendNotificationToDriver(
-                driverId: driverDoc.id,
+                driverId: driverId,
                 requestData: requestData,
               );
 
               if (success) {
                 notificationsSent++;
-                print('✅ Notification sent to driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
+                print('✅ Notification sent to driver: $driverId at ${distance.toStringAsFixed(2)}km');
               }
             }
           }
@@ -248,18 +254,18 @@ class RequestRideController extends GetxController {
       isLoading.value = true;
 
       // Get partner's FCM token
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      final partnerData = await Supabase.instance.client
+          .from('partners')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (!partnerDoc.exists) {
+      if (partnerData == null) {
         Get.snackbar('ত্রুটি', 'অ্যাম্বুলেন্স পার্টনার পাওয়া যায়নি');
         return;
       }
 
-      final partnerData = partnerDoc.data();
-      final fcmToken = partnerData?['fcmToken'] as String?;
+      final fcmToken = partnerData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         Get.snackbar('ত্রুটি', 'পার্টনারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
@@ -275,13 +281,13 @@ class RequestRideController extends GetxController {
       }
 
       // Create ambulance request data
-      final requestData = {
+      final requestData = <String, dynamic>{
         'orderId': DateTime.now().millisecondsSinceEpoch.toString(),
         'partnerId': partnerId,
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
         'type': 'ambulance',
       };
@@ -293,12 +299,15 @@ class RequestRideController extends GetxController {
         };
       }
 
-      // Save request to Firestore
+      // Save request to Supabase
       final orderId = requestData['orderId'] as String;
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .set(requestData);
+      
+      final insertData = Map<String, dynamic>.from(requestData);
+      insertData['id'] = orderId; // Ensure id mapping
+      
+      await Supabase.instance.client
+          .from('orders')
+          .upsert(insertData);
 
       // Send push notification
       final success = await NotificationService.sendAmbulanceNotificationDirect(

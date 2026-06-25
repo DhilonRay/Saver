@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_keys_secret.dart';
 
 class AIChatMessage {
@@ -80,27 +79,26 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
 
   Future<void> _loadChatHistory() async {
     try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
       if (userId == null) return;
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('ai_chat_history')
-          .orderBy('timestamp', descending: false)
-          .limit(50)
-          .get();
+      final snapshot = await client
+          .from('ai_chat_history')
+          .select()
+          .eq('user_id', userId)
+          .order('timestamp', ascending: true)
+          .limit(50);
 
-      if (snapshot.docs.isNotEmpty) {
+      if (snapshot.isNotEmpty) {
         // Clear the welcome message if we have history
         messages.clear();
 
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
+        for (var data in snapshot) {
           messages.add(AIChatMessage(
             text: data['text'] ?? '',
             isUser: data['isUser'] ?? false,
-            timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+            timestamp: data['timestamp'] != null ? DateTime.parse(data['timestamp']) : null,
           ));
 
           // Rebuild conversation history for context
@@ -117,17 +115,15 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
 
   Future<void> _saveChatMessage(AIChatMessage message) async {
     try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
       if (userId == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('ai_chat_history')
-          .add({
+      await client.from('ai_chat_history').insert({
+        'user_id': userId,
         'text': message.text,
         'isUser': message.isUser,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (e) {
       debugPrint('Error saving chat message: $e');
@@ -265,6 +261,14 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
           }
         }
         return 'কোন উত্তর পাওয়া যায়নি। আবার চেষ্টা করুন।';
+      } else if (response.statusCode == 429) {
+        debugPrint(
+            'Gemini API error: 429 - ${response.body}');
+        // Switch to local responses on API error
+        useLocalResponses.value = true;
+        return '⚠️ **Gemini API Key Credit Depleted (HTTP 429)**\n\n'
+            'আপনার Gemini API Key-এর ব্যালেন্স/ক্রেডিট শেষ হয়ে গেছে। অনুগ্রহ করে AI Studio-তে বিলিং চেক করুন অথবা `lib/config/api_keys_secret.dart` ফাইলে নতুন এপিআই কী সেট করুন।\n\n'
+            '*[Offline/Local fallback activated for this session]*';
       } else {
         debugPrint(
             'Gemini API error: ${response.statusCode} - ${response.body}');
@@ -497,21 +501,12 @@ I can help with ambulance booking, first aid, and app usage. I cannot participat
               _conversationHistory.clear();
               _addWelcomeMessage();
 
-              // Clear from Firestore
+              // Clear from Supabase
               try {
-                final userId = FirebaseAuth.instance.currentUser?.uid;
+                final client = Supabase.instance.client;
+                final userId = client.auth.currentUser?.id;
                 if (userId != null) {
-                  final batch = FirebaseFirestore.instance.batch();
-                  final snapshot = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(userId)
-                      .collection('ai_chat_history')
-                      .get();
-
-                  for (var doc in snapshot.docs) {
-                    batch.delete(doc.reference);
-                  }
-                  await batch.commit();
+                  await client.from('ai_chat_history').delete().eq('user_id', userId);
                 }
               } catch (e) {
                 debugPrint('Error clearing chat history: $e');

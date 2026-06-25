@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../admin_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -16,11 +16,11 @@ class ReviewsPage extends StatelessWidget {
           const Text('User Reviews & Ratings', style: AdminTheme.heading1),
           const SizedBox(height: 16),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('order_reviews')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client
+                  .from('order_reviews')
+                  .stream(primaryKey: ['id'])
+                  .order('timestamp', ascending: false),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -34,18 +34,18 @@ class ReviewsPage extends StatelessWidget {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(
                     child: Text('No reviews found', style: AdminTheme.body),
                   );
                 }
 
-                final reviews = snapshot.data!.docs;
+                final reviews = snapshot.data!;
 
                 return ListView.builder(
                   itemCount: reviews.length,
                   itemBuilder: (context, index) {
-                    final data = reviews[index].data() as Map<String, dynamic>;
+                    final data = reviews[index];
                     
                     final driverRating = data['driverRating'] ?? 0;
                     final companyRating = data['companyRating'] ?? 0;
@@ -54,7 +54,7 @@ class ReviewsPage extends StatelessWidget {
                     
                     DateTime? date;
                     if (data['timestamp'] != null) {
-                      date = (data['timestamp'] as Timestamp).toDate();
+                      date = DateTime.parse(data['timestamp'].toString());
                     }
                     
                     final dateString = date != null 

@@ -1,5 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/get_started/get_started_page.dart';
@@ -41,43 +40,41 @@ class SplashPageController {
         debugPrint('⚠️ SplashPageController: SharedPreferences error: $e');
       }
 
-      User? user = FirebaseAuth.instance.currentUser;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       if (user != null) {
         try {
           // Priority Check: Active Order Persistence
-          final activeUserOrder = await FirebaseFirestore.instance
-              .collection('orders')
-              .where('userId', isEqualTo: user.uid)
-              .get();
+          final activeUserOrder = await client
+              .from('orders')
+              .select()
+              .eq('userId', user.id);
 
-          final activePartnerOrder = await FirebaseFirestore.instance
-              .collection('orders')
-              .where('partnerId', isEqualTo: user.uid)
-              .get();
+          final activePartnerOrder = await client
+              .from('orders')
+              .select()
+              .eq('partnerId', user.id);
 
           // Check for active user orders
-          if (activeUserOrder.docs.isNotEmpty) {
-            final docs = activeUserOrder.docs
+          if (activeUserOrder.isNotEmpty) {
+            final docs = activeUserOrder
                 .where((d) => ![
                       'completed',
                       'cancelled',
                       'rejected',
                       'declined'
-                    ].contains(d.data()['status']?.toString().toLowerCase()))
+                    ].contains(d['status']?.toString().toLowerCase()))
                 .toList();
 
             if (docs.isNotEmpty) {
               // Safe sorting
               docs.sort((a, b) {
-                final aTime =
-                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
-                final bTime =
-                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final aTime = a['createdAt'] != null ? DateTime.parse(a['createdAt']) : DateTime.now();
+                final bTime = b['createdAt'] != null ? DateTime.parse(b['createdAt']) : DateTime.now();
                 return bTime.compareTo(aTime);
               });
 
-              final orderDoc = docs.first;
-              final orderData = orderDoc.data();
+              final orderData = docs.first;
               final status = orderData['status']?.toString().toLowerCase();
 
               if (status == 'sent' ||
@@ -86,7 +83,7 @@ class SplashPageController {
                 final negotiation =
                     orderData['negotiation'] as Map<String, dynamic>? ?? {};
                 Get.offAll(() => FareNegotiationPage(), arguments: {
-                  'requestId': orderDoc.id,
+                  'requestId': orderData['id'],
                   'driverId': orderData['driverId'] ??
                       negotiation['driverId'] ??
                       orderData['partnerId'] ??
@@ -99,7 +96,6 @@ class SplashPageController {
                 return;
               } else if (['accepted', 'pickup', 'in_transit', 'to_destination']
                   .contains(status)) {
-                orderData['id'] = orderDoc.id;
                 Get.offAll(() => const UserTrackingPage(),
                     arguments: orderData);
                 _initializeFCMDelayed();
@@ -109,9 +105,8 @@ class SplashPageController {
           }
 
           // Check for active partner orders
-          if (activePartnerOrder.docs.isNotEmpty) {
-            final docs = activePartnerOrder.docs.where((d) {
-              final data = d.data();
+          if (activePartnerOrder.isNotEmpty) {
+            final docs = activePartnerOrder.where((data) {
               final status = data['status']?.toString().toLowerCase();
               final negStatus =
                   data['negotiation']?['status']?.toString().toLowerCase();
@@ -128,16 +123,12 @@ class SplashPageController {
             if (docs.isNotEmpty) {
               // Safe sorting
               docs.sort((a, b) {
-                final aTime =
-                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
-                final bTime =
-                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final aTime = a['createdAt'] != null ? DateTime.parse(a['createdAt']) : DateTime.now();
+                final bTime = b['createdAt'] != null ? DateTime.parse(b['createdAt']) : DateTime.now();
                 return bTime.compareTo(aTime);
               });
 
-              final orderDoc = docs.first;
-              final orderData = orderDoc.data();
-              orderData['id'] = orderDoc.id;
+              final orderData = docs.first;
 
               final fare = (orderData['fareAmount'] as num?)?.toInt() ??
                   (orderData['finalFare'] as num?)?.toInt() ??
@@ -156,31 +147,34 @@ class SplashPageController {
           }
 
           // Standard role-based redirect
-          final adminDoc = await FirebaseFirestore.instance
-              .collection('admins')
-              .doc(user.uid)
-              .get();
-          if (adminDoc.exists) {
+          final adminDoc = await client
+              .from('admins')
+              .select()
+              .eq('id', user.id)
+              .maybeSingle();
+          if (adminDoc != null) {
             Get.offAll(() => const AdminDashboard());
             _initializeFCMDelayed();
             return;
           }
 
-          final partnerDoc = await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(user.uid)
-              .get();
-          if (partnerDoc.exists) {
+          final partnerDoc = await client
+              .from('partners')
+              .select()
+              .eq('id', user.id)
+              .maybeSingle();
+          if (partnerDoc != null) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
             return;
           }
 
-          final driverDoc = await FirebaseFirestore.instance
-              .collection('drivers')
-              .doc(user.uid)
-              .get();
-          if (driverDoc.exists) {
+          final driverDoc = await client
+              .from('drivers')
+              .select()
+              .eq('id', user.id)
+              .maybeSingle();
+          if (driverDoc != null) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
             return;

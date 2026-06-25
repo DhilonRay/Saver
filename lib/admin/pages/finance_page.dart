@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../admin_controller.dart';
 import '../admin_theme.dart';
 
@@ -172,21 +172,21 @@ class _FinancePageState extends State<FinancePage> {
                   icon: Icons.check_circle_outline_rounded,
                   color: AdminTheme.green,
                 ),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('orders')
-                      .where('status', isEqualTo: 'completed')
-                      .snapshots(),
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: Supabase.instance.client
+                      .from('orders')
+                      .stream(primaryKey: ['id'])
+                      .eq('status', 'completed'),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
                     }
                     // Sort locally to avoid composite index requirement
-                    var trips = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+                    var trips = List<Map<String, dynamic>>.from(snapshot.data!);
                     trips.sort((a, b) {
                       try {
-                        final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                        final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                        final aT = (a)['timestamp'] as String?;
+                        final bT = (b)['timestamp'] as String?;
                         if (aT == null) return 1;
                         if (bT == null) return -1;
                         return bT.compareTo(aT);
@@ -205,7 +205,7 @@ class _FinancePageState extends State<FinancePage> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: trips.length,
                       itemBuilder: (context, index) {
-                        var t = trips[index].data() as Map<String, dynamic>;
+                        var t = trips[index];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: GlassCard(

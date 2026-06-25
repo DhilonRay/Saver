@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../admin_controller.dart';
 import '../admin_theme.dart';
@@ -13,7 +13,7 @@ class GLMPage extends StatefulWidget {
 }
 
 class _GLMPageState extends State<GLMPage> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
+  final SupabaseClient _fs = Supabase.instance.client;
   final AdminController _ctrl = Get.find<AdminController>();
 
   @override
@@ -55,11 +55,11 @@ class _GLMPageState extends State<GLMPage> {
 
           // GLM List
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _fs.collection('glm_accounts').orderBy('score', descending: true).snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _fs.from('glm_accounts').stream(primaryKey: ['id']).order('score', ascending: false),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-                var glms = snapshot.data!.docs;
+                var glms = snapshot.data!;
                 if (glms.isEmpty) {
                   return Center(
                     child: Column(
@@ -83,8 +83,8 @@ class _GLMPageState extends State<GLMPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: glms.length,
                   itemBuilder: (context, index) {
-                    var data = glms[index].data() as Map<String, dynamic>;
-                    var id = glms[index].id;
+                    var data = glms[index];
+                    var id = glms[index]['id'] as String? ?? '';
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -161,11 +161,11 @@ class _GLMPageState extends State<GLMPage> {
   }
 
   Widget _buildScoreboard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _fs.collection('glm_accounts').orderBy('score', descending: true).limit(3).snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _fs.from('glm_accounts').stream(primaryKey: ['id']).order('score', ascending: false).limit(3),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox.shrink();
-        var top = snapshot.data!.docs;
+        if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+        var top = snapshot.data!;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: GlassCard(
@@ -190,7 +190,7 @@ class _GLMPageState extends State<GLMPage> {
                 ),
                 const SizedBox(height: 14),
                 ...top.asMap().entries.map((entry) {
-                  var d = entry.value.data() as Map<String, dynamic>;
+                  var d = entry.value;
                   List<Color> medals = [AdminTheme.amber, const Color(0xFFB0BEC5), const Color(0xFF8D6E63)];
                   List<String> emojis = ['🥇', '🥈', '🥉'];
                   return Padding(
@@ -461,7 +461,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
             ),
             const SizedBox(height: 14),
 
-            StreamBuilder<QuerySnapshot>(
+            StreamBuilder<List<Map<String, dynamic>>>(
               stream: _buildTripQuery(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
@@ -473,15 +473,15 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                   case 'week': start = now.subtract(const Duration(days: 7)); break;
                   default: start = DateTime(now.year, now.month, 1);
                 }
-                var trips = snapshot.data!.docs.where((doc) {
-                  var d = doc.data() as Map<String, dynamic>;
+                var trips = snapshot.data!.where((doc) {
+                  var d = doc;
                   if (d['timestamp'] == null) return false;
-                  return (d['timestamp'] as Timestamp).toDate().isAfter(start);
+                  return DateTime.parse(d['timestamp'].toString()).isAfter(start);
                 }).toList();
                 trips.sort((a, b) {
                   try {
-                    final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                    final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                    final aT = (a)['timestamp'] as String?;
+                    final bT = (b)['timestamp'] as String?;
                     if (aT == null) return 1;
                     if (bT == null) return -1;
                     return bT.compareTo(aT);
@@ -499,7 +499,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: trips.length,
                   itemBuilder: (context, index) {
-                    var t = trips[index].data() as Map<String, dynamic>;
+                    var t = trips[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -525,7 +525,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                             if (t['timestamp'] != null)
                               AdminDetailRow(
                                 label: 'Date',
-                                value: DateFormat('dd MMM yyyy, hh:mm a').format((t['timestamp'] as Timestamp).toDate()),
+                                value: DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(t['timestamp'].toString())),
                               ),
                           ],
                         ),
@@ -542,10 +542,10 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
     );
   }
 
-  Stream<QuerySnapshot> _buildTripQuery() {
-    return FirebaseFirestore.instance
-        .collection('orders')
-        .where('glmId', isEqualTo: widget.glmId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> _buildTripQuery() {
+    return Supabase.instance.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('glmId', widget.glmId);
   }
 }

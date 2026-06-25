@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:saver/partner_file/home_partner/home_partner.dart';
 import 'package:saver/components/constants/alert.dart';
 import 'partner_notification_controller.dart';
@@ -388,9 +388,9 @@ class PartnerNotificationPage extends StatelessWidget {
         try {
           final String id = orderId ?? data['id'] ?? '';
           if (id.isNotEmpty) {
-            final doc = await FirebaseFirestore.instance.collection('orders').doc(id).get();
-            if (doc.exists) {
-              final status = doc.data()?['status']?.toString().toLowerCase();
+            final doc = await Supabase.instance.client.from('orders').select().eq('id', id).maybeSingle();
+            if (doc != null) {
+              final status = doc['status']?.toString().toLowerCase();
               if (status != 'pending') {
                 Alert.info('এই অর্ডারটি ইতিমধ্যে গ্রহণ করা হয়েছে বা বাতিল হয়েছে।');
                 return;

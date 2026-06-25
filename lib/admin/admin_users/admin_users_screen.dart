@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import '../admin_theme.dart';
 
@@ -11,7 +11,7 @@ class AdminUsersScreen extends StatefulWidget {
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -34,13 +34,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('users').snapshots(),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: Supabase.instance.client.from('users').stream(primaryKey: ['id']),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-                  var users = snapshot.data!.docs.where((doc) {
-                    var d = doc.data() as Map<String, dynamic>;
+                  var users = snapshot.data!.where((doc) {
+                    var d = doc;
                     return (d['name'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
                         (d['email'] ?? '').toString().toLowerCase().contains(_searchQuery);
                   }).toList();
@@ -49,8 +49,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: users.length,
                     itemBuilder: (context, i) {
-                      var ud = users[i].data() as Map<String, dynamic>;
-                      var uid = users[i].id;
+                      var ud = users[i];
+                      var uid = users[i]['id'] as String? ?? '';
                       bool isActive = ud['isActive'] ?? true;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -108,7 +108,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         const SizedBox(height: 16), Divider(color: Colors.white.withOpacity(0.04)), const SizedBox(height: 12),
         AdminDetailRow(label: 'Name', value: ud['name'] ?? 'N/A'), AdminDetailRow(label: 'Email', value: ud['email'] ?? 'N/A'), AdminDetailRow(label: 'Phone', value: ud['phone'] ?? 'N/A'),
         AdminDetailRow(label: 'User ID', value: uid), AdminDetailRow(label: 'Status', value: (ud['isActive'] ?? true) ? 'Active' : 'Suspended'),
-        AdminDetailRow(label: 'Joined', value: ud['createdAt'] != null ? (ud['createdAt'] as Timestamp).toDate().toString().split('.')[0] : 'N/A'),
+        AdminDetailRow(label: 'Joined', value: ud['createdAt'] != null ? DateTime.parse(ud['createdAt'].toString()).toString().split('.')[0] : 'N/A'),
         const SizedBox(height: 20),
         SizedBox(width: double.infinity, child: TextButton(onPressed: () => Get.back(), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.white.withOpacity(0.08)))),
           child: const Text('Close', style: TextStyle(color: AdminTheme.textSecondary)))),
@@ -118,14 +118,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Future<void> _toggleStatus(String uid, Map<String, dynamic> ud) async {
     bool ns = !(ud['isActive'] ?? true);
     _confirmDialog(ns ? 'Activate User?' : 'Suspend User?', ns ? 'User will be able to use the app.' : 'User will not be able to access the app.', ns ? AdminTheme.green : AdminTheme.orange, ns ? 'Activate' : 'Suspend', () async {
-      await _firestore.collection('users').doc(uid).update({'isActive': ns});
+      await Supabase.instance.client.from('users').update({'isActive': ns});
       Get.back(); Get.snackbar('Success', 'User ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
     });
   }
 
   Future<void> _deleteUser(String uid, Map<String, dynamic> ud) async {
     _confirmDialog('Delete User?', 'Permanently delete ${ud['name']}? This cannot be undone.', AdminTheme.red, 'Delete', () async {
-      await _firestore.collection('users').doc(uid).delete();
+      await Supabase.instance.client.from('users').delete().eq('id', uid);
       Get.back(); Get.snackbar('Success', 'User deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
     });
   }

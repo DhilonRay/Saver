@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
 import 'package:saver/compo/success_dialog.dart';
@@ -46,8 +43,6 @@ class SignUpController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Initialize Firebase if not already initialized
-    _initializeFirebase();
   }
 
   @override
@@ -62,13 +57,7 @@ class SignUpController extends GetxController {
     super.onClose();
   }
 
-  Future<void> _initializeFirebase() async {
-    try {
-      await Firebase.initializeApp();
-    } catch (e) {
-      debugPrint('Firebase initialization error: $e');
-    }
-  }
+
 
   void updateSelectedRole(String role) {
     selectedRole.value = role;
@@ -129,14 +118,14 @@ class SignUpController extends GetxController {
     if (xFile == null) return null;
     try {
       final file = File(xFile.path);
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_images') // Using confirmed path
-          .child(folder)
-          .child(fileName);
+      final client = Supabase.instance.client;
+      final path = '$folder/$fileName';
       
-      final uploadTask = await ref.putFile(file);
-      return await uploadTask.ref.getDownloadURL();
+      await client.storage
+          .from('profile_images')
+          .upload(path, file);
+          
+      return client.storage.from('profile_images').getPublicUrl(path);
     } catch (e) {
       debugPrint('Error uploading image: $e');
       return null;
@@ -157,14 +146,19 @@ class SignUpController extends GetxController {
           ? '${phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}@neosaver.app'
           : emailController.text.trim();
 
-      // Create user with Firebase Auth
-      UserCredential userCredential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final client = Supabase.instance.client;
+
+      // Create user with Supabase Auth
+      final authResponse = await client.auth.signUp(
         email: emailForAuth,
         password: passwordController.text.trim(),
       );
 
-      String uid = userCredential.user!.uid;
+      if (authResponse.user == null) {
+        throw 'Failed to create user account. Email might already exist.';
+      }
+
+      String uid = authResponse.user!.id;
       String? profileImageUrl;
       String? licenseImageUrl;
       String? ambulanceImageUrl;
@@ -219,6 +213,7 @@ class SignUpController extends GetxController {
           selectedRole.value == 'driver' ? 'drivers' : 'users';
       
       Map<String, dynamic> userData = {
+        'id': uid, // Supabase primary key is usually id
         'name':
             '${firstNameController.text.trim()} ${lastNameController.text.trim()}',
         'firstName': firstNameController.text.trim(),
@@ -227,12 +222,12 @@ class SignUpController extends GetxController {
         'address': addressController.text.trim(),
         'postCode': postCodeController.text.trim(),
         'email': emailController.text.trim(),
-        'uid': uid,
+        'uid': uid, // Keep for backward compatibility if needed
         'role': selectedRole.value,
         'acceptedTerms': true,
         'profileImageUrl': profileImageUrl,
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       };
 
       // Add driver specific fields
@@ -251,19 +246,13 @@ class SignUpController extends GetxController {
         await _sendAdminNotification(uid, userData);
         
         // Also save to 'partners' collection for the map and other features
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(uid)
-            .set(userData);
+        await client.from('partners').insert(userData);
       }
 
-      await FirebaseFirestore.instance
-          .collection(collectionName)
-          .doc(uid)
-          .set(userData);
+      await client.from(collectionName).insert(userData);
 
       debugPrint('User registered with role: ${selectedRole.value}');
-      debugPrint('User data saved to Firestore: ${userCredential.user!.uid}');
+      debugPrint('User data saved to Supabase DB: $uid');
 
       // Navigate based on role
       if (selectedRole.value == 'driver') {
@@ -377,7 +366,8 @@ class SignUpController extends GetxController {
   Future<void> _sendAdminNotification(
       String uid, Map<String, dynamic> userData) async {
     try {
-      await FirebaseFirestore.instance.collection('admin_notifications').add({
+      final client = Supabase.instance.client;
+      await client.from('admin_notifications').insert({
         'type': 'new_driver_signup',
         'title': 'New Driver Verification Request',
         'message':
@@ -385,7 +375,7 @@ class SignUpController extends GetxController {
         'userId': uid,
         'userData': userData,
         'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': DateTime.now().toIso8601String(),
       });
       debugPrint('✅ Admin notification sent');
     } catch (e) {
