@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/api_keys_secret.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // TODO: Re-enable push notifications using OneSignal or keep FCM
 // import 'package:firebase_messaging/firebase_messaging.dart';
@@ -10,7 +11,6 @@ import '../../services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../glm_dashboard/glm_dashboard.dart';
 import '../sign_up/signup.dart';
-import '../../config/api_keys_secret.dart';
 
 class LoginController extends GetxController {
   // Text Controllers

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:saver/api_keys_secret.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/api_keys_secret.dart';
 
 class AIChatMessage {
   final String text;

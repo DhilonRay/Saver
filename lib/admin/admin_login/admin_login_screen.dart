@@ -2,13 +2,13 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/api_keys_secret.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:saver/components/alert.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../admin_dashboard/admin_dashboard.dart';
 import '../admin_theme.dart';
-import '../../config/api_keys_secret.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({Key? key}) : super(key: key);
