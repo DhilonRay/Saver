@@ -161,6 +161,8 @@ class LoginPage extends StatelessWidget {
     );
   } */
 
+  // Google login — Coming soon (not yet implemented)
+  // ignore: unused_element
   Widget _buildGoogleLoginButton() {
     return Center(
       child: RawButtonWidget(

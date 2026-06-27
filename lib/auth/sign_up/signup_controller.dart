@@ -7,10 +7,7 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
-import 'package:saver/compo/success_dialog.dart';
-import '../../home_user/home_user.dart';
-import '../../partner_file/partner/partner.dart';
-import '../../partner_file/home_partner/home_partner.dart';
+import '../email_verification/email_verification_screen.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -250,11 +247,21 @@ class SignUpController extends GetxController {
         // Send notification to admin panel
         await _sendAdminNotification(uid, userData);
         
-        // Also save to 'partners' collection for the map and other features
+        // FIX #5: partners collection-এ শুধু lightweight reference রাখো
+        // Full data শুধু 'drivers' collection-এ থাকবে
         await FirebaseFirestore.instance
             .collection('partners')
             .doc(uid)
-            .set(userData);
+            .set({
+          'uid': uid,
+          'role': 'driver',
+          'name': userData['name'],
+          'phone': userData['phone'],
+          'isOnline': false,
+          'isApproved': true,
+          'dataRef': 'drivers/$uid', // drivers collection-এ full data আছে
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
 
       await FirebaseFirestore.instance
@@ -265,25 +272,33 @@ class SignUpController extends GetxController {
       debugPrint('User registered with role: ${selectedRole.value}');
       debugPrint('User data saved to Firestore: ${userCredential.user!.uid}');
 
-      // Navigate based on role
-      if (selectedRole.value == 'driver') {
-        SuccessDialog.show(
-          title: 'Account Created',
-          message: 'Your partner account has been created successfully!',
-        );
-        Future.delayed(const Duration(seconds: 2), () {
-          Get.offAll(() => HomePartnerPage());
-        });
-      } else {
-        SuccessDialog.show(
-          title: 'Account Created',
-          message: 'Your account has been created successfully!',
-        );
-        // Navigate directly to home page since user is already authenticated
-        Future.delayed(const Duration(seconds: 2), () {
-          Get.offAll(() => HomePage(isNewSignup: true));
-        });
+      // FIX #1: Email Verification পাঠাও এবং verification screen-এ যাও
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await user.sendEmailVerification();
+        debugPrint('📧 Verification email sent to: ${user.email}');
       }
+
+      final emailForDisplay = emailController.text.trim().isEmpty
+          ? '${phoneController.text.trim()}@neosaver.app'
+          : emailController.text.trim();
+
+      Get.snackbar(
+        '📧 Verification Email পাঠানো হয়েছে!',
+        'আপনার ইমেইল ($emailForDisplay) চেক করুন এবং verify করুন।',
+        backgroundColor: Colors.green[700],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 4),
+      );
+
+      // Email Verification Screen-এ navigate করো
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Get.offAll(() => EmailVerificationScreen(
+              userEmail: emailForDisplay,
+              userRole: selectedRole.value,
+            ));
+      });
     } catch (e) {
       debugPrint('Registration error: $e');
       _showErrorSnackbar('Registration Failed', e.toString());
@@ -334,32 +349,29 @@ class SignUpController extends GetxController {
       return false;
     }
 
-    // Driver specific validation
-    // Temporarily disabled so users can create driver accounts without uploading details immediately
-    /*
+    // FIX #4: Driver validation — License ও NID mandatory
     if (selectedRole.value == 'driver') {
       if (licenseImage.value == null) {
-        _showErrorSnackbar('Error', 'Please upload your License photo');
+        _showErrorSnackbar(
+            '❌ লাইসেন্স প্রয়োজন', 'অনুগ্রহ করে আপনার ড্রাইভিং লাইসেন্সের ছবি আপলোড করুন।');
         return false;
       }
       if (nidImage.value == null) {
-        _showErrorSnackbar('Error', 'Please upload your NID photo');
+        _showErrorSnackbar(
+            '❌ NID প্রয়োজন', 'অনুগ্রহ করে আপনার জাতীয় পরিচয়পত্রের ছবি আপলোড করুন।');
         return false;
       }
       if (registrationPapersImage.value == null) {
-        _showErrorSnackbar('Error', 'Please upload Ambulance Registration papers');
-        return false;
-      }
-      if (ambulanceImage.value == null) {
-        _showErrorSnackbar('Error', 'Please upload a photo of your ambulance');
+        _showErrorSnackbar(
+            '❌ Registration কাগজ প্রয়োজন', 'অনুগ্রহ করে অ্যাম্বুলেন্স registration কাগজের ছবি আপলোড করুন।');
         return false;
       }
       if (companyNameController.text.trim().isEmpty) {
-        _showErrorSnackbar('Error', 'Please enter your Company/Service name');
+        _showErrorSnackbar(
+            '❌ Company/Service নাম প্রয়োজন', 'অনুগ্রহ করে আপনার Company বা Service-এর নাম লিখুন।');
         return false;
       }
     }
-    */
 
     return true;
   }

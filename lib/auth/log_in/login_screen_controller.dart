@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../glm_dashboard/glm_dashboard.dart';
 import '../sign_up/signup.dart';
 import '../../config/api_keys_secret.dart';
+import '../../config/security_helper.dart';
+import '../email_verification/email_verification_screen.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
@@ -82,7 +84,14 @@ class LoginController extends GetxController {
         var glmData = glmDoc.data() as Map<String, dynamic>;
         final String inputPass = passwordController.text.trim();
         final String dbPass = glmData['password'] ?? '';
-        if (inputPass == dbPass) {
+
+        // FIX #2: SHA-256 hash দিয়ে compare করো
+        // নতুন accounts-এ hash store হয়, পুরানো plain text-এ fallback করো
+        final bool passMatch = dbPass.length == 64
+            ? SecurityHelper.verifyPassword(inputPass, dbPass) // hash comparison
+            : inputPass == dbPass; // legacy plain text fallback
+
+        if (passMatch) {
           isLoading.value = false;
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('isGLMLoggedIn', true);
@@ -224,6 +233,27 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
+        // FIX #1: Email Verification check
+        await userCredential.user!.reload();
+        if (!userCredential.user!.emailVerified) {
+          // Admin email is exempt from verification
+          if (email != ApiKeysSecret.adminEmail) {
+            isLoading.value = false;
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userCredential.user!.uid)
+                .get();
+            final userRole = userDoc.exists
+                ? (userDoc.data()?['role'] as String? ?? 'user')
+                : 'user';
+            Get.offAll(() => EmailVerificationScreen(
+                  userEmail: email,
+                  userRole: userRole,
+                ));
+            return;
+          }
+        }
+
         // Store FCM token in user document
         if (fcmToken.value.isNotEmpty) {
           await FirebaseFirestore.instance
@@ -300,6 +330,17 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
+        // FIX #1: Email Verification check (phone login)
+        await userCredential.user!.reload();
+        if (!userCredential.user!.emailVerified) {
+          isLoading.value = false;
+          Get.offAll(() => EmailVerificationScreen(
+                userEmail: email,
+                userRole: userRole ?? 'user',
+              ));
+          return;
+        }
+
         // Store FCM token in user document
         if (fcmToken.value.isNotEmpty) {
           await FirebaseFirestore.instance
