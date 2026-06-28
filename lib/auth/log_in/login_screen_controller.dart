@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/supabase_service.dart';
 import 'package:saver/components/constants/alert.dart';
 import '../../home_user/home_user.dart';
 import '../../partner_file/home_partner/home_partner.dart';
@@ -13,7 +13,7 @@ import '../../glm_dashboard/glm_dashboard.dart';
 import '../sign_up/signup.dart';
 import '../../config/api_keys_secret.dart';
 import '../../config/security_helper.dart';
-import '../email_verification/email_verification_screen.dart';
+// import '../phone_verification/phone_verification_screen.dart';
 
 class LoginController extends GetxController {
   // Text Controllers
@@ -75,13 +75,9 @@ class LoginController extends GetxController {
     isLoading.value = true;
     try {
       // Check if this matches a manually created GLM Account ID
-      DocumentSnapshot glmDoc = await FirebaseFirestore.instance
-          .collection('glm_accounts')
-          .doc(identifier)
-          .get();
+      final glmData = await SupabaseService.getGLMAccount(identifier);
 
-      if (glmDoc.exists) {
-        var glmData = glmDoc.data() as Map<String, dynamic>;
+      if (glmData != null) {
         final String inputPass = passwordController.text.trim();
         final String dbPass = glmData['password'] ?? '';
 
@@ -124,10 +120,9 @@ class LoginController extends GetxController {
   Future<void> _navigateBasedOnRole(String uid) async {
     try {
       // Check if user is admin first
-      DocumentSnapshot adminDoc =
-          await FirebaseFirestore.instance.collection('admins').doc(uid).get();
+      final adminData = await SupabaseService.getAdmin(uid);
 
-      if (adminDoc.exists) {
+      if (adminData != null) {
         debugPrint('🔑 Admin user detected - navigating to admin dashboard');
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isAdminLoggedIn', true);
@@ -136,22 +131,18 @@ class LoginController extends GetxController {
       }
 
       // Priority 1: Check Partners Collection
-      DocumentSnapshot partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(uid)
-          .get();
+      final partnerData = await SupabaseService.getPartner(uid);
 
-      if (partnerDoc.exists) {
+      if (partnerData != null) {
         debugPrint('Navigating to HomePartnerPage (found in partners)');
         _navigateToPartner();
         return;
       }
 
       // Priority 2: Check Drivers Collection
-      DocumentSnapshot driverDoc =
-          await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+      final driverData = await SupabaseService.getDriver(uid);
 
-      if (driverDoc.exists) {
+      if (driverData != null) {
         debugPrint('Navigating to HomePartnerPage (found in drivers)');
         _navigateToPartner();
         return;
@@ -210,9 +201,8 @@ class LoginController extends GetxController {
         } catch (e) {
           try {
             UserCredential uc = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
-            await FirebaseFirestore.instance.collection('admins').doc(uc.user!.uid).set({
+            await SupabaseService.upsertAdmin(uc.user!.uid, {
               'email': email,
-              'createdAt': FieldValue.serverTimestamp(),
             });
           } catch (_) {}
         }
@@ -233,45 +223,75 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        // FIX #1: Email Verification check
+        // Phone Verification check (Commented out for now)
+        /*
         await userCredential.user!.reload();
-        if (!userCredential.user!.emailVerified) {
-          // Admin email is exempt from verification
-          if (email != ApiKeysSecret.adminEmail) {
-            isLoading.value = false;
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
+        if (email != ApiKeysSecret.adminEmail && userCredential.user!.phoneNumber == null) {
+          isLoading.value = false;
+          String userRole = 'user';
+          String phone = '';
+
+          // Check 'users' collection
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .get();
+
+          if (userDoc.exists) {
+            final data = userDoc.data() as Map<String, dynamic>;
+            userRole = data['role'] as String? ?? 'user';
+            phone = data['phone'] as String? ?? '';
+          } else {
+            // Check 'drivers' collection
+            DocumentSnapshot driverDoc = await FirebaseFirestore.instance
+                .collection('drivers')
                 .doc(userCredential.user!.uid)
                 .get();
-            final userRole = userDoc.exists
-                ? (userDoc.data()?['role'] as String? ?? 'user')
-                : 'user';
-            Get.offAll(() => EmailVerificationScreen(
-                  userEmail: email,
+            if (driverDoc.exists) {
+              final data = driverDoc.data() as Map<String, dynamic>;
+              userRole = data['role'] as String? ?? 'driver';
+              phone = data['phone'] as String? ?? '';
+            }
+          }
+
+          // Format phone number
+          String formattedPhone = phone.trim();
+          if (!formattedPhone.startsWith('+')) {
+            if (formattedPhone.startsWith('88')) {
+              formattedPhone = '+$formattedPhone';
+            } else if (formattedPhone.startsWith('0')) {
+              formattedPhone = '+880${formattedPhone.substring(1)}';
+            } else {
+              formattedPhone = '+880$formattedPhone';
+            }
+          }
+
+          if (formattedPhone.isNotEmpty) {
+            Get.offAll(() => PhoneVerificationScreen(
+                  userPhone: formattedPhone,
                   userRole: userRole,
                 ));
-            return;
+          } else {
+            // Fallback: login normally if no phone is found in database
+            await _navigateBasedOnRole(userCredential.user!.uid);
           }
+          return;
         }
+        */
 
         // Store FCM token in user document
         if (fcmToken.value.isNotEmpty) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .update({
-            'fcmToken': fcmToken.value,
-            'lastLogin': Timestamp.now(),
-          }).catchError((error) {
-            // If update fails, try to set the token
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(userCredential.user!.uid)
-                .set({
+          try {
+            await SupabaseService.updateUser(userCredential.user!.uid, {
               'fcmToken': fcmToken.value,
-              'lastLogin': Timestamp.now(),
-            }, SetOptions(merge: true));
-          });
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          } catch (_) {
+            await SupabaseService.upsertUser(userCredential.user!.uid, {
+              'fcmToken': fcmToken.value,
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          }
         }
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
@@ -297,21 +317,21 @@ class LoginController extends GetxController {
     try {
       await Firebase.initializeApp();
 
-      // Find user by phone number in Firestore
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phone', isEqualTo: phone)
-          .limit(1)
-          .get();
+      // Find user by phone number in Supabase
+      final userResults = await SupabaseService.client
+          .from('users')
+          .select()
+          .eq('phone', phone)
+          .limit(1);
 
       debugPrint('📱 Phone login: Searching for phone $phone');
-      debugPrint('📊 Found ${querySnapshot.docs.length} documents');
+      debugPrint('📊 Found ${userResults.length} documents');
 
-      if (querySnapshot.docs.isEmpty) {
+      if (userResults.isEmpty) {
         throw 'No account found with this phone number. Please sign up first.';
       }
 
-      final userData = querySnapshot.docs.first.data();
+      final userData = userResults.first as Map<String, dynamic>;
       final email = userData['email'] as String?;
       final userRole = userData['role'] as String?;
 
@@ -330,35 +350,44 @@ class LoginController extends GetxController {
       );
 
       if (userCredential.user != null) {
-        // FIX #1: Email Verification check (phone login)
+        // Phone Verification check (phone login) (Commented out for now)
+        /*
         await userCredential.user!.reload();
-        if (!userCredential.user!.emailVerified) {
+        if (userCredential.user!.phoneNumber == null) {
           isLoading.value = false;
-          Get.offAll(() => EmailVerificationScreen(
-                userEmail: email,
+          
+          String formattedPhone = phone.trim();
+          if (!formattedPhone.startsWith('+')) {
+            if (formattedPhone.startsWith('88')) {
+              formattedPhone = '+$formattedPhone';
+            } else if (formattedPhone.startsWith('0')) {
+              formattedPhone = '+880${formattedPhone.substring(1)}';
+            } else {
+              formattedPhone = '+880$formattedPhone';
+            }
+          }
+
+          Get.offAll(() => PhoneVerificationScreen(
+                userPhone: formattedPhone,
                 userRole: userRole ?? 'user',
               ));
           return;
         }
+        */
 
         // Store FCM token in user document
         if (fcmToken.value.isNotEmpty) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .update({
-            'fcmToken': fcmToken.value,
-            'lastLogin': Timestamp.now(),
-          }).catchError((error) {
-            // If update fails, try to set the token
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(userCredential.user!.uid)
-                .set({
+          try {
+            await SupabaseService.updateUser(userCredential.user!.uid, {
               'fcmToken': fcmToken.value,
-              'lastLogin': Timestamp.now(),
-            }, SetOptions(merge: true));
-          });
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          } catch (_) {
+            await SupabaseService.upsertUser(userCredential.user!.uid, {
+              'fcmToken': fcmToken.value,
+              'lastLogin': DateTime.now().toIso8601String(),
+            });
+          }
         }
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
@@ -386,16 +415,14 @@ class LoginController extends GetxController {
 
   Future<void> checkUserRole(String uid) async {
     try {
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userData = await SupabaseService.getUser(uid);
 
-      if (userDoc.exists) {
-        final userData = userDoc.data();
-        final role = userData?['role'] as String? ?? 'user';
+      if (userData != null) {
+        final role = userData['role'] as String? ?? 'user';
 
         Alert.info('Your role: $role\nUID: $uid');
       } else {
-        Alert.error('User document not found in Firestore');
+        Alert.error('User document not found in database');
       }
     } catch (e) {
       Alert.error('Failed to check role: $e');

@@ -2,8 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:saver/components/alert.dart';
+import '../../services/supabase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../admin_dashboard/admin_dashboard.dart';
 import '../admin_theme.dart';
@@ -68,9 +68,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         } catch (e) {
           try {
             UserCredential uc = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
-            await FirebaseFirestore.instance.collection('admins').doc(uc.user!.uid).set({
+            await SupabaseService.client.from('admins').insert({
+              'id': uc.user!.uid,
               'email': email,
-              'createdAt': FieldValue.serverTimestamp(),
+              'created_at': DateTime.now().toIso8601String(),
             });
           } catch (_) {
             // If creation fails (e.g. email exists with diff password), we just bypass.
@@ -92,12 +93,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       );
 
       // Check if user is admin
-      DocumentSnapshot adminDoc = await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(userCredential.user!.uid)
-          .get();
+      final adminDoc = await SupabaseService.client
+          .from('admins')
+          .select()
+          .eq('id', userCredential.user!.uid)
+          .maybeSingle();
 
-      if (!adminDoc.exists) {
+      if (adminDoc == null) {
         // Not an admin, sign out
         await FirebaseAuth.instance.signOut();
         Alert.info('Access Denied');
@@ -346,13 +348,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                 final email = resetEmailController.text.trim();
                                 try {
                                   // Verify if the email is actually registered in admins collection
-                                  final adminQuery = await FirebaseFirestore.instance
-                                      .collection('admins')
-                                      .where('email', isEqualTo: email)
-                                      .limit(1)
-                                      .get();
+                                  final adminQuery = await SupabaseService.client
+                                      .from('admins')
+                                      .select()
+                                      .eq('email', email);
                                       
-                                  if (adminQuery.docs.isEmpty && email != 'admin@saver.com') {
+                                  if (adminQuery.isEmpty && email != 'admin@saver.com') {
                                     Alert.info('This email is not registered as an admin');
                                     setStateDialog(() {
                                       isResetLoading = false;

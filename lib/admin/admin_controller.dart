@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'package:get/get.dart';
+import '../services/supabase_service.dart';
 
 class AdminController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   // Dashboard Stats
   var activeAmbulances = 0.obs;
   var totalTripsToday = 0.obs;
@@ -21,6 +20,8 @@ class AdminController extends GetxController {
   // Filter
   var selectedFilter = 'week'.obs;
 
+  StreamSubscription<List<Map<String, dynamic>>>? _alertsSubscription;
+
   @override
   void onInit() {
     super.onInit();
@@ -28,21 +29,30 @@ class AdminController extends GetxController {
     listenForAlerts();
   }
 
+  @override
+  void onClose() {
+    _alertsSubscription?.cancel();
+    super.onClose();
+  }
+
   Future<void> loadDashboardStats() async {
     try {
       // Active ambulances
-      QuerySnapshot ambSnap = await _firestore
-          .collection('partners')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final ambSnap = await SupabaseService.query(
+        'partners',
+        filters: {'is_online': true},
+      );
 
       int activeCount = 0;
       final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
-      for (var doc in ambSnap.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final lastUpdated = data['lastUpdated'] as Timestamp?;
-        if (lastUpdated != null && lastUpdated.toDate().isAfter(tenMinsAgo)) {
-          activeCount++;
+      for (var item in ambSnap) {
+        final data = SupabaseService.toCamelCase(item);
+        final lastUpdated = data['lastUpdated'];
+        if (lastUpdated != null) {
+          final date = DateTime.tryParse(lastUpdated.toString());
+          if (date != null && date.isAfter(tenMinsAgo)) {
+            activeCount++;
+          }
         }
       }
       activeAmbulances.value = activeCount;
@@ -52,43 +62,45 @@ class AdminController extends GetxController {
       DateTime todayStart = DateTime(now.year, now.month, now.day);
       DateTime monthStart = DateTime(now.year, now.month, 1);
 
-      QuerySnapshot tripsSnap = await _firestore
-          .collection('orders')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
-          .get();
-      totalTripsToday.value = tripsSnap.size;
+      final tripsSnap = await SupabaseService.client
+          .from('orders')
+          .select()
+          .gte('timestamp', todayStart.toIso8601String());
+      totalTripsToday.value = tripsSnap.length;
 
       // Total users
-      QuerySnapshot usersSnap = await _firestore.collection('users').get();
-      totalUsers.value = usersSnap.size;
+      final usersSnap = await SupabaseService.client.from('users').select();
+      totalUsers.value = usersSnap.length;
 
       // Total GLMs
-      QuerySnapshot glmSnap = await _firestore.collection('glm_accounts').get();
-      totalGLMs.value = glmSnap.size;
+      final glmSnap = await SupabaseService.client.from('glm_accounts').select();
+      totalGLMs.value = glmSnap.length;
 
       // Revenue
-      QuerySnapshot allTrips = await _firestore
-          .collection('orders')
-          .where('status', isEqualTo: 'completed')
-          .get();
+      final allTrips = await SupabaseService.query(
+        'orders',
+        filters: {'status': 'completed'},
+      );
       
       double revToday = 0;
       double revMonth = 0;
       double revTotal = 0;
       
-      for (var doc in allTrips.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+      for (var item in allTrips) {
+        final data = SupabaseService.toCamelCase(item);
         double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
         revTotal += fare;
         
-        Timestamp? ts = data['timestamp'] as Timestamp?;
+        final ts = data['timestamp'];
         if (ts != null) {
-          DateTime date = ts.toDate();
-          if (date.isAfter(todayStart) || date.isAtSameMomentAs(todayStart)) {
-            revToday += fare;
-          }
-          if (date.isAfter(monthStart) || date.isAtSameMomentAs(monthStart)) {
-            revMonth += fare;
+          DateTime? date = DateTime.tryParse(ts.toString());
+          if (date != null) {
+            if (date.isAfter(todayStart) || date.isAtSameMomentAs(todayStart)) {
+              revToday += fare;
+            }
+            if (date.isAfter(monthStart) || date.isAtSameMomentAs(monthStart)) {
+              revMonth += fare;
+            }
           }
         }
       }
@@ -103,18 +115,22 @@ class AdminController extends GetxController {
   }
 
   void listenForAlerts() {
-    _firestore
-        .collection('admin_alerts')
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .listen((snapshot) {
-      var alertList = snapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
+    _alertsSubscription = SupabaseService.client
+        .from('admin_alerts')
+        .stream(primaryKey: ['id'])
+        .eq('is_read', false)
+        .listen((list) {
+      var alertList = list
+          .map((item) => SupabaseService.toCamelCase(item))
           .toList();
-      // Sort locally to avoid needing a composite Firestore index
+      // Sort locally to avoid needing a composite index
       alertList.sort((a, b) {
-        final aTime = a['createdAt'] as Timestamp?;
-        final bTime = b['createdAt'] as Timestamp?;
+        final aTimeStr = a['createdAt'];
+        final bTimeStr = b['createdAt'];
+        if (aTimeStr == null) return 1;
+        if (bTimeStr == null) return -1;
+        final aTime = DateTime.tryParse(aTimeStr.toString());
+        final bTime = DateTime.tryParse(bTimeStr.toString());
         if (aTime == null) return 1;
         if (bTime == null) return -1;
         return bTime.compareTo(aTime);
@@ -127,9 +143,10 @@ class AdminController extends GetxController {
   }
 
   Future<void> markAlertRead(String alertId) async {
-    await _firestore.collection('admin_alerts').doc(alertId).update({
-      'isRead': true,
-    });
+    await SupabaseService.client
+        .from('admin_alerts')
+        .update({'is_read': true})
+        .eq('id', alertId);
   }
 
   // Finance helpers
@@ -150,21 +167,21 @@ class AdminController extends GetxController {
         start = now.subtract(const Duration(days: 7));
     }
 
-    QuerySnapshot allCompleted = await _firestore
-        .collection('orders')
-        .where('status', isEqualTo: 'completed')
-        .get();
+    final allCompleted = await SupabaseService.query(
+      'orders',
+      filters: {'status': 'completed'},
+    );
 
     double revenue = 0;
     int tripCount = 0;
     Map<String, double> ambulanceEarnings = {};
 
-    for (var doc in allCompleted.docs) {
-      var data = doc.data() as Map<String, dynamic>;
+    for (var item in allCompleted) {
+      final data = SupabaseService.toCamelCase(item);
       // Filter by date locally to avoid composite index requirement
       if (data['timestamp'] != null) {
-        DateTime tripDate = (data['timestamp'] as Timestamp).toDate();
-        if (tripDate.isBefore(start)) continue;
+        DateTime? tripDate = DateTime.tryParse(data['timestamp'].toString());
+        if (tripDate != null && tripDate.isBefore(start)) continue;
       }
       double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
       revenue += fare;
@@ -200,17 +217,17 @@ class AdminController extends GetxController {
     required String glmId,
     required String password,
   }) async {
-    await _firestore.collection('glm_accounts').doc(glmId).set({
+    await SupabaseService.client.from('glm_accounts').insert({
       'name': name,
       'phone': phone,
       'hospital': hospital,
-      'glmId': glmId,
+      'glm_id': glmId,
       'password': password,
-      'totalIncome': 0,
-      'totalTripsOrdered': 0,
+      'total_income': 0,
+      'total_trips_ordered': 0,
       'score': 0,
-      'isActive': true,
-      'createdAt': FieldValue.serverTimestamp(),
+      'is_active': true,
+      'created_at': DateTime.now().toIso8601String(),
     });
   }
 }

@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:saver/components/alert.dart';
 import 'package:saver/home_user/home_user.dart';
+import '../../services/supabase_service.dart';
 
 class TripRatingController extends GetxController {
   final Map<String, dynamic> orderData;
   TripRatingController({required this.orderData});
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // State variables
@@ -39,20 +38,20 @@ class TripRatingController extends GetxController {
       final orderId = orderData['id'] ?? orderData['orderId'];
       final partnerId = orderData['partnerId'];
 
-      await _firestore.collection('order_reviews').add({
-        'orderId': orderId,
-        'userId': user?.uid,
-        'partnerId': partnerId,
-        'companyName': orderData['companyName'] ?? 'Unknown Company',
-        'driverRating': driverRating.value,
-        'companyRating': companyRating.value,
+      await SupabaseService.client.from('order_reviews').insert({
+        'order_id': orderId,
+        'user_id': user?.uid,
+        'partner_id': partnerId,
+        'company_name': orderData['companyName'] ?? 'Unknown Company',
+        'driver_rating': driverRating.value,
+        'company_rating': companyRating.value,
         'complaint': complaintController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().toIso8601String(),
       });
 
       // Update the order document to mark as reviewed (optional but good)
       if (orderId != null) {
-        await _firestore.collection('orders').doc(orderId).update({
+        await SupabaseService.updateOrder(orderId, {
           'isReviewed': true,
           'driverRating': driverRating.value,
           'companyRating': companyRating.value,

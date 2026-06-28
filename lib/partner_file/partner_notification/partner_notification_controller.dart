@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/supabase_service.dart';
 
 class PartnerNotification {
   final String id;
@@ -25,14 +25,23 @@ class PartnerNotification {
   });
 
   factory PartnerNotification.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parsedTimestamp = DateTime.now();
+    if (data['timestamp'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['timestamp'].toString()) ?? DateTime.now();
+    } else if (data['createdAt'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now();
+    } else if (data['created_at'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['created_at'].toString()) ?? DateTime.now();
+    }
+
     return PartnerNotification(
       id: id,
       title: data['title'] ?? '',
-      message: data['message'] ?? '',
+      message: data['message'] ?? data['body'] ?? '',
       type: data['type'] ?? 'info',
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isRead: data['isRead'] ?? false,
-      data: data['data'],
+      timestamp: parsedTimestamp,
+      isRead: data['isRead'] ?? data['is_read'] ?? false,
+      data: data['data'] ?? data['extraData'] ?? data['extra_data'],
     );
   }
 
@@ -41,7 +50,7 @@ class PartnerNotification {
       'title': title,
       'message': message,
       'type': type,
-      'timestamp': Timestamp.fromDate(timestamp),
+      'timestamp': timestamp.toIso8601String(),
       'isRead': isRead,
       'data': data,
     };
@@ -49,7 +58,6 @@ class PartnerNotification {
 }
 
 class PartnerNotificationController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxList<PartnerNotification> notifications = <PartnerNotification>[].obs;
@@ -57,7 +65,7 @@ class PartnerNotificationController extends GetxController {
   final RxString error = ''.obs;
   final RxInt unreadCount = 0.obs;
 
-  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationsSubscription;
   SharedPreferences? _prefs;
   String get _currentUserId => _auth.currentUser?.uid ?? '';
   String get _localStorageKey => 'partner_notifications_${_currentUserId}';
@@ -139,18 +147,19 @@ class PartnerNotificationController extends GetxController {
       return;
     }
 
-    _notificationsSubscription = _firestore
-        .collection('partners')
-        .doc(user.uid)
-        .collection('notifications')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
+    _notificationsSubscription = SupabaseService.streamPartnerNotifications(user.uid)
         .listen(
-          (snapshot) {
-            final docs = snapshot.docs;
-            notifications.value = docs.map((doc) {
-              return PartnerNotification.fromMap(doc.id, doc.data());
+          (list) {
+            notifications.value = list.map((item) {
+              final camelCased = SupabaseService.toCamelCase(item);
+              return PartnerNotification.fromMap(
+                camelCased['uid'] ?? camelCased['id'] ?? '',
+                camelCased,
+              );
             }).toList();
+
+            // Sort notifications descending by timestamp
+            notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
             // Update unread count
             unreadCount.value = notifications.where((n) => !n.isRead).length;
@@ -173,12 +182,7 @@ class PartnerNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('partners')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .update({'isRead': true});
+      await SupabaseService.updatePartnerNotification(notificationId, {'isRead': true});
 
       // Update local list
       final index = notifications.indexWhere((n) => n.id == notificationId);
@@ -205,21 +209,11 @@ class PartnerNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
       final unreadNotifications = notifications.where((n) => !n.isRead);
 
       for (final notification in unreadNotifications) {
-        batch.update(
-          _firestore
-              .collection('partners')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-          {'isRead': true},
-        );
+        await SupabaseService.updatePartnerNotification(notification.id, {'isRead': true});
       }
-
-      await batch.commit();
 
       // Update local list
       for (int i = 0; i < notifications.length; i++) {
@@ -247,12 +241,7 @@ class PartnerNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('partners')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .delete();
+      await SupabaseService.deletePartnerNotification(notificationId);
 
       // Remove from local list
       notifications.removeWhere((n) => n.id == notificationId);
@@ -268,18 +257,7 @@ class PartnerNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
-      for (final notification in notifications) {
-        batch.delete(
-          _firestore
-              .collection('partners')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-        );
-      }
-
-      await batch.commit();
+      await SupabaseService.deleteAllPartnerNotifications(user.uid);
       notifications.clear();
       unreadCount.value = 0;
       _saveNotificationsToLocal();
@@ -294,26 +272,15 @@ class PartnerNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final testNotification = PartnerNotification(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: 'Test Notification',
-        message: 'This is a test notification for partners',
-        type: 'info',
-        timestamp: DateTime.now(),
-        isRead: false,
+      await SupabaseService.addPartnerNotification(
+        user.uid,
+        {
+          'title': 'Test Notification',
+          'body': 'This is a test notification for partners',
+          'type': 'info',
+          'is_read': false,
+        },
       );
-
-      await _firestore
-          .collection('partners')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(testNotification.id)
-          .set(testNotification.toMap());
-
-      // Add to local list immediately
-      notifications.insert(0, testNotification);
-      unreadCount.value = notifications.where((n) => !n.isRead).length;
-      _saveNotificationsToLocal();
     } catch (e) {
       Get.snackbar('Error', 'Failed to add test notification: $e');
     }

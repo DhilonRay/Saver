@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/notification_service.dart';
+import '../services/supabase_service.dart';
 
 class RequestRideController extends GetxController {
   var isLoading = false.obs;
@@ -18,19 +18,16 @@ class RequestRideController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Get driver's FCM token from Firestore
-      final driverDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(driverId)
-          .get();
+      // Get driver's FCM token from Supabase
+      final driverDocMap = await SupabaseService.getPartner(driverId);
 
-      if (!driverDoc.exists) {
+      if (driverDocMap == null) {
         Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি');
         return;
       }
 
-      final driverData = driverDoc.data();
-      final fcmToken = driverData?['fcmToken'] as String?;
+      final driverData = SupabaseService.toCamelCase(driverDocMap);
+      final fcmToken = driverData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
@@ -64,16 +61,16 @@ class RequestRideController extends GetxController {
         'destinationAddress': destinationAddress,
         'notes': notes ?? '',
         'urgency': urgency,
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
       };
 
-      // Save request to Firestore first
+      // Save request to Supabase first
       final requestId = requestData['requestId'] as String;
-      await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .doc(requestId)
-          .set(requestData);
+      await SupabaseService.client.from('ride_requests').upsert({
+        ...SupabaseService.toSnakeCase(requestData),
+        'id': requestId,
+      });
 
       // Send push notification to driver
       final success = await NotificationService.sendNotificationToDriver(
@@ -130,22 +127,25 @@ class RequestRideController extends GetxController {
         return;
       }
 
-      // Find nearby drivers
-      final driversSnapshot = await FirebaseFirestore.instance
-          .collection('partners')
-          .where('role', isEqualTo: 'driver')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      // Find nearby drivers from Supabase
+      final list = await SupabaseService.query(
+        'partners',
+        filters: {
+          'role': 'driver',
+          'is_online': true,
+        },
+      );
 
       int notificationsSent = 0;
       nearbyDrivers.clear();
 
-      for (var driverDoc in driversSnapshot.docs) {
-        final driverData = driverDoc.data();
+      for (var item in list) {
+        final driverData = SupabaseService.toCamelCase(item);
         final driverLocation = driverData['currentLocation'];
         final fcmToken = driverData['fcmToken'];
+        final driverId = driverData['id'] ?? driverData['uid'] ?? '';
         
-        if (driverLocation != null && fcmToken != null && fcmToken.isNotEmpty) {
+        if (driverLocation != null && fcmToken != null && fcmToken.isNotEmpty && driverId.isNotEmpty) {
           final driverLat = driverLocation['latitude'] as double?;
           final driverLng = driverLocation['longitude'] as double?;
           
@@ -161,7 +161,7 @@ class RequestRideController extends GetxController {
             // Add to nearby drivers list and send notification if within radius
             if (distance <= radiusInKm) {
               nearbyDrivers.add({
-                'id': driverDoc.id,
+                'id': driverId,
                 'name': driverData['name'] ?? 'Unknown Driver',
                 'distance': distance,
                 'fcmToken': fcmToken,
@@ -170,8 +170,8 @@ class RequestRideController extends GetxController {
 
               // Create ride request data
               final requestData = {
-                'requestId': '${DateTime.now().millisecondsSinceEpoch}_${driverDoc.id}',
-                'driverId': driverDoc.id,
+                'requestId': '${DateTime.now().millisecondsSinceEpoch}_$driverId',
+                'driverId': driverId,
                 'pickupLocation': {
                   'latitude': userPosition.latitude,
                   'longitude': userPosition.longitude,
@@ -179,27 +179,27 @@ class RequestRideController extends GetxController {
                 'destinationAddress': destinationAddress,
                 'notes': notes ?? '',
                 'urgency': urgency,
-                'timestamp': Timestamp.now(),
+                'timestamp': DateTime.now().toIso8601String(),
                 'status': 'pending',
                 'distance': distance,
               };
 
-              // Save request to Firestore
+              // Save request to Supabase
               final requestId2 = requestData['requestId'] as String;
-              await FirebaseFirestore.instance
-                  .collection('ride_requests')
-                  .doc(requestId2)
-                  .set(requestData);
+              await SupabaseService.client.from('ride_requests').upsert({
+                ...SupabaseService.toSnakeCase(requestData),
+                'id': requestId2,
+              });
 
               // Send notification to this driver
               final success = await NotificationService.sendNotificationToDriver(
-                driverId: driverDoc.id,
+                driverId: driverId,
                 requestData: requestData,
               );
 
               if (success) {
                 notificationsSent++;
-                print('✅ Notification sent to driver: ${driverDoc.id} at ${distance.toStringAsFixed(2)}km');
+                print('✅ Notification sent to driver: $driverId at ${distance.toStringAsFixed(2)}km');
               }
             }
           }
@@ -247,19 +247,16 @@ class RequestRideController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Get partner's FCM token
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      // Get partner's FCM token from Supabase
+      final partnerDocMap = await SupabaseService.getPartner(partnerId);
 
-      if (!partnerDoc.exists) {
+      if (partnerDocMap == null) {
         Get.snackbar('ত্রুটি', 'অ্যাম্বুলেন্স পার্টনার পাওয়া যায়নি');
         return;
       }
 
-      final partnerData = partnerDoc.data();
-      final fcmToken = partnerData?['fcmToken'] as String?;
+      final partnerData = SupabaseService.toCamelCase(partnerDocMap);
+      final fcmToken = partnerData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         Get.snackbar('ত্রুটি', 'পার্টনারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
@@ -275,13 +272,13 @@ class RequestRideController extends GetxController {
       }
 
       // Create ambulance request data
-      final requestData = {
+      final Map<String, dynamic> requestData = {
         'orderId': DateTime.now().millisecondsSinceEpoch.toString(),
         'partnerId': partnerId,
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'status': 'pending',
         'type': 'ambulance',
       };
@@ -293,12 +290,12 @@ class RequestRideController extends GetxController {
         };
       }
 
-      // Save request to Firestore
+      // Save request to Supabase
       final orderId = requestData['orderId'] as String;
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .set(requestData);
+      await SupabaseService.client.from('orders').upsert({
+        ...SupabaseService.toSnakeCase(requestData),
+        'id': orderId,
+      });
 
       // Send push notification
       final success = await NotificationService.sendAmbulanceNotificationDirect(

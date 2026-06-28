@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/api_keys_secret.dart';
 import 'package:get/get.dart';
 import 'package:saver/splash_page/splash_page.dart';
 import 'package:saver/partner_file/accept_maps/accept_maps.dart';
@@ -20,6 +22,12 @@ import 'package:saver/user_tracking/user_tracking_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: ApiKeysSecret.supabaseUrl,
+    anonKey: ApiKeysSecret.supabaseAnonKey,
+  );
 
   await FirebaseMessaging.instance.requestPermission(
     alert: true,

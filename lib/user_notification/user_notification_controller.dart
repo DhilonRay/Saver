@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/supabase_service.dart';
 
 class UserNotification {
   final String id;
@@ -26,14 +26,23 @@ class UserNotification {
   });
 
   factory UserNotification.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parsedTimestamp = DateTime.now();
+    if (data['timestamp'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['timestamp'].toString()) ?? DateTime.now();
+    } else if (data['createdAt'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now();
+    } else if (data['created_at'] != null) {
+      parsedTimestamp = DateTime.tryParse(data['created_at'].toString()) ?? DateTime.now();
+    }
+
     return UserNotification(
       id: id,
       title: data['title'] ?? '',
-      message: data['message'] ?? '',
+      message: data['message'] ?? data['body'] ?? '',
       type: data['type'] ?? 'info',
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isRead: data['isRead'] ?? false,
-      data: data['data'],
+      timestamp: parsedTimestamp,
+      isRead: data['isRead'] ?? data['is_read'] ?? false,
+      data: data['data'] ?? data['extraData'] ?? data['extra_data'],
     );
   }
 
@@ -42,7 +51,7 @@ class UserNotification {
       'title': title,
       'message': message,
       'type': type,
-      'timestamp': Timestamp.fromDate(timestamp),
+      'timestamp': timestamp.toIso8601String(),
       'isRead': isRead,
       'data': data,
     };
@@ -50,7 +59,6 @@ class UserNotification {
 }
 
 class UserNotificationController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxList<UserNotification> notifications = <UserNotification>[].obs;
@@ -58,7 +66,7 @@ class UserNotificationController extends GetxController {
   final RxString error = ''.obs;
   final RxInt unreadCount = 0.obs;
 
-  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationsSubscription;
   SharedPreferences? _prefs;
   String get _currentUserId => _auth.currentUser?.uid ?? '';
   String get _localStorageKey => 'user_notifications_${_currentUserId}';
@@ -147,18 +155,19 @@ class UserNotificationController extends GetxController {
       return;
     }
 
-    _notificationsSubscription = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('notifications')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
+    _notificationsSubscription = SupabaseService.streamUserNotifications(user.uid)
         .listen(
-          (snapshot) {
-            final docs = snapshot.docs;
-            notifications.value = docs.map((doc) {
-              return UserNotification.fromMap(doc.id, doc.data());
+          (list) {
+            notifications.value = list.map((item) {
+              final camelCased = SupabaseService.toCamelCase(item);
+              return UserNotification.fromMap(
+                camelCased['uid'] ?? camelCased['id'] ?? '',
+                camelCased,
+              );
             }).toList();
+
+            // Sort notifications descending by timestamp
+            notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
             // Update unread count
             unreadCount.value = notifications.where((n) => !n.isRead).length;
@@ -181,12 +190,7 @@ class UserNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .update({'isRead': true});
+      await SupabaseService.updateUserNotification(notificationId, {'isRead': true});
 
       // Update local list
       final index = notifications.indexWhere((n) => n.id == notificationId);
@@ -213,21 +217,11 @@ class UserNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
       final unreadNotifications = notifications.where((n) => !n.isRead);
 
       for (final notification in unreadNotifications) {
-        batch.update(
-          _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-          {'isRead': true},
-        );
+        await SupabaseService.updateUserNotification(notification.id, {'isRead': true});
       }
-
-      await batch.commit();
 
       // Update local list
       for (int i = 0; i < notifications.length; i++) {
@@ -255,12 +249,7 @@ class UserNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(notificationId)
-          .delete();
+      await SupabaseService.deleteUserNotification(notificationId);
 
       // Remove from local list
       notifications.removeWhere((n) => n.id == notificationId);
@@ -276,18 +265,7 @@ class UserNotificationController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final batch = _firestore.batch();
-      for (final notification in notifications) {
-        batch.delete(
-          _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('notifications')
-              .doc(notification.id),
-        );
-      }
-
-      await batch.commit();
+      await SupabaseService.deleteAllUserNotifications(user.uid);
       notifications.clear();
       unreadCount.value = 0;
       _saveNotificationsToLocal();
@@ -324,26 +302,20 @@ class UserNotificationController extends GetxController {
       final random = DateTime.now().millisecond % testNotifications.length;
       final testData = testNotifications[random];
 
-      final testNotification = UserNotification(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: testData['title'],
-        message: testData['message'],
-        type: testData['type'],
-        timestamp: DateTime.now(),
-        isRead: false,
-        data: {
-          'requestId': 'TEST_${DateTime.now().millisecondsSinceEpoch}',
-          'partnerId': 'test_partner_123',
-          'type': 'ambulance_request'
+      await SupabaseService.addUserNotification(
+        user.uid,
+        {
+          'title': testData['title'],
+          'body': testData['message'],
+          'type': testData['type'],
+          'is_read': false,
+          'extra_data': {
+            'requestId': 'TEST_${DateTime.now().millisecondsSinceEpoch}',
+            'partnerId': 'test_partner_123',
+            'type': 'ambulance_request'
+          },
         },
       );
-
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('notifications')
-          .doc(testNotification.id)
-          .set(testNotification.toMap());
 
       Get.snackbar(
         'সফল', 

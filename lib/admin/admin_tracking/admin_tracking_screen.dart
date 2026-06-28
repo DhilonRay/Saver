@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../admin_theme.dart';
+import '../../services/supabase_service.dart';
 
 class AdminTrackingScreen extends StatefulWidget {
   const AdminTrackingScreen({super.key});
@@ -11,7 +11,6 @@ class AdminTrackingScreen extends StatefulWidget {
 }
 
 class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   final LatLng _initialPosition = const LatLng(23.8103, 90.4125);
@@ -21,21 +20,26 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
 
   Future<void> _loadActiveDeliveries() async {
     try {
-      QuerySnapshot activeOrders = await _fs.collection('orders').where('status', whereIn: ['accepted', 'picked_up']).get();
+      final activeOrders = await SupabaseService.client
+          .from('orders')
+          .select()
+          .inFilter('status', ['accepted', 'picked_up']);
+      
       Set<Marker> markers = {};
-      for (var doc in activeOrders.docs) {
-        var od = doc.data() as Map<String, dynamic>;
+      for (var item in activeOrders) {
+        var od = SupabaseService.toCamelCase(item);
+        var orderId = od['id'] ?? od['uid'] ?? '';
         if (od['pickupLocation'] != null) {
           var loc = od['pickupLocation'] as Map<String, dynamic>;
-          markers.add(Marker(markerId: MarkerId('pickup_${doc.id}'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), infoWindow: InfoWindow(title: 'Pickup', snippet: od['pickupAddress'] ?? 'Pickup Location')));
+          markers.add(Marker(markerId: MarkerId('pickup_$orderId'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), infoWindow: InfoWindow(title: 'Pickup', snippet: od['pickupAddress'] ?? 'Pickup Location')));
         }
         if (od['deliveryLocation'] != null) {
           var loc = od['deliveryLocation'] as Map<String, dynamic>;
-          markers.add(Marker(markerId: MarkerId('delivery_${doc.id}'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), infoWindow: InfoWindow(title: 'Delivery', snippet: od['deliveryAddress'] ?? 'Delivery Location')));
+          markers.add(Marker(markerId: MarkerId('delivery_$orderId'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), infoWindow: InfoWindow(title: 'Delivery', snippet: od['deliveryAddress'] ?? 'Delivery Location')));
         }
         if (od['partnerLocation'] != null) {
           var loc = od['partnerLocation'] as Map<String, dynamic>;
-          markers.add(Marker(markerId: MarkerId('partner_${doc.id}'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue), infoWindow: InfoWindow(title: 'Partner', snippet: od['partnerName'] ?? 'Delivery Partner')));
+          markers.add(Marker(markerId: MarkerId('partner_$orderId'), position: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue), infoWindow: InfoWindow(title: 'Partner', snippet: od['partnerName'] ?? 'Delivery Partner')));
         }
       }
       if (mounted) setState(() => _markers = markers);
@@ -64,19 +68,37 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
         Container(
           height: 200,
           decoration: BoxDecoration(color: AdminTheme.bgCard, border: Border(top: BorderSide(color: Colors.white.withOpacity(0.04)))),
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _fs.collection('orders').where('status', whereIn: ['accepted', 'picked_up']).snapshots(),
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: SupabaseService.client.from('orders').stream(primaryKey: ['id']),
             builder: (ctx, snap) {
               if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: AdminTheme.body));
               if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-              var orders = List<QueryDocumentSnapshot>.from(snap.data!.docs);
-              orders.sort((a, b) { try { final at = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?; final bt = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?; if (at == null) return 1; if (bt == null) return -1; return bt.compareTo(at); } catch (_) { return 0; } });
+              
+              final allOrders = snap.data ?? [];
+              var orders = allOrders.where((item) {
+                final status = item['status']?.toString() ?? '';
+                return status == 'accepted' || status == 'picked_up';
+              }).map((item) => SupabaseService.toCamelCase(item)).toList();
+
+              orders.sort((a, b) { 
+                try { 
+                  final atStr = a['createdAt'] ?? a['timestamp']; 
+                  final btStr = b['createdAt'] ?? b['timestamp']; 
+                  if (atStr == null) return 1; 
+                  if (btStr == null) return -1; 
+                  final at = DateTime.tryParse(atStr.toString());
+                  final bt = DateTime.tryParse(btStr.toString());
+                  if (at == null) return 1;
+                  if (bt == null) return -1;
+                  return bt.compareTo(at); 
+                } catch (_) { return 0; } 
+              });
               if (orders.isEmpty) return const Center(child: Text('No active deliveries', style: AdminTheme.body));
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Padding(padding: const EdgeInsets.all(12), child: Text('Active Deliveries (${orders.length})', style: AdminTheme.heading3)),
                 Expanded(child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: orders.length, itemBuilder: (ctx, i) {
-                  var od = orders[i].data() as Map<String, dynamic>;
-                  var oid = orders[i].id;
+                  var od = orders[i];
+                  var oid = od['id'] ?? od['uid'] ?? '';
                   final isAccepted = od['status'] == 'accepted';
                   return Container(
                     width: 250, margin: const EdgeInsets.only(right: 12),
@@ -85,7 +107,7 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
                       padding: const EdgeInsets.all(14),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('Order #${oid.substring(0, 6)}', style: AdminTheme.heading3.copyWith(fontSize: 13)),
+                          Text(oid.length > 6 ? 'Order #${oid.substring(0, 6)}' : 'Order #$oid', style: AdminTheme.heading3.copyWith(fontSize: 13)),
                           AdminStatusBadge(label: od['status'].toString().toUpperCase(), color: isAccepted ? AdminTheme.blue : AdminTheme.purple),
                         ]),
                         const SizedBox(height: 8),

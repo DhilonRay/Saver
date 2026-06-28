@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../admin_theme.dart';
 import 'package:intl/intl.dart';
+import '../../services/supabase_service.dart';
 
 class ReviewsPage extends StatelessWidget {
   const ReviewsPage({super.key});
@@ -16,11 +16,8 @@ class ReviewsPage extends StatelessWidget {
           const Text('User Reviews & Ratings', style: AdminTheme.heading1),
           const SizedBox(height: 16),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('order_reviews')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: SupabaseService.client.from('order_reviews').stream(primaryKey: ['id']),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -34,18 +31,32 @@ class ReviewsPage extends StatelessWidget {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                final rawReviews = snapshot.data ?? [];
+                var reviews = rawReviews.map((item) => SupabaseService.toCamelCase(item)).toList();
+                reviews.sort((a, b) {
+                  try {
+                    final aTStr = a['timestamp'];
+                    final bTStr = b['timestamp'];
+                    if (aTStr == null) return 1;
+                    if (bTStr == null) return -1;
+                    final aT = DateTime.tryParse(aTStr.toString());
+                    final bT = DateTime.tryParse(bTStr.toString());
+                    if (aT == null) return 1;
+                    if (bT == null) return -1;
+                    return bT.compareTo(aT);
+                  } catch (_) { return 0; }
+                });
+
+                if (reviews.isEmpty) {
                   return const Center(
                     child: Text('No reviews found', style: AdminTheme.body),
                   );
                 }
 
-                final reviews = snapshot.data!.docs;
-
                 return ListView.builder(
                   itemCount: reviews.length,
                   itemBuilder: (context, index) {
-                    final data = reviews[index].data() as Map<String, dynamic>;
+                    final data = reviews[index];
                     
                     final driverRating = data['driverRating'] ?? 0;
                     final companyRating = data['companyRating'] ?? 0;
@@ -54,7 +65,7 @@ class ReviewsPage extends StatelessWidget {
                     
                     DateTime? date;
                     if (data['timestamp'] != null) {
-                      date = (data['timestamp'] as Timestamp).toDate();
+                      date = DateTime.tryParse(data['timestamp'].toString());
                     }
                     
                     final dateString = date != null 

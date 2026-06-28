@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'partner_orders_controller.dart';
 import '../../loader/loader.dart';
+import '../../services/supabase_service.dart';
 
 class PartnersOrdersPage extends StatelessWidget {
   const PartnersOrdersPage({super.key});
@@ -83,7 +84,7 @@ class PartnersOrdersPage extends StatelessWidget {
   }
 
   Widget _buildOrdersTab(
-      RxList<QueryDocumentSnapshot> orders, ColorScheme colorScheme) {
+      RxList<Map<String, dynamic>> orders, ColorScheme colorScheme) {
     return Obx(() {
       if (orders.isEmpty) {
         return Center(
@@ -98,6 +99,7 @@ class PartnersOrdersPage extends StatelessWidget {
                 'No Trips found',
                 style: TextStyle(
                     fontSize: 18,
+                    fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
             ],
@@ -109,9 +111,8 @@ class PartnersOrdersPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,
         itemBuilder: (context, index) {
-          final orderDoc = orders[index];
-          final orderData = orderDoc.data() as Map<String, dynamic>;
-          final orderId = orderDoc.id;
+          final orderData = orders[index];
+          final orderId = orderData['uid'] ?? orderData['id'] ?? '';
 
           return Card(
             elevation: 4,
@@ -275,24 +276,24 @@ class PartnersOrdersPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         itemCount: controller.activeOrders.length,
         itemBuilder: (context, index) {
-          final orderDoc = controller.activeOrders[index];
-          final orderData = orderDoc.data() as Map<String, dynamic>;
-          final orderId = orderDoc.id;
+          final orderData = controller.activeOrders[index];
+          final orderId = orderData['uid'] ?? orderData['id'] ?? '';
           final userId = orderData['userId'] as String?;
           final orderStatus = orderData['status'] as String?;
-          final createdAt = (orderData['timestamp'] as Timestamp?)?.toDate();
+          DateTime? createdAt;
+          if (orderData['timestamp'] != null) {
+            createdAt = DateTime.tryParse(orderData['timestamp'].toString());
+          }
           final serviceType = orderData['type'] as String?;
           final emergencyLevel = orderData['urgency'] as String?;
           final patientName = orderData['patientName'] as String?;
           final pickupAddress = orderData['pickupAddress'] as String?;
 
-          return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            future: FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .get(),
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: userId != null ? SupabaseService.getUser(userId) : Future.value(null),
             builder: (context, userSnapshot) {
-              final userData = userSnapshot.data?.data();
+              final rawUserData = userSnapshot.data;
+              final userData = rawUserData != null ? SupabaseService.toCamelCase(rawUserData) : null;
               final userName = userData?['name'] as String?;
 
               return Card(
@@ -648,8 +649,16 @@ class PartnersOrdersPage extends StatelessWidget {
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
     try {
-      final date = (timestamp as Timestamp).toDate();
-      return DateFormat('MMM d, h:mm a').format(date);
+      if (timestamp is Timestamp) {
+        return DateFormat('MMM d, h:mm a').format(timestamp.toDate());
+      }
+      if (timestamp is String) {
+        final parsedDate = DateTime.tryParse(timestamp);
+        if (parsedDate != null) {
+          return DateFormat('MMM d, h:mm a').format(parsedDate);
+        }
+      }
+      return 'N/A';
     } catch (e) {
       return 'Invalid date';
     }

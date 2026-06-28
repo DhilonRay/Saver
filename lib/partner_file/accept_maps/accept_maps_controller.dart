@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/supabase_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
@@ -171,32 +171,32 @@ class AcceptMapsController extends GetxController {
 
   void _listenToOrderUpdates(String orderId) {
     _orderSubscription?.cancel();
-    _orderSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
-        .listen((snapshot) {
-      if (!snapshot.exists) {
+    _orderSubscription = SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
+        .listen((dataList) {
+      if (dataList.isEmpty) {
         // Order deleted, return to home
         _orderSubscription?.cancel();
         Get.offAll(() => HomePartnerPage());
         return;
       }
 
-      final data = snapshot.data();
-      if (data != null) {
-        final status = data['status']?.toString().toLowerCase();
+      final rawData = dataList.first;
+      final data = SupabaseService.toCamelCase(rawData);
+      final status = data['status']?.toString().toLowerCase();
 
-        // If order is cancelled or completed, return to home
-        if (status == 'cancelled' || status == 'completed') {
-          _orderSubscription?.cancel();
-          Get.offAll(() => HomePartnerPage());
-          return;
-        }
+      // If order is cancelled or completed, return to home
+      if (status == 'cancelled' || status == 'completed') {
+        _orderSubscription?.cancel();
+        Get.offAll(() => HomePartnerPage());
+        return;
+      }
 
-        requestData.value = {'id': orderId, ...data};
+      requestData.value = {'id': orderId, ...rawData};
 
-        final updatedFare = _extractFare(data);
+      final updatedFare = _extractFare(rawData);
         if (updatedFare != null && updatedFare > 0) {
           serviceRate.value = updatedFare;
         }
@@ -539,24 +539,18 @@ class AcceptMapsController extends GetxController {
         final userId = requestData.value!['userId'];
 
         // Update order status and fare
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(requestId)
-            .update({
+        await SupabaseService.client.from('orders').update({
           'status': 'completed',
-          'completedAt': FieldValue.serverTimestamp(),
-          'fareAmount': fareAmount,
-          'finalFare': fareAmount,
-        });
+          'completed_at': DateTime.now().toIso8601String(),
+          'fare_amount': fareAmount,
+          'final_fare': fareAmount,
+        }).eq('id', requestId);
 
         // Send notification to user with fare amount
         if (userId != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .get();
+          final userDoc = await SupabaseService.getUser(userId);
 
-          final fcmToken = userDoc.data()?['fcmToken'];
+          final fcmToken = userDoc != null ? SupabaseService.toCamelCase(userDoc)['fcmToken'] : null;
           if (fcmToken != null) {
             await NotificationService.sendFCMNotification(
               token: fcmToken,
@@ -575,14 +569,11 @@ class AcceptMapsController extends GetxController {
         // Update partner status back to available
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(user.uid)
-              .update({
-            'isOnline': true,
-            'currentOrderId': null,
+          await SupabaseService.client.from('partners').update({
+            'is_online': true,
+            'current_order_id': null,
             'status': 'available',
-          });
+          }).eq('id', user.uid);
         }
 
         // Stop live tracking if active
@@ -611,16 +602,14 @@ class AcceptMapsController extends GetxController {
 
     try {
       // Get user's FCM token
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      final userDoc = await SupabaseService.getUser(userId);
 
-      if (!userDoc.exists) {
+      if (userDoc == null) {
         return;
       }
 
-      final fcmToken = userDoc.data()?['fcmToken'];
+      final userData = SupabaseService.toCamelCase(userDoc);
+      final fcmToken = userData['fcmToken'];
 
       if (fcmToken != null && fcmToken.isNotEmpty) {
         String title = 'Order Status Update';
@@ -679,12 +668,9 @@ class AcceptMapsController extends GetxController {
       if (status == 'accepted' || status == 'confirmed') {
         final requestId = requestData.value!['id'];
         try {
-          await FirebaseFirestore.instance
-              .collection('orders')
-              .doc(requestId)
-              .update({
+          await SupabaseService.client.from('orders').update({
             'status': 'in_transit',
-          });
+          }).eq('id', requestId);
 
           // Update local data
           requestData.value!['status'] = 'in_transit';
@@ -755,16 +741,15 @@ class AcceptMapsController extends GetxController {
       _lastFirestoreUpdateTime = now;
       _lastFirestorePosition = position;
 
-      FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
+      SupabaseService.client
+          .from('orders')
           .update({
-        'partnerLiveLocation': {
+        'partner_live_location': {
           'latitude': position.latitude,
           'longitude': position.longitude,
-          'timestamp': Timestamp.now(),
+          'timestamp': DateTime.now().toIso8601String(),
         },
-      }).catchError((e) {
+      }).eq('id', requestId).catchError((e) {
         debugPrint('Error updating live location: $e');
       });
     }
@@ -926,20 +911,17 @@ class AcceptMapsController extends GetxController {
           stopLiveTracking();
         }
 
-        final orderDoc = await FirebaseFirestore.instance.collection('orders').doc(requestId).get();
-        final userId = orderDoc.data()?['userId'];
+        final orderDoc = await SupabaseService.getOrder(requestId);
+        final userId = orderDoc?['userId'] ?? orderDoc?['user_id'];
 
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(requestId)
-            .update({
+        await SupabaseService.client.from('orders').update({
           'status': 'cancelled',
-          'cancelledAt': Timestamp.now(),
-        });
+          'cancelled_at': DateTime.now().toIso8601String(),
+        }).eq('id', requestId);
         
         if (userId != null) {
-          final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-          final fcmToken = userDoc.data()?['fcmToken'];
+          final userDoc = await SupabaseService.getUser(userId);
+          final fcmToken = userDoc != null ? SupabaseService.toCamelCase(userDoc)['fcmToken'] : null;
           if (fcmToken != null) {
             await NotificationService.sendFCMNotification(
               token: fcmToken,
@@ -1001,10 +983,9 @@ class AcceptMapsController extends GetxController {
     if (requestData.value != null) {
       final requestId = requestData.value!['id'];
       try {
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(requestId)
-            .update({'status': status});
+        await SupabaseService.client
+            .from('orders')
+            .update({'status': status}).eq('id', requestId);
 
         // Update local data
         requestData.value!['status'] = status;
@@ -1098,17 +1079,16 @@ class AcceptMapsController extends GetxController {
       if (enteredOTP == storedOTP.toString()) {
       */
         // Update order status to pickup (patient picked up)
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(requestId)
+        await SupabaseService.client
+            .from('orders')
             .update({
           'status': 'pickup',
-          'pickupConfirmedAt': Timestamp.now(),
-        });
+          'pickup_confirmed_at': DateTime.now().toIso8601String(),
+        }).eq('id', requestId);
 
         // Update local data
         requestData.value!['status'] = 'pickup';
-        requestData.value!['pickupConfirmedAt'] = Timestamp.now();
+        requestData.value!['pickupConfirmedAt'] = DateTime.now().toIso8601String();
         requestData.refresh();
 
         // Send notification to user
@@ -1136,13 +1116,12 @@ class AcceptMapsController extends GetxController {
 
     try {
       // Update order status to indicate going to destination
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
+      await SupabaseService.client
+          .from('orders')
           .update({
         'status': 'to_destination',
-        'destinationStartedAt': Timestamp.now(),
-      });
+        'destination_started_at': DateTime.now().toIso8601String(),
+      }).eq('id', requestId);
 
       // Update local data
       requestData.value!['status'] = 'to_destination';

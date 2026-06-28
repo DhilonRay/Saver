@@ -1,10 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../admin_controller.dart';
 import '../admin_theme.dart';
+import '../../services/supabase_service.dart';
 
 class GLMPage extends StatefulWidget {
   const GLMPage({super.key});
@@ -13,7 +13,6 @@ class GLMPage extends StatefulWidget {
 }
 
 class _GLMPageState extends State<GLMPage> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
   final AdminController _ctrl = Get.find<AdminController>();
 
   @override
@@ -55,11 +54,20 @@ class _GLMPageState extends State<GLMPage> {
 
           // GLM List
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _fs.collection('glm_accounts').orderBy('score', descending: true).snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: SupabaseService.client.from('glm_accounts').stream(primaryKey: ['id']),
               builder: (context, snapshot) {
+                if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
-                var glms = snapshot.data!.docs;
+                
+                final rawGlms = snapshot.data ?? [];
+                var glms = rawGlms.map((item) => SupabaseService.toCamelCase(item)).toList();
+                glms.sort((a, b) {
+                  final aScore = (a['score'] as num?)?.toDouble() ?? 0.0;
+                  final bScore = (b['score'] as num?)?.toDouble() ?? 0.0;
+                  return bScore.compareTo(aScore);
+                });
+
                 if (glms.isEmpty) {
                   return Center(
                     child: Column(
@@ -83,8 +91,8 @@ class _GLMPageState extends State<GLMPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: glms.length,
                   itemBuilder: (context, index) {
-                    var data = glms[index].data() as Map<String, dynamic>;
-                    var id = glms[index].id;
+                    var data = glms[index];
+                    var id = data['id'] ?? data['uid'] ?? '';
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -98,54 +106,48 @@ class _GLMPageState extends State<GLMPage> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [AdminTheme.purple.withOpacity(0.2), AdminTheme.purple.withOpacity(0.05)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Center(
-                                child: Text(
-                                  '${index + 1}',
-                                  style: AdminTheme.heading3.copyWith(color: AdminTheme.purple),
-                                ),
-                              ),
+                              child: const Icon(Icons.local_hospital_rounded, color: AdminTheme.purple, size: 20),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(data['name'] ?? 'GLM', style: AdminTheme.heading3.copyWith(fontSize: 14)),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.phone_rounded, size: 12, color: AdminTheme.textMuted.withOpacity(0.6)),
-                                      const SizedBox(width: 5),
-                                      Text(data['phone'] ?? 'N/A', style: AdminTheme.bodySmall),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.local_hospital_rounded, size: 12, color: AdminTheme.textMuted.withOpacity(0.6)),
-                                      const SizedBox(width: 5),
-                                      Expanded(
-                                        child: Text(data['hospital'] ?? 'N/A', style: AdminTheme.bodySmall, overflow: TextOverflow.ellipsis),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      AdminMiniTag(text: '৳${data['totalIncome'] ?? 0}', color: AdminTheme.green),
-                                      const SizedBox(width: 6),
-                                      AdminMiniTag(text: 'Trips: ${data['totalTripsOrdered'] ?? 0}', color: AdminTheme.blue),
-                                      const SizedBox(width: 6),
-                                      AdminMiniTag(text: 'Score: ${data['score'] ?? 0}', color: AdminTheme.amber),
-                                    ],
-                                  ),
+                                  Text(data['hospital'] ?? 'N/A', style: AdminTheme.heading3.copyWith(fontSize: 14)),
+                                  const SizedBox(height: 4),
+                                  Text('ID: ${data['glmId'] ?? 'N/A'}', style: AdminTheme.bodySmall),
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded, color: AdminTheme.textMuted.withOpacity(0.4), size: 22),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.stars_rounded, color: AdminTheme.amber, size: 14),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${data['score'] ?? 0}',
+                                      style: const TextStyle(
+                                        color: AdminTheme.amber,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '৳${data['totalIncome'] ?? 0}',
+                                  style: AdminTheme.heading3.copyWith(color: AdminTheme.green, fontSize: 13),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -161,70 +163,41 @@ class _GLMPageState extends State<GLMPage> {
   }
 
   Widget _buildScoreboard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _fs.collection('glm_accounts').orderBy('score', descending: true).limit(3).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox.shrink();
-        var top = snapshot.data!.docs;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-          child: GlassCard(
-            accentColor: AdminTheme.amber,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AdminTheme.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.emoji_events_rounded, color: AdminTheme.amber, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Text('GLM Scoreboard', style: AdminTheme.heading3.copyWith(color: AdminTheme.amber)),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                ...top.asMap().entries.map((entry) {
-                  var d = entry.value.data() as Map<String, dynamic>;
-                  List<Color> medals = [AdminTheme.amber, const Color(0xFFB0BEC5), const Color(0xFF8D6E63)];
-                  List<String> emojis = ['🥇', '🥈', '🥉'];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      children: [
-                        Text(emojis[entry.key], style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(d['name'] ?? 'GLM', style: AdminTheme.body.copyWith(color: AdminTheme.textPrimary, fontWeight: FontWeight.w500)),
-                        ),
-                        AdminMiniTag(
-                          text: 'Score: ${d['score'] ?? 0}',
-                          color: medals[entry.key],
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AdminTheme.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.04)),
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('GLM Partner Scoreboard', style: AdminTheme.heading2),
+              SizedBox(height: 4),
+              Text(
+                'Top performing hospital referrals',
+                style: TextStyle(color: AdminTheme.textMuted, fontSize: 12),
+              ),
+            ],
           ),
-        );
-      },
+          Icon(Icons.emoji_events_rounded, color: AdminTheme.amber, size: 28),
+        ],
+      ),
     );
   }
 
   void _showAddGLMDialog() {
-    final nameC = TextEditingController();
-    final phoneC = TextEditingController();
-    final hospitalC = TextEditingController();
-    final idC = TextEditingController();
-    final passC = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final hospCtrl = TextEditingController();
+    final idCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final fKey = GlobalKey<FormState>();
 
     Get.dialog(
       BackdropFilter(
@@ -235,30 +208,35 @@ class _GLMPageState extends State<GLMPage> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
-              key: formKey,
+              key: fKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AdminTheme.accent.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.person_add_rounded, color: AdminTheme.accent, size: 28),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AdminTheme.accent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.person_add_rounded, color: AdminTheme.accent, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Add GLM Account', style: AdminTheme.heading2),
+                    ],
                   ),
-                  const SizedBox(height: 14),
-                  const Text('Add New GLM', style: AdminTheme.heading2),
                   const SizedBox(height: 20),
-                  _glmField(nameC, 'Full Name', Icons.person_rounded),
+                  _glmField(nameCtrl, 'Full Name', Icons.person_outline_rounded),
                   const SizedBox(height: 12),
-                  _glmField(phoneC, 'Phone Number', Icons.phone_rounded),
+                  _glmField(phoneCtrl, 'Phone Number', Icons.phone_android_rounded),
                   const SizedBox(height: 12),
-                  _glmField(hospitalC, 'Hospital Name', Icons.local_hospital_rounded),
+                  _glmField(hospCtrl, 'Hospital/Clinic Name', Icons.local_hospital_outlined),
                   const SizedBox(height: 12),
-                  _glmField(idC, 'GLM Login ID', Icons.badge_rounded),
+                  _glmField(idCtrl, 'GLM Username / ID', Icons.badge_outlined),
                   const SizedBox(height: 12),
-                  _glmField(passC, 'GLM Password', Icons.lock_outline_rounded),
+                  _glmField(passCtrl, 'Password', Icons.lock_outline_rounded),
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -279,21 +257,20 @@ class _GLMPageState extends State<GLMPage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            if (formKey.currentState!.validate()) {
+                            if (fKey.currentState!.validate()) {
                               try {
                                 await _ctrl.createGLMAccount(
-                                  name: nameC.text.trim(),
-                                  phone: phoneC.text.trim(),
-                                  hospital: hospitalC.text.trim(),
-                                  glmId: idC.text.trim(),
-                                  password: passC.text.trim(),
+                                  name: nameCtrl.text.trim(),
+                                  phone: phoneCtrl.text.trim(),
+                                  hospital: hospCtrl.text.trim(),
+                                  glmId: idCtrl.text.trim(),
+                                  password: passCtrl.text.trim(),
                                 );
                                 Get.back();
-                                // Delay snackbar to let overlay rebuild after dialog close
                                 Future.delayed(const Duration(milliseconds: 300), () {
                                   Get.snackbar(
                                     'Success',
-                                    'GLM account created!',
+                                    'GLM Account created successfully',
                                     backgroundColor: AdminTheme.green,
                                     colorText: Colors.white,
                                     snackStyle: SnackStyle.FLOATING,
@@ -308,11 +285,11 @@ class _GLMPageState extends State<GLMPage> {
                                     'Error',
                                     '$e',
                                     backgroundColor: AdminTheme.red,
-                                  colorText: Colors.white,
-                                  snackStyle: SnackStyle.FLOATING,
-                                  margin: const EdgeInsets.all(16),
-                                  borderRadius: 12,
-                                );
+                                    colorText: Colors.white,
+                                    snackStyle: SnackStyle.FLOATING,
+                                    margin: const EdgeInsets.all(16),
+                                    borderRadius: 12,
+                                  );
                                 });
                               }
                             }
@@ -410,42 +387,43 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AdminTheme.purple.withOpacity(0.2), AdminTheme.purple.withOpacity(0.05)],
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: AdminTheme.purple.withOpacity(0.15),
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            color: AdminTheme.purple,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: Text(initial, style: AdminTheme.heading2.copyWith(color: AdminTheme.purple)),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.data['name'] ?? 'GLM', style: AdminTheme.heading2),
-                            const SizedBox(height: 3),
-                            Text(widget.data['hospital'] ?? 'N/A', style: AdminTheme.bodySmall),
+                            Text(widget.data['hospital'] ?? 'N/A', style: AdminTheme.heading2),
+                            const SizedBox(height: 4),
+                            Text('ID: ${widget.data['glmId'] ?? 'N/A'}', style: AdminTheme.bodySmall),
                           ],
                         ),
                       ),
-                      AdminMiniTag(text: 'Score: ${widget.data['score'] ?? 0}', color: AdminTheme.amber),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  AdminDetailRow(label: 'Phone', value: widget.data['phone'] ?? 'N/A'),
-                  AdminDetailRow(label: 'GLM ID', value: widget.data['glmId'] ?? widget.glmId),
+                  const SizedBox(height: 20),
+                  Divider(color: Colors.white.withOpacity(0.04)),
+                  const SizedBox(height: 12),
+                  AdminDetailRow(label: 'Referrer Name', value: widget.data['name'] ?? 'N/A'),
+                  AdminDetailRow(label: 'Phone Number', value: widget.data['phone'] ?? 'N/A'),
+                  AdminDetailRow(label: 'Referral Score', value: '${widget.data['score'] ?? 0} points'),
+                  AdminDetailRow(label: 'Total Trips', value: '${widget.data['totalTripsOrdered'] ?? 0} refer'),
                   AdminDetailRow(label: 'Total Income', value: '৳${widget.data['totalIncome'] ?? 0}'),
-                  AdminDetailRow(label: 'Trips Ordered', value: '${widget.data['totalTripsOrdered'] ?? 0}'),
                 ],
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
 
             // Filter + trip history
             Row(
@@ -461,10 +439,12 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
             ),
             const SizedBox(height: 14),
 
-            StreamBuilder<QuerySnapshot>(
+            StreamBuilder<List<Map<String, dynamic>>>(
               stream: _buildTripQuery(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}', style: AdminTheme.body));
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
+                
                 // Filter by date and sort locally to avoid composite index
                 DateTime now = DateTime.now();
                 DateTime start;
@@ -473,20 +453,29 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                   case 'week': start = now.subtract(const Duration(days: 7)); break;
                   default: start = DateTime(now.year, now.month, 1);
                 }
-                var trips = snapshot.data!.docs.where((doc) {
-                  var d = doc.data() as Map<String, dynamic>;
+                
+                final rawTrips = snapshot.data ?? [];
+                var trips = rawTrips.where((item) {
+                  var d = SupabaseService.toCamelCase(item);
                   if (d['timestamp'] == null) return false;
-                  return (d['timestamp'] as Timestamp).toDate().isAfter(start);
-                }).toList();
+                  final date = DateTime.tryParse(d['timestamp'].toString());
+                  return date != null && date.isAfter(start);
+                }).map((item) => SupabaseService.toCamelCase(item)).toList();
+
                 trips.sort((a, b) {
                   try {
-                    final aT = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-                    final bT = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                    final aTStr = a['timestamp'] ?? a['createdAt'];
+                    final bTStr = b['timestamp'] ?? b['createdAt'];
+                    if (aTStr == null) return 1;
+                    if (bTStr == null) return -1;
+                    final aT = DateTime.tryParse(aTStr.toString());
+                    final bT = DateTime.tryParse(bTStr.toString());
                     if (aT == null) return 1;
                     if (bT == null) return -1;
                     return bT.compareTo(aT);
                   } catch (_) { return 0; }
                 });
+
                 if (trips.isEmpty) {
                   return GlassCard(
                     child: const Center(
@@ -499,7 +488,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: trips.length,
                   itemBuilder: (context, index) {
-                    var t = trips[index].data() as Map<String, dynamic>;
+                    var t = trips[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -525,7 +514,7 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
                             if (t['timestamp'] != null)
                               AdminDetailRow(
                                 label: 'Date',
-                                value: DateFormat('dd MMM yyyy, hh:mm a').format((t['timestamp'] as Timestamp).toDate()),
+                                value: DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(t['timestamp'].toString())!),
                               ),
                           ],
                         ),
@@ -542,10 +531,10 @@ class _GLMDetailPageState extends State<_GLMDetailPage> {
     );
   }
 
-  Stream<QuerySnapshot> _buildTripQuery() {
-    return FirebaseFirestore.instance
-        .collection('orders')
-        .where('glmId', isEqualTo: widget.glmId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> _buildTripQuery() {
+    return SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('glm_id', widget.glmId);
   }
 }

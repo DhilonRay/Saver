@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,14 +6,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../user_id/userid.dart';
+import '../../services/supabase_service.dart';
 
 class AmbulanceServiceController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Reactive variables
   var isLoading = false.obs;
-  var ambulancePartners = <QueryDocumentSnapshot>[].obs;
+  var ambulancePartners = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -25,8 +24,8 @@ class AmbulanceServiceController extends GetxController {
   Future<void> fetchAmbulancePartners() async {
     try {
       isLoading.value = true;
-      final snapshot = await _firestore.collection('partners').get();
-      ambulancePartners.value = snapshot.docs;
+      final partners = await SupabaseService.getAllPartners();
+      ambulancePartners.value = partners.map((p) => SupabaseService.toCamelCase(p)).toList();
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -142,15 +141,17 @@ class AmbulanceServiceController extends GetxController {
 
     try {
       // Check if user already has a pending ambulance request to this specific partner
-      final existingRequests = await _firestore
-          .collection('orders')
-          .where('userId', isEqualTo: userId)
-          .where('partnerId', isEqualTo: partnerId)
-          .where('type', isEqualTo: 'ambulance')
-          .where('status', isEqualTo: 'pending')
-          .get();
+      final existingRequests = await SupabaseService.query(
+        'orders',
+        filters: {
+          'user_id': userId,
+          'partner_id': partnerId,
+          'type': 'ambulance',
+          'status': 'pending',
+        },
+      );
 
-      if (existingRequests.docs.isNotEmpty) {
+      if (existingRequests.isNotEmpty) {
         Get.snackbar(
           'Request Already Pending',
           'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
@@ -179,12 +180,12 @@ class AmbulanceServiceController extends GetxController {
         print('Could not get user location: $e');
       }
 
-      // Get user data from Firestore
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final userData = userDoc.data() ?? {};
+      // Get user data from Supabase
+      final userMap = await SupabaseService.getUser(userId);
+      final userData = userMap != null ? SupabaseService.toCamelCase(userMap) : <String, dynamic>{};
 
       debugPrint('🔍 Ambulance Request - User ID: $userId');
-      debugPrint('📄 User document exists: ${userDoc.exists}');
+      debugPrint('📄 User document exists: ${userMap != null}');
       debugPrint('👤 User data: $userData');
 
       // Get current user info from Firebase Auth as fallback
@@ -217,7 +218,7 @@ class AmbulanceServiceController extends GetxController {
         'userId': userId,
         'partnerId': partnerId,
         'status': 'pending',
-        'timestamp': Timestamp.now(),
+        'timestamp': DateTime.now().toIso8601String(),
         'companyName': companyName,
         'urgency': urgency,
         'notes': notes ?? '',
@@ -239,7 +240,7 @@ class AmbulanceServiceController extends GetxController {
         orderData['pickupLng'] = userPosition.longitude;
       }
 
-      final orderRef = await _firestore.collection('orders').add(orderData);
+      final orderId = await SupabaseService.createOrder(orderData);
 
       Get.snackbar(
         'Order Placed',
@@ -250,8 +251,8 @@ class AmbulanceServiceController extends GetxController {
       );
 
       // Trigger notification to nearby drivers
-      orderData['orderId'] = orderRef.id;
-      await notifyNearbyDrivers(orderRef.id, orderData);
+      orderData['orderId'] = orderId;
+      await notifyNearbyDrivers(orderId, orderData);
 
     } catch (e) {
       Get.snackbar(

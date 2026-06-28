@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -49,22 +49,18 @@ class UserIdController extends GetxController {
     if (uid != null) {
       try {
         // Check users collection first, then drivers
-        DocumentSnapshot userDoc =
-            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        Map<String, dynamic>? userMap = await SupabaseService.getUser(uid);
         String collectionName = 'users';
-        if (!userDoc.exists) {
-          userDoc = await FirebaseFirestore.instance
-              .collection('drivers')
-              .doc(uid)
-              .get();
-          collectionName = 'drivers';
+        if (userMap == null) {
+          userMap = await SupabaseService.getDriver(uid);
+          if (userMap != null) {
+            collectionName = 'drivers';
+          }
         }
         userCollection.value = collectionName;
-        final userDocRef =
-            FirebaseFirestore.instance.collection(collectionName).doc(uid);
 
-        if (userDoc.exists) {
-          userData.value = userDoc.data() as Map<String, dynamic>?;
+        if (userMap != null) {
+          userData.value = SupabaseService.toCamelCase(userMap);
           nameController.text = userData.value?['name'] ?? '';
           phoneController.text = userData.value?['phone'] ?? '';
           addressController.text = userData.value?['address'] ?? '';
@@ -73,27 +69,24 @@ class UserIdController extends GetxController {
         } else {
           userData.value = {
             'name': 'N/A',
-            'email': FirebaseAuth.instance.currentUser!.email,
+            'email': FirebaseAuth.instance.currentUser!.email ?? 'N/A',
             'phone': 'N/A',
             'address': 'N/A',
             'uid': uid,
             'role': 'user', // Default role for users
-            'createdAt': Timestamp.now(),
+            'createdAt': DateTime.now().toIso8601String(),
           };
           nameController.text = 'N/A';
           phoneController.text = 'N/A';
           addressController.text = 'N/A';
           emailController.text =
               FirebaseAuth.instance.currentUser!.email ?? 'N/A';
-          await userDocRef.set(userData.value!);
+          await SupabaseService.upsertUser(uid, userData.value!);
         }
 
-        final partnerDoc = await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(uid)
-            .get();
-        if (partnerDoc.exists) {
-          partnerData.value = partnerDoc.data();
+        final partnerMap = await SupabaseService.getPartner(uid);
+        if (partnerMap != null) {
+          partnerData.value = SupabaseService.toCamelCase(partnerMap);
           vehicleNumberController.text =
               partnerData.value?['vehicleNumber'] ?? '';
           licenseNumberController.text =
@@ -138,21 +131,20 @@ class UserIdController extends GetxController {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       try {
-        await FirebaseFirestore.instance
-            .collection(userCollection.value)
-            .doc(uid)
-            .update({
+        final updateMap = {
           'name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'address': addressController.text.trim(),
           'email': emailController.text.trim(),
-        });
+        };
+        if (userCollection.value == 'users') {
+          await SupabaseService.updateUser(uid, updateMap);
+        } else {
+          await SupabaseService.updateDriver(uid, updateMap);
+        }
 
         if (partnerData.value != null) {
-          await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(uid)
-              .update({
+          await SupabaseService.updatePartner(uid, {
             'vehicleNumber': vehicleNumberController.text.trim(),
             'licenseNumber': licenseNumberController.text.trim(),
             'ambulanceType': ambulanceTypeController.text.trim(),
@@ -200,13 +192,15 @@ class UserIdController extends GetxController {
   Future<void> _updateLocation(String uid) async {
     try {
       Position position = await _getCurrentLocation();
-      await FirebaseFirestore.instance
-          .collection(userCollection.value)
-          .doc(uid)
-          .update({
+      final updateMap = {
         'latitude': position.latitude,
         'longitude': position.longitude,
-      });
+      };
+      if (userCollection.value == 'users') {
+        await SupabaseService.updateUser(uid, updateMap);
+      } else {
+        await SupabaseService.updateDriver(uid, updateMap);
+      }
     } catch (e) {
       // Silently fail to avoid disrupting user experience
     }
@@ -426,13 +420,13 @@ class UserIdController extends GetxController {
         debugPrint(
             '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection(userCollection.value)
-            .doc(user.uid)
-            .update({
-          'profileImageUrl': downloadUrl,
-        });
+        // Update database with the new image URL
+        final updateMap = {'profileImageUrl': downloadUrl};
+        if (userCollection.value == 'users') {
+          await SupabaseService.updateUser(user.uid, updateMap);
+        } else {
+          await SupabaseService.updateDriver(user.uid, updateMap);
+        }
 
         // Update local state
         profileImageUrl.value = downloadUrl;
@@ -636,13 +630,13 @@ class UserIdController extends GetxController {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection(userCollection.value)
-          .doc(user.uid)
-          .update({
-        'profileImageUrl': FieldValue.delete(),
-      });
+      // Remove from database
+      final updateMap = {'profileImageUrl': null};
+      if (userCollection.value == 'users') {
+        await SupabaseService.updateUser(user.uid, updateMap);
+      } else {
+        await SupabaseService.updateDriver(user.uid, updateMap);
+      }
 
       // Update local state
       profileImageUrl.value = null;

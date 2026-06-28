@@ -284,7 +284,7 @@ class UserOrdersPage extends StatelessWidget {
                               colorScheme.onSurface.withValues(alpha: 0.7))));
             }
 
-            return StreamBuilder<QuerySnapshot>(
+            return StreamBuilder<List<Map<String, dynamic>>>(
               stream: controller.getOrdersStream(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -297,7 +297,7 @@ class UserOrdersPage extends StatelessWidget {
                   return const OrderSkeletonLoader();
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -332,19 +332,20 @@ class UserOrdersPage extends StatelessWidget {
                 }
 
                 return AnimatedList(
-                  initialItemCount: snapshot.data!.docs.length,
+                  initialItemCount: snapshot.data!.length,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemBuilder: (context, index, animation) {
-                    final orderDoc = snapshot.data!.docs[index];
-                    final orderData = orderDoc.data() as Map<String, dynamic>;
-                    orderData['id'] = orderDoc.id;
+                    final orderData = snapshot.data![index];
 
                     final companyName =
                         orderData['companyName'] as String? ?? 'Trip Details';
                     final orderStatus = orderData['status'] as String?;
-                    final createdAt =
-                        (orderData['timestamp'] as Timestamp?)?.toDate();
+                    final createdAt = orderData['timestamp'] != null
+                        ? DateTime.tryParse(orderData['timestamp'].toString())
+                        : (orderData['createdAt'] != null
+                            ? DateTime.tryParse(orderData['createdAt'].toString())
+                            : null);
                     final serviceType = orderData['serviceType'] as String? ??
                         orderData['type'] as String?;
                     final urgency = orderData['urgency'] as String?;
@@ -511,10 +512,8 @@ class UserOrdersPage extends StatelessWidget {
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       controller.formatDate(
-                                                          Timestamp.fromDate(
-                                                              createdAt ??
-                                                                  DateTime
-                                                                      .now())),
+                                                          createdAt ??
+                                                              DateTime.now()),
                                                       style: TextStyle(
                                                         color: Colors
                                                             .grey.shade500,
@@ -594,8 +593,11 @@ class OrderDetailScreen extends StatelessWidget {
     final controller = Get.find<UserOrderController>();
     final companyName = orderData['companyName'] as String?;
     final orderStatus = orderData['status'] as String?;
-    final createdAt =
-        (orderData['timestamp'] as Timestamp?)?.toDate().toLocal();
+    final createdAt = orderData['timestamp'] != null
+        ? DateTime.tryParse(orderData['timestamp'].toString())?.toLocal()
+        : (orderData['createdAt'] != null
+            ? DateTime.tryParse(orderData['createdAt'].toString())?.toLocal()
+            : null);
     final partnerId = orderData['partnerId'] as String?;
     final serviceType =
         orderData['serviceType'] as String? ?? orderData['type'] as String?;

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../home_user/home_user.dart';
 
@@ -11,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
 import 'trip_rating_page.dart';
 import '../config/api_keys.dart';
+import '../../services/supabase_service.dart';
 
 class UserTrackingController extends GetxController {
   final Completer<GoogleMapController> _controller = Completer();
@@ -48,7 +48,7 @@ class UserTrackingController extends GetxController {
 
   // Live tracking variables
   var isLiveTracking = false.obs;
-  StreamSubscription<DocumentSnapshot>? _orderSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _orderSubscription;
 
   // Timing and performance optimization
   Timer? _etaUpdateTimer;
@@ -377,14 +377,14 @@ class UserTrackingController extends GetxController {
     _orderSubscription?.cancel();
 
     // Listen for order updates
-    _orderSubscription = FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .snapshots()
-        .listen((doc) {
-      if (doc.exists) {
-        final data = doc.data();
-        final status = data?['orderStatus'] ?? data?['status'];
+    _orderSubscription = SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('id', orderId)
+        .listen((list) {
+      if (list.isNotEmpty) {
+        final data = SupabaseService.toCamelCase(list.first);
+        final status = data['orderStatus'] ?? data['status'];
 
         debugPrint('UserTracking: Order status update: $status');
 
@@ -403,7 +403,7 @@ class UserTrackingController extends GetxController {
         // Handle live location updates (only if not completed)
         if (status != 'completed') {
           final liveLocation =
-              data?['partnerLiveLocation'] as Map<String, dynamic>?;
+              data['partnerLiveLocation'] as Map<String, dynamic>?;
           if (liveLocation != null) {
             final lat = liveLocation['latitude'] as double?;
             final lng = liveLocation['longitude'] as double?;
@@ -436,29 +436,26 @@ class UserTrackingController extends GetxController {
           }
         }
 
-    
         _updateMarkers();
         _updatePolylines();
 
-      
         if (status == 'completed') {
           debugPrint('UserTracking: Ride completed. Preparing to go home.');
           _handleRideCompletion();
         }
 
-       
         if (ambulancePosition.value != null &&
             userPosition.value != null &&
             status != 'completed') {
-                    final prevStatus =
+          final prevStatus =
               orderData.value?['orderStatus'] ?? orderData.value?['status'];
           if (status != prevStatus &&
               (status == 'pickup' || status == 'to_destination')) {
             debugPrint(
                 'UserTracking: Status changed to $status - updating destination coordinates');
             
-            final destLat = data?['destinationLat'];
-            final destLng = data?['destinationLng'];
+            final destLat = data['destinationLat'];
+            final destLng = data['destinationLng'];
             if (destLat != null && destLng != null) {
               userPosition.value = LatLng(destLat, destLng);
               debugPrint('UserTracking: Target destination updated to: ${userPosition.value}');
@@ -521,11 +518,11 @@ class UserTrackingController extends GetxController {
 
         // Fetch partner details if we have partnerId/acceptedBy and haven't fetched yet
         final partnerId =
-            data?['partnerId'] ?? data?['acceptedBy'] ?? data?['driverId'];
+            data['partnerId'] ?? data['acceptedBy'] ?? data['driverId'];
 
         // Use driverName from order data if available immediately
-        if (data?['driverName'] != null) {
-          partnerName.value = data!['driverName'];
+        if (data['driverName'] != null) {
+          partnerName.value = data['driverName'];
         }
 
         if (partnerId != null &&
@@ -556,69 +553,66 @@ class UserTrackingController extends GetxController {
     try {
       debugPrint('UserTracking: Fetching details for partner: $partnerId');
 
-      // 1. Try to fetch Name from "drivers" collection (matching HomePartnerController logic)
-      final driverDoc = await FirebaseFirestore.instance
-          .collection('drivers')
-          .doc(partnerId)
-          .get();
+      // 1. Try to fetch Name from "drivers" collection
+      final driverMap = await SupabaseService.client
+          .from('drivers')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (driverDoc.exists) {
-        final data = driverDoc.data();
-        if (data != null) {
-          if (data['name'] != null) {
-            partnerName.value = data['name'];
-            debugPrint(
-                'UserTracking: Fetched name from drivers collection: ${partnerName.value}');
-          }
-          if (data['phone'] != null || data['contact'] != null) {
-            partnerPhone.value = data['phone'] ?? data['contact'];
-          }
+      if (driverMap != null) {
+        final data = SupabaseService.toCamelCase(driverMap);
+        if (data['name'] != null) {
+          partnerName.value = data['name'];
+          debugPrint(
+              'UserTracking: Fetched name from drivers table: ${partnerName.value}');
+        }
+        if (data['phone'] != null || data['contact'] != null) {
+          partnerPhone.value = data['phone'] ?? data['contact'];
         }
       }
 
       // 2. Try to fetch Profile Image from "partners" collection
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      final partnerMap = await SupabaseService.client
+          .from('partners')
+          .select()
+          .eq('id', partnerId)
+          .maybeSingle();
 
-      if (partnerDoc.exists) {
-        final data = partnerDoc.data();
-        if (data != null) {
-          if (data['profileImageUrl'] != null) {
-            partnerImage.value = data['profileImageUrl'];
-            debugPrint('UserTracking: Fetched image from partners collection');
-          }
-          // If name wasn't in drivers, try partners
-          if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
-            partnerName.value = data['name'];
-          }
-          if (partnerPhone.value == null && (data['phone'] != null || data['contact'] != null)) {
-            partnerPhone.value = data['phone'] ?? data['contact'];
-          }
+      if (partnerMap != null) {
+        final data = SupabaseService.toCamelCase(partnerMap);
+        if (data['profileImageUrl'] != null) {
+          partnerImage.value = data['profileImageUrl'];
+          debugPrint('UserTracking: Fetched image from partners table');
+        }
+        // If name wasn't in drivers, try partners
+        if (partnerName.value == 'NeoSaver Partner' && data['name'] != null) {
+          partnerName.value = data['name'];
+        }
+        if (partnerPhone.value == null && (data['phone'] != null || data['contact'] != null)) {
+          partnerPhone.value = data['phone'] ?? data['contact'];
         }
       }
 
       // 3. Fallback to "users" collection if still missing
       if (partnerName.value == 'NeoSaver Partner' ||
           partnerImage.value == null || partnerPhone.value == null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(partnerId)
-            .get();
+        final userMap = await SupabaseService.client
+            .from('users')
+            .select()
+            .eq('id', partnerId)
+            .maybeSingle();
 
-        if (userDoc.exists) {
-          final data = userDoc.data();
-          if (data != null) {
-            if (partnerName.value == 'NeoSaver Partner') {
-              partnerName.value = data['name'] ?? 'NeoSaver Partner';
-            }
-            if (partnerImage.value == null) {
-              partnerImage.value = data['profileImageUrl'];
-            }
-            if (partnerPhone.value == null && data['phone'] != null) {
-              partnerPhone.value = data['phone'];
-            }
+        if (userMap != null) {
+          final data = SupabaseService.toCamelCase(userMap);
+          if (partnerName.value == 'NeoSaver Partner') {
+            partnerName.value = data['name'] ?? 'NeoSaver Partner';
+          }
+          if (partnerImage.value == null) {
+            partnerImage.value = data['profileImageUrl'];
+          }
+          if (partnerPhone.value == null && data['phone'] != null) {
+            partnerPhone.value = data['phone'];
           }
         }
       }

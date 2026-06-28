@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp; // Keep Timestamp for type checks
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:saver/compo/success_dialog.dart';
+import '../../services/supabase_service.dart';
 
 class PartnerProfileController extends GetxController {
   var isLoading = true.obs;
@@ -35,8 +36,8 @@ class PartnerProfileController extends GetxController {
   // Location address
   var locationAddress = Rx<String?>(null);
 
-  StreamSubscription<DocumentSnapshot>? _personalInfoSubscription;
-  StreamSubscription<DocumentSnapshot>? _partnerInfoSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _personalInfoSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _partnerInfoSubscription;
 
   @override
   void onInit() {
@@ -61,14 +62,14 @@ class PartnerProfileController extends GetxController {
     }
 
     // Set up real-time listener for personal info
-    _personalInfoSubscription = FirebaseFirestore.instance
-        .collection('drivers')
-        .doc(user.uid)
-        .snapshots()
+    _personalInfoSubscription = SupabaseService.client
+        .from('drivers')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.uid)
         .listen(
-      (userDoc) {
-        if (userDoc.exists && userDoc.data() != null) {
-          personalInfo.value = userDoc.data()!;
+      (list) {
+        if (list.isNotEmpty) {
+          personalInfo.value = SupabaseService.toCamelCase(list.first);
         } else {
           personalInfo.value = {
             'name': user.displayName ?? '',
@@ -91,20 +92,21 @@ class PartnerProfileController extends GetxController {
     );
 
     // Set up real-time listener for partner info
-    _partnerInfoSubscription = FirebaseFirestore.instance
-        .collection('partners')
-        .doc(user.uid)
-        .snapshots()
+    _partnerInfoSubscription = SupabaseService.client
+        .from('partners')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.uid)
         .listen(
-      (doc) async {
-        if (doc.exists && doc.data() != null) {
-          partnerInfo.value = doc.data()!;
-          profileImageUrl.value = doc.data()!['profileImageUrl'];
-          ambulanceImageUrl.value = doc.data()!['ambulanceImageUrl'];
+      (list) async {
+        if (list.isNotEmpty) {
+          final data = SupabaseService.toCamelCase(list.first);
+          partnerInfo.value = data;
+          profileImageUrl.value = data['profileImageUrl'];
+          ambulanceImageUrl.value = data['ambulanceImageUrl'];
 
           // Convert coordinates to address if available
-          final latitude = doc.data()!['latitude'];
-          final longitude = doc.data()!['longitude'];
+          final latitude = data['latitude'];
+          final longitude = data['longitude'];
           if (latitude != null && longitude != null) {
             await _updateLocationAddress(latitude, longitude);
           } else {
@@ -159,26 +161,26 @@ class PartnerProfileController extends GetxController {
 
       if (originalServiceRate != currentServiceRate) {
         ratesChanged = true;
-        partnerInfo['ratesLastUpdated'] = FieldValue.serverTimestamp();
+        partnerInfo['ratesLastUpdated'] = DateTime.now().toIso8601String();
         print('💰 Service rate updated: $currentServiceRate');
       }
 
-      // Update partner info in Firestore
+      // Update partner info in Supabase
       if (partnerInfo.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update(partnerInfo);
-        print('✅ Partner info updated in Firestore');
+        final updateMap = Map<String, dynamic>.from(partnerInfo);
+        updateMap.remove('id');
+        updateMap.remove('uid');
+        await SupabaseService.updatePartner(user.uid, updateMap);
+        print('✅ Partner info updated in Supabase');
       }
 
-      // Update personal info in users collection
+      // Update personal info in drivers table in Supabase
       if (personalInfo.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.uid)
-            .update(personalInfo);
-        print('✅ Personal info updated in Firestore');
+        final updateMap = Map<String, dynamic>.from(personalInfo);
+        updateMap.remove('id');
+        updateMap.remove('uid');
+        await SupabaseService.updateDriver(user.uid, updateMap);
+        print('✅ Personal info updated in Supabase');
       }
 
       isEditing.value = false;
@@ -218,11 +220,8 @@ class PartnerProfileController extends GetxController {
         await ref.putFile(file);
         String downloadUrl = await ref.getDownloadURL();
         personalInfo['profileImageUrl'] = downloadUrl;
-        // Update Firestore
-        await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(user.uid)
-            .update({'profileImageUrl': downloadUrl});
+        // Update Supabase
+        await SupabaseService.updateDriver(user.uid, {'profileImageUrl': downloadUrl});
         SuccessDialog.show(
           title: 'Profile Picture Updated',
           message: 'Your profile picture has been updated successfully!',
@@ -399,11 +398,8 @@ class PartnerProfileController extends GetxController {
         final downloadUrl = await snapshot.ref.getDownloadURL();
         print('🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
-        // Update Firestore with the new image URL
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .update({
+        // Update Supabase with the new image URL
+        await SupabaseService.updatePartner(user.uid, {
           'profileImageUrl': downloadUrl,
         });
 
@@ -601,12 +597,9 @@ class PartnerProfileController extends GetxController {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
-        'profileImageUrl': FieldValue.delete(),
+      // Remove from Supabase
+      await SupabaseService.updatePartner(user.uid, {
+        'profileImageUrl': null,
       });
 
       // Update local state
@@ -859,13 +852,10 @@ class PartnerProfileController extends GetxController {
         final downloadUrl = await snapshot.ref.getDownloadURL();
         print('🔗 Ambulance image URL obtained');
 
-        // Use set with merge to handle both new and existing documents
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(user.uid)
-            .set({
+        // Update Supabase with the new image URL
+        await SupabaseService.updatePartner(user.uid, {
           'ambulanceImageUrl': downloadUrl,
-        }, SetOptions(merge: true));
+        });
 
         ambulanceImageUrl.value = downloadUrl;
 
@@ -1001,11 +991,8 @@ class PartnerProfileController extends GetxController {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(user.uid)
-          .update({
-        'ambulanceImageUrl': FieldValue.delete(),
+      await SupabaseService.updatePartner(user.uid, {
+        'ambulanceImageUrl': null,
       });
 
       ambulanceImageUrl.value = null;
@@ -1176,11 +1163,13 @@ class PartnerProfileController extends GetxController {
       if (user == null) return;
 
       // Get all completed orders for this partner
-      final ordersSnapshot = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('partnerId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
+      final orders = await SupabaseService.query(
+        'orders',
+        filters: {
+          'partner_id': user.uid,
+          'status': 'completed',
+        },
+      );
 
       double total = 0.0;
       int rides = 0;
@@ -1189,10 +1178,13 @@ class PartnerProfileController extends GetxController {
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
 
-      for (var doc in ordersSnapshot.docs) {
-        final data = doc.data();
+      for (var item in orders) {
+        final data = SupabaseService.toCamelCase(item);
         final fareAmount = data['fareAmount'] ?? data['totalFare'] ?? 0.0;
-        final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+        DateTime? timestamp;
+        if (data['timestamp'] != null) {
+          timestamp = DateTime.tryParse(data['timestamp'].toString());
+        }
 
         if (fareAmount is num) {
           total += fareAmount.toDouble();

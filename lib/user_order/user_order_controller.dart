@@ -1,12 +1,11 @@
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/supabase_service.dart';
 
 class UserOrderController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Reactive variables
@@ -45,14 +44,23 @@ class UserOrderController extends GetxController {
     }
   }
 
-  Stream<QuerySnapshot> getOrdersStream() {
-    if (userId.isEmpty) return Stream.empty();
+  Stream<List<Map<String, dynamic>>> getOrdersStream() {
+    if (userId.isEmpty) return Stream.value([]);
 
     // Show all orders for the user
-    return _firestore
-        .collection('orders')
-        .where('userId', isEqualTo: userId.value)
-        .snapshots();
+    return SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId.value)
+        .map((list) {
+          final sorted = List<Map<String, dynamic>>.from(list);
+          sorted.sort((a, b) {
+            final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime.now();
+            final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime.now();
+            return bTime.compareTo(aTime);
+          });
+          return sorted.map((o) => SupabaseService.toCamelCase(o)).toList();
+        });
   }
 
   void fetchOrders() async {
@@ -62,18 +70,13 @@ class UserOrderController extends GetxController {
       isLoading.value = true;
       error.value = '';
 
-      final snapshot = await _firestore
-          .collection('orders')
-          .where('userId', isEqualTo: userId.value)
-          .get();
+      final response = await SupabaseService.getOrdersByUserId(userId.value);
 
       // Sort in memory since we can't use orderBy in query
-      final ordersList = snapshot.docs.map((doc) => doc.data()).toList();
+      final ordersList = response.map((o) => SupabaseService.toCamelCase(o)).toList();
       ordersList.sort((a, b) {
-        final aTime =
-            (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime =
-            (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final aTime = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.now();
+        final bTime = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime.now();
         return bTime.compareTo(aTime); // Descending order
       });
 
@@ -100,9 +103,14 @@ class UserOrderController extends GetxController {
     }
   }
 
-  String formatDate(Timestamp? timestamp) {
+  String formatDate(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
-    final date = timestamp.toDate().toLocal();
+    DateTime date;
+    if (timestamp is DateTime) {
+      date = timestamp.toLocal();
+    } else {
+      date = DateTime.tryParse(timestamp.toString())?.toLocal() ?? DateTime.now();
+    }
     return DateFormat('MMM d, h:mm a').format(date);
   }
 

@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/get_started/get_started_page.dart';
@@ -12,6 +12,8 @@ import '../partner_file/accept_maps/accept_maps.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../admin/admin_dashboard/admin_dashboard.dart';
 import '../glm_dashboard/glm_dashboard.dart';
+// import '../config/api_keys_secret.dart';
+// import '../auth/phone_verification/phone_verification_screen.dart';
 
 class SplashPageController {
   /// Navigate after the splash delay using Get navigation to avoid
@@ -43,53 +45,91 @@ class SplashPageController {
 
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // Check if user is not phone verified (excluding admin) (Commented out for now)
+        /*
+        if (user.email != ApiKeysSecret.adminEmail && user.phoneNumber == null) {
+          try {
+            String role = 'user';
+            String phone = '';
+
+            // Check users collection first
+            final userDoc = await SupabaseService.getUser(user.uid);
+
+            if (userDoc != null) {
+              final data = SupabaseService.toCamelCase(userDoc);
+              role = data['role'] as String? ?? 'user';
+              phone = data['phone'] as String? ?? '';
+            } else {
+              // Check drivers collection
+              final driverDoc = await SupabaseService.getDriver(user.uid);
+              if (driverDoc != null) {
+                final data = SupabaseService.toCamelCase(driverDoc);
+                role = data['role'] as String? ?? 'driver';
+                phone = data['phone'] as String? ?? '';
+              }
+            }
+
+            // Format phone number
+            String formattedPhone = phone.trim();
+            if (!formattedPhone.startsWith('+')) {
+              if (formattedPhone.startsWith('88')) {
+                formattedPhone = '+$formattedPhone';
+              } else if (formattedPhone.startsWith('0')) {
+                formattedPhone = '+880${formattedPhone.substring(1)}';
+              } else {
+                formattedPhone = '+880$formattedPhone';
+              }
+            }
+
+            if (formattedPhone.isNotEmpty) {
+              Get.offAll(() => PhoneVerificationScreen(
+                    userPhone: formattedPhone,
+                    userRole: role,
+                  ));
+              return;
+            }
+          } catch (e) {
+            debugPrint('Error getting phone verification data on splash: $e');
+          }
+        }
+        */
         try {
           // Priority Check: Active Order Persistence
-          final activeUserOrder = await FirebaseFirestore.instance
-              .collection('orders')
-              .where('userId', isEqualTo: user.uid)
-              .get();
-
-          final activePartnerOrder = await FirebaseFirestore.instance
-              .collection('orders')
-              .where('partnerId', isEqualTo: user.uid)
-              .get();
+          final activeUserOrders = await SupabaseService.getOrdersByUserId(user.uid);
+          final activePartnerOrders = await SupabaseService.getOrdersByPartnerId(user.uid);
 
           // Check for active user orders
-          if (activeUserOrder.docs.isNotEmpty) {
-            final docs = activeUserOrder.docs
+          if (activeUserOrders.isNotEmpty) {
+            final docs = activeUserOrders
                 .where((d) => ![
                       'completed',
                       'cancelled',
                       'rejected',
                       'declined'
-                    ].contains(d.data()['status']?.toString().toLowerCase()))
+                    ].contains(d['status']?.toString().toLowerCase()))
                 .toList();
 
             if (docs.isNotEmpty) {
               // Safe sorting
               docs.sort((a, b) {
-                final aTime =
-                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
-                final bTime =
-                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime.now();
+                final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime.now();
                 return bTime.compareTo(aTime);
               });
 
-              final orderDoc = docs.first;
-              final orderData = orderDoc.data();
+              final orderData = Map<String, dynamic>.from(docs.first);
               final status = orderData['status']?.toString().toLowerCase();
 
               if (status == 'sent' ||
                   status == 'counter' ||
                   status == 'pending') {
                 final negotiation =
-                    orderData['negotiation'] as Map<String, dynamic>? ?? {};
+                    orderData['extra_data'] is Map ? orderData['extra_data'] as Map<String, dynamic> : <String, dynamic>{};
                 Get.offAll(() => FareNegotiationPage(), arguments: {
-                  'requestId': orderDoc.id,
-                  'driverId': orderData['driverId'] ??
+                  'requestId': orderData['id'],
+                  'driverId': orderData['driver_id'] ??
                       negotiation['driverId'] ??
-                      orderData['partnerId'] ??
+                      orderData['partner_id'] ??
                       '',
                   'fare': (negotiation['counterFare'] as num?)?.toDouble() ??
                       (orderData['fare'] as num?)?.toDouble() ??
@@ -99,7 +139,6 @@ class SplashPageController {
                 return;
               } else if (['accepted', 'pickup', 'in_transit', 'to_destination']
                   .contains(status)) {
-                orderData['id'] = orderDoc.id;
                 Get.offAll(() => const UserTrackingPage(),
                     arguments: orderData);
                 _initializeFCMDelayed();
@@ -109,12 +148,11 @@ class SplashPageController {
           }
 
           // Check for active partner orders
-          if (activePartnerOrder.docs.isNotEmpty) {
-            final docs = activePartnerOrder.docs.where((d) {
-              final data = d.data();
-              final status = data['status']?.toString().toLowerCase();
-              final negStatus =
-                  data['negotiation']?['status']?.toString().toLowerCase();
+          if (activePartnerOrders.isNotEmpty) {
+            final docs = activePartnerOrders.where((d) {
+              final status = d['status']?.toString().toLowerCase();
+              final extraData = d['extra_data'] is Map ? d['extra_data'] as Map<String, dynamic> : <String, dynamic>{};
+              final negStatus = extraData['status']?.toString().toLowerCase();
               return [
                     'accepted',
                     'confirmed',
@@ -128,22 +166,16 @@ class SplashPageController {
             if (docs.isNotEmpty) {
               // Safe sorting
               docs.sort((a, b) {
-                final aTime =
-                    (a.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
-                final bTime =
-                    (b.data()['createdAt'] as Timestamp?) ?? Timestamp.now();
+                final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime.now();
+                final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime.now();
                 return bTime.compareTo(aTime);
               });
 
-              final orderDoc = docs.first;
-              final orderData = orderDoc.data();
-              orderData['id'] = orderDoc.id;
+              final orderData = Map<String, dynamic>.from(docs.first);
 
-              final fare = (orderData['fareAmount'] as num?)?.toInt() ??
-                  (orderData['finalFare'] as num?)?.toInt() ??
-                  (orderData['confirmedFare'] as num?)?.toInt() ??
-                  (orderData['negotiation']?['counterFare'] as num?)?.toInt() ??
-                  (orderData['negotiation']?['finalFare'] as num?)?.toInt() ??
+              final fare = (orderData['fare'] as num?)?.toInt() ??
+                  (orderData['final_fare'] as num?)?.toInt() ??
+                  (orderData['counter_fare'] as num?)?.toInt() ??
                   2500;
 
               Get.offAll(() => const AcceptMapsPage(), arguments: {
@@ -156,31 +188,22 @@ class SplashPageController {
           }
 
           // Standard role-based redirect
-          final adminDoc = await FirebaseFirestore.instance
-              .collection('admins')
-              .doc(user.uid)
-              .get();
-          if (adminDoc.exists) {
+          final adminData = await SupabaseService.getAdmin(user.uid);
+          if (adminData != null) {
             Get.offAll(() => const AdminDashboard());
             _initializeFCMDelayed();
             return;
           }
 
-          final partnerDoc = await FirebaseFirestore.instance
-              .collection('partners')
-              .doc(user.uid)
-              .get();
-          if (partnerDoc.exists) {
+          final partnerData = await SupabaseService.getPartner(user.uid);
+          if (partnerData != null) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
             return;
           }
 
-          final driverDoc = await FirebaseFirestore.instance
-              .collection('drivers')
-              .doc(user.uid)
-              .get();
-          if (driverDoc.exists) {
+          final driverData = await SupabaseService.getDriver(user.uid);
+          if (driverData != null) {
             Get.offAll(() => HomePartnerPage());
             _initializeFCMDelayed();
             return;

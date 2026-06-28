@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
-import '../email_verification/email_verification_screen.dart';
+// import '../phone_verification/phone_verification_screen.dart';
+import '../../home_user/home_user.dart';
+import '../../partner_file/home_partner/home_partner.dart';
+import '../../services/supabase_service.dart';
 
 class SignUpController extends GetxController {
   // Text Controllers
@@ -211,10 +213,7 @@ class SignUpController extends GetxController {
       }
       isUploadingImages.value = false;
 
-      // Save user data to Firestore
-      String collectionName =
-          selectedRole.value == 'driver' ? 'drivers' : 'users';
-      
+      // Save user data to Supabase
       Map<String, dynamic> userData = {
         'name':
             '${firstNameController.text.trim()} ${lastNameController.text.trim()}',
@@ -228,8 +227,8 @@ class SignUpController extends GetxController {
         'role': selectedRole.value,
         'acceptedTerms': true,
         'profileImageUrl': profileImageUrl,
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       };
 
       // Add driver specific fields
@@ -239,7 +238,7 @@ class SignUpController extends GetxController {
           'ambulanceImageUrl': ambulanceImageUrl,
           'nidImageUrl': nidImageUrl,
           'registrationPapersImageUrl': registrationPapersImageUrl,
-          'isApproved': true, // Auto-approve drivers
+          'isApproved': true,
           'isOnline': false,
           'companyName': companyNameController.text.trim(),
         });
@@ -247,57 +246,55 @@ class SignUpController extends GetxController {
         // Send notification to admin panel
         await _sendAdminNotification(uid, userData);
         
-        // FIX #5: partners collection-এ শুধু lightweight reference রাখো
-        // Full data শুধু 'drivers' collection-এ থাকবে
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(uid)
-            .set({
-          'uid': uid,
+        // partners table-এ lightweight reference রাখো
+        await SupabaseService.upsertPartner(uid, {
           'role': 'driver',
           'name': userData['name'],
           'phone': userData['phone'],
           'isOnline': false,
           'isApproved': true,
-          'dataRef': 'drivers/$uid', // drivers collection-এ full data আছে
-          'createdAt': FieldValue.serverTimestamp(),
         });
-      }
 
-      await FirebaseFirestore.instance
-          .collection(collectionName)
-          .doc(uid)
-          .set(userData);
+        // Save full data to drivers table
+        await SupabaseService.upsertDriver(uid, userData);
+      } else {
+        // Save to users table
+        await SupabaseService.upsertUser(uid, userData);
+      }
 
       debugPrint('User registered with role: ${selectedRole.value}');
-      debugPrint('User data saved to Firestore: ${userCredential.user!.uid}');
+      debugPrint('User data saved to Supabase: ${userCredential.user!.uid}');
 
-      // FIX #1: Email Verification পাঠাও এবং verification screen-এ যাও
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await user.sendEmailVerification();
-        debugPrint('📧 Verification email sent to: ${user.email}');
+      // Format phone number
+      String rawPhone = phoneController.text.trim();
+      String formattedPhone = rawPhone;
+      if (!formattedPhone.startsWith('+')) {
+        if (formattedPhone.startsWith('88')) {
+          formattedPhone = '+$formattedPhone';
+        } else if (formattedPhone.startsWith('0')) {
+          formattedPhone = '+880${formattedPhone.substring(1)}';
+        } else {
+          formattedPhone = '+880$formattedPhone';
+        }
       }
 
-      final emailForDisplay = emailController.text.trim().isEmpty
-          ? '${phoneController.text.trim()}@neosaver.app'
-          : emailController.text.trim();
-
-      Get.snackbar(
-        '📧 Verification Email পাঠানো হয়েছে!',
-        'আপনার ইমেইল ($emailForDisplay) চেক করুন এবং verify করুন।',
-        backgroundColor: Colors.green[700],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 4),
-      );
-
-      // Email Verification Screen-এ navigate করো
+      // Phone Verification Screen-এ navigate করো (Commented out for now)
+      /*
       Future.delayed(const Duration(milliseconds: 500), () {
-        Get.offAll(() => EmailVerificationScreen(
-              userEmail: emailForDisplay,
+        Get.offAll(() => PhoneVerificationScreen(
+              userPhone: formattedPhone,
               userRole: selectedRole.value,
             ));
+      });
+      */
+
+      // Directly navigate to Home based on role
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (selectedRole.value == 'driver') {
+          Get.offAll(() => HomePartnerPage());
+        } else {
+          Get.offAll(() => HomePage(isNewSignup: true));
+        }
       });
     } catch (e) {
       debugPrint('Registration error: $e');
@@ -389,15 +386,12 @@ class SignUpController extends GetxController {
   Future<void> _sendAdminNotification(
       String uid, Map<String, dynamic> userData) async {
     try {
-      await FirebaseFirestore.instance.collection('admin_notifications').add({
-        'type': 'new_driver_signup',
+      await SupabaseService.addAdminNotification({
         'title': 'New Driver Verification Request',
         'message':
             '${userData['name']} has registered as an ambulance driver and needs verification.',
-        'userId': uid,
-        'userData': userData,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
+        'target': 'admin',
+        'recipientCount': 1,
       });
       debugPrint('✅ Admin notification sent');
     } catch (e) {

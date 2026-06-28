@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'supabase_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -279,18 +279,15 @@ class NotificationService {
         throw Exception('User not authenticated');
       }
 
-      // Get partner's FCM token from Firestore
-      final partnerDoc = await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .get();
+      // Get partner's FCM token from Supabase
+      final partnerDocMap = await SupabaseService.getPartner(partnerId);
 
-      if (!partnerDoc.exists) {
+      if (partnerDocMap == null) {
         throw Exception('Partner not found');
       }
 
-      final partnerData = partnerDoc.data();
-      final fcmToken = partnerData?['fcmToken'] as String?;
+      final partnerData = SupabaseService.toCamelCase(partnerDocMap);
+      final fcmToken = partnerData['fcmToken'] as String?;
 
       print('🚑 Partner data: $partnerData');
       print('🚑 FCM Token: $fcmToken');
@@ -300,26 +297,20 @@ class NotificationService {
         print(
             '⚠️ Partner FCM token invalid or too short (length: ${fcmToken?.length}), saving notification for later');
         // Save notification for when partner comes online
-        await FirebaseFirestore.instance
-            .collection('pending_notifications')
-            .add({
+        await SupabaseService.client.from('pending_notifications').insert({
           'type': 'ambulance_request',
-          'partnerId': partnerId,
-          'userId': currentUser.uid,
-          'requestData': requestData,
-          'timestamp': FieldValue.serverTimestamp(),
+          'partner_id': partnerId,
+          'user_id': currentUser.uid,
+          'request_data': requestData,
+          'timestamp': DateTime.now().toIso8601String(),
         });
 
         return true;
       }
 
       // Get user data for notification content
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
-
-      final userData = userDoc.data();
+      final userDocMap = await SupabaseService.getUser(currentUser.uid);
+      final userData = userDocMap != null ? SupabaseService.toCamelCase(userDocMap) : null;
       final patientName =
           requestData['patientName'] ?? userData?['name'] ?? 'রোগী';
 
@@ -411,13 +402,13 @@ class NotificationService {
       );
 
       // Save notification log
-      await FirebaseFirestore.instance.collection('notification_logs').add({
+      await SupabaseService.client.from('notification_logs').insert({
         'type': 'ambulance_request_fcm_v1',
-        'fromUserId': currentUser.uid,
-        'toPartnerId': partnerId,
-        'orderId': requestData['orderId'],
-        'fcmToken': fcmToken,
-        'timestamp': FieldValue.serverTimestamp(),
+        'from_user_id': currentUser.uid,
+        'to_partner_id': partnerId,
+        'order_id': requestData['orderId'],
+        'fcm_token': fcmToken,
+        'timestamp': DateTime.now().toIso8601String(),
         'success': success,
         'method': 'fcm_v1_api',
       });
@@ -427,14 +418,12 @@ class NotificationService {
         return true;
       } else {
         // Fallback: save as pending notification
-        await FirebaseFirestore.instance
-            .collection('pending_notifications')
-            .add({
+        await SupabaseService.client.from('pending_notifications').insert({
           'type': 'ambulance_request',
-          'partnerId': partnerId,
-          'userId': currentUser.uid,
-          'requestData': requestData,
-          'timestamp': FieldValue.serverTimestamp(),
+          'partner_id': partnerId,
+          'user_id': currentUser.uid,
+          'request_data': requestData,
+          'timestamp': DateTime.now().toIso8601String(),
         });
 
         return true; // Still return true for UX
@@ -446,14 +435,12 @@ class NotificationService {
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
-          await FirebaseFirestore.instance
-              .collection('pending_notifications')
-              .add({
+          await SupabaseService.client.from('pending_notifications').insert({
             'type': 'ambulance_request',
-            'partnerId': partnerId,
-            'userId': currentUser.uid,
-            'requestData': requestData,
-            'timestamp': FieldValue.serverTimestamp(),
+            'partner_id': partnerId,
+            'user_id': currentUser.uid,
+            'request_data': requestData,
+            'timestamp': DateTime.now().toIso8601String(),
             'error': e.toString(),
           });
         }
@@ -700,12 +687,9 @@ class NotificationService {
           // Try updating users collection
           bool updatedInUsers = false;
           try {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(currentUser.uid)
-                .update({
+            await SupabaseService.updateUser(currentUser.uid, {
               'fcmToken': token,
-              'lastTokenUpdate': Timestamp.now(),
+              'lastTokenUpdate': DateTime.now().toIso8601String(),
             });
             updatedInUsers = true;
             print('✅ FCM token updated in users collection');
@@ -716,12 +700,9 @@ class NotificationService {
           // Try updating drivers collection
           bool updatedInDrivers = false;
           try {
-            await FirebaseFirestore.instance
-                .collection('drivers')
-                .doc(currentUser.uid)
-                .update({
+            await SupabaseService.updateDriver(currentUser.uid, {
               'fcmToken': token,
-              'lastTokenUpdate': Timestamp.now(),
+              'lastTokenUpdate': DateTime.now().toIso8601String(),
             });
             updatedInDrivers = true;
             print('✅ FCM token updated in drivers collection');
@@ -733,32 +714,24 @@ class NotificationService {
           // We check both collections to find the role
           String? role;
           if (updatedInUsers) {
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(currentUser.uid)
-                .get();
-            role = userDoc.data()?['role'];
+            final userDoc = await SupabaseService.getUser(currentUser.uid);
+            role = userDoc != null ? SupabaseService.toCamelCase(userDoc)['role'] : null;
           }
 
           if (role == null && updatedInDrivers) {
-            final driverDoc = await FirebaseFirestore.instance
-                .collection('drivers')
-                .doc(currentUser.uid)
-                .get();
-            role = driverDoc.data()?['role'];
+            final driverDoc = await SupabaseService.getDriver(currentUser.uid);
+            role = driverDoc != null ? SupabaseService.toCamelCase(driverDoc)['role'] : null;
           }
 
           print('👤 User role identified: $role');
 
           if (role == 'partner' || role == 'driver' || role == 'ambulance') {
             print('💾 Saving FCM token to partners collection for role: $role');
-            await FirebaseFirestore.instance
-                .collection('partners')
-                .doc(currentUser.uid)
-                .set({
-              'fcmToken': token,
-              'lastTokenUpdate': Timestamp.now(),
-            }, SetOptions(merge: true));
+            await SupabaseService.client.from('partners').upsert({
+              'id': currentUser.uid,
+              'fcm_token': token,
+              'last_token_update': DateTime.now().toIso8601String(),
+            });
             print('✅ FCM token saved to partners collection');
           }
         }
@@ -769,12 +742,9 @@ class NotificationService {
           // Update token in Firestore when it refreshes
           final currentUser = FirebaseAuth.instance.currentUser;
           if (currentUser != null) {
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(currentUser.uid)
-                .update({
+            SupabaseService.updateUser(currentUser.uid, {
               'fcmToken': newToken,
-              'lastTokenUpdate': Timestamp.now(),
+              'lastTokenUpdate': DateTime.now().toIso8601String(),
             });
 
             // Also update partners collection if needed
@@ -795,33 +765,25 @@ class NotificationService {
       String userId, String token) async {
     try {
       // Check users collection
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      final userDoc = await SupabaseService.getUser(userId);
 
       String? role;
-      if (userDoc.exists) {
-        role = userDoc.data()?['role'];
+      if (userDoc != null) {
+        role = SupabaseService.toCamelCase(userDoc)['role'];
       } else {
         // Check drivers collection
-        final driverDoc = await FirebaseFirestore.instance
-            .collection('drivers')
-            .doc(userId)
-            .get();
-        if (driverDoc.exists) {
-          role = driverDoc.data()?['role'];
+        final driverDoc = await SupabaseService.getDriver(userId);
+        if (driverDoc != null) {
+          role = SupabaseService.toCamelCase(driverDoc)['role'];
         }
       }
 
       if (role == 'partner' || role == 'driver' || role == 'ambulance') {
-        await FirebaseFirestore.instance
-            .collection('partners')
-            .doc(userId)
-            .set({
-          'fcmToken': token,
-          'lastTokenUpdate': Timestamp.now(),
-        }, SetOptions(merge: true));
+        await SupabaseService.client.from('partners').upsert({
+          'id': userId,
+          'fcm_token': token,
+          'last_token_update': DateTime.now().toIso8601String(),
+        });
         print('✅ Partner FCM token updated for user: $userId');
       }
     } catch (e) {
@@ -852,16 +814,13 @@ class NotificationService {
     final userId = data['userId'] ?? data['toUserId'];
     if (userId != null && userId.isNotEmpty && message.notification != null) {
       try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('notifications')
-            .add({
+        await SupabaseService.client.from('user_notifications').insert({
+          'user_id': userId,
           'title': message.notification!.title ?? 'Notification',
           'message': message.notification!.body ?? '',
           'type': data['type'] ?? 'info',
-          'isRead': false,
-          'timestamp': FieldValue.serverTimestamp(),
+          'is_read': false,
+          'timestamp': DateTime.now().toIso8601String(),
           'data': data,
         });
         print('✅ Background notification stored for user: $userId');
@@ -911,14 +870,11 @@ class NotificationService {
       }
 
       // Check if user already has FCM token
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
+      final userDoc = await SupabaseService.getUser(currentUser.uid);
 
-      if (userDoc.exists) {
-        final userData = userDoc.data();
-        final existingToken = userData?['fcmToken'];
+      if (userDoc != null) {
+        final userData = SupabaseService.toCamelCase(userDoc);
+        final existingToken = userData['fcmToken'];
 
         if (existingToken != null && existingToken.isNotEmpty) {
           print('✅ FCM token already exists for user');
@@ -977,16 +933,13 @@ class NotificationService {
           if (notificationType.contains('ambulance') ||
               notificationType.contains('user')) {
             // Add to user notifications
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(currentUser.uid)
-                .collection('notifications')
-                .add({
+            await SupabaseService.client.from('user_notifications').insert({
+              'user_id': currentUser.uid,
               'title': message.notification!.title ?? 'Notification',
               'message': message.notification!.body ?? '',
               'type': notificationType,
-              'isRead': false,
-              'timestamp': FieldValue.serverTimestamp(),
+              'is_read': false,
+              'timestamp': DateTime.now().toIso8601String(),
               'data': message.data,
             });
             print('✅ Foreground notification added to user list');
@@ -1175,11 +1128,15 @@ class NotificationService {
         'data': data ?? {},
       };
 
-      await FirebaseFirestore.instance
-          .collection('partners')
-          .doc(partnerId)
-          .collection('notifications')
-          .add(notificationData);
+      await SupabaseService.client.from('partner_notifications').insert({
+        'partner_id': partnerId,
+        'title': title,
+        'message': message,
+        'type': type,
+        'timestamp': DateTime.now().toIso8601String(),
+        'is_read': false,
+        'data': data ?? {},
+      });
 
       debugPrint('✅ Partner notification added: $title');
     } catch (e) {
@@ -1195,13 +1152,14 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final partnersSnapshot = await FirebaseFirestore.instance
-          .collection('partners')
-          .where('isOnline', isEqualTo: true)
-          .get();
+      final partnersSnapshot = await SupabaseService.client
+          .from('partners')
+          .select()
+          .eq('is_online', true);
 
-      for (final partnerDoc in partnersSnapshot.docs) {
-        final partnerId = partnerDoc.id;
+      for (final partnerDoc in partnersSnapshot) {
+        final partnerData = SupabaseService.toCamelCase(partnerDoc);
+        final partnerId = partnerData['id'] ?? partnerData['uid'] ?? '';
         await addPartnerNotification(
           partnerId: partnerId,
           title: title,
@@ -1211,7 +1169,7 @@ class NotificationService {
         );
 
         // Also send push notification if FCM token exists
-        final fcmToken = partnerDoc.data()['fcmToken'];
+        final fcmToken = partnerData['fcmToken'];
         if (fcmToken != null) {
           await sendFCMNotification(
             token: fcmToken,
@@ -1222,7 +1180,7 @@ class NotificationService {
         }
       }
 
-      debugPrint('✅ Notified ${partnersSnapshot.docs.length} online partners');
+      debugPrint('✅ Notified ${partnersSnapshot.length} online partners');
     } catch (e) {
       debugPrint('❌ Failed to notify partners: $e');
     }
@@ -1241,18 +1199,15 @@ class NotificationService {
       debugPrint('📱 Message: $message');
 
       // Get user's FCM token from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      final userDoc = await SupabaseService.getUser(userId);
 
-      if (!userDoc.exists) {
+      if (userDoc == null) {
         debugPrint('❌ User not found');
         return false;
       }
 
-      final userData = userDoc.data();
-      final fcmToken = userData?['fcmToken'] as String?;
+      final userData = SupabaseService.toCamelCase(userDoc);
+      final fcmToken = userData['fcmToken'] as String?;
 
       debugPrint('📱 User FCM Token: ${fcmToken?.substring(0, 20)}...');
 

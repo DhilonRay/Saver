@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../admin_theme.dart';
+import '../../services/supabase_service.dart';
 
 class AmbulancesPage extends StatefulWidget {
   const AmbulancesPage({super.key});
@@ -13,14 +14,13 @@ class AmbulancesPage extends StatefulWidget {
 }
 
 class _AmbulancesPageState extends State<AmbulancesPage> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(gradient: AdminTheme.bgGradient),
-      child: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('partners').snapshots(),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: SupabaseService.streamPartners(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -33,7 +33,7 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
             );
           }
 
-          var ambulances = snapshot.data!.docs;
+          var ambulances = snapshot.data ?? [];
           if (ambulances.isEmpty) {
             return Center(
               child: Column(
@@ -58,8 +58,9 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
             padding: const EdgeInsets.all(16),
             itemCount: ambulances.length,
             itemBuilder: (context, index) {
-              var rawData = ambulances[index].data() as Map<String, dynamic>;
-              var id = ambulances[index].id;
+              var partner = SupabaseService.toCamelCase(ambulances[index]);
+              var id = partner['uid'] ?? partner['id'] ?? '';
+              var rawData = partner;
 
               // Normalize partner data to keys expected by UI and detail pages
               Map<String, dynamic> data = {
@@ -91,9 +92,15 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
               bool onTrip = data['onTrip'] ?? false;
 
               if (isActive) {
-                final lastUpdated = data['lastLocationUpdate'] as Timestamp?;
+                final lastUpdatedRaw = data['lastLocationUpdate'];
+                DateTime? lastUpdated;
+                if (lastUpdatedRaw is Timestamp) {
+                  lastUpdated = lastUpdatedRaw.toDate();
+                } else if (lastUpdatedRaw is String) {
+                  lastUpdated = DateTime.tryParse(lastUpdatedRaw);
+                }
                 if (lastUpdated != null) {
-                  final difference = DateTime.now().difference(lastUpdated.toDate());
+                  final difference = DateTime.now().difference(lastUpdated);
                   if (difference.inMinutes > 10) {
                     isActive = false;
                   }
@@ -337,20 +344,21 @@ class _AmbulanceDetailPage extends StatelessWidget {
                 icon: Icons.emergency_rounded,
                 color: AdminTheme.red,
               ),
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('orders')
-                    .where('ambulanceId', isEqualTo: ambulanceId)
-                    .where('status', whereIn: ['accepted', 'picked_up', 'in_progress'])
-                    .limit(1)
-                    .snapshots(),
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: SupabaseService.client
+                    .from('orders')
+                    .stream(primaryKey: ['id'])
+                    .eq('partner_id', ambulanceId)
+                    .map((list) => list
+                        .where((o) => ['accepted', 'picked_up', 'in_progress'].contains(o['status']))
+                        .toList()),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return GlassCard(
                       child: const AdminDetailRow(label: 'Trip', value: 'No active trip data found'),
                     );
                   }
-                  var trip = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+                  var trip = SupabaseService.toCamelCase(snapshot.data!.first);
                   return GlassCard(
                     accentColor: AdminTheme.red,
                     child: Column(
@@ -359,7 +367,7 @@ class _AmbulanceDetailPage extends StatelessWidget {
                         AdminDetailRow(label: 'Pickup', value: trip['pickupAddress'] ?? 'N/A', labelWidth: 120),
                         AdminDetailRow(label: 'Destination', value: trip['destinationAddress'] ?? 'N/A', labelWidth: 120),
                         AdminDetailRow(label: 'Patient', value: trip['patientName'] ?? 'N/A', labelWidth: 120),
-                        AdminDetailRow(label: 'Phone', value: trip['patientPhone'] ?? 'N/A', labelWidth: 120),
+                        AdminDetailRow(label: 'Phone', value: trip['patientPhone'] ?? trip['phone'] ?? 'N/A', labelWidth: 120),
                         if (trip['timestamp'] != null)
                           AdminDetailRow(label: 'Started', value: _formatTimestamp(trip['timestamp']), labelWidth: 120),
                       ],
@@ -466,6 +474,12 @@ class _AmbulanceDetailPage extends StatelessWidget {
   String _formatTimestamp(dynamic ts) {
     if (ts is Timestamp) {
       return DateFormat('dd MMM yyyy, hh:mm a').format(ts.toDate());
+    }
+    if (ts is String) {
+      final parsed = DateTime.tryParse(ts);
+      if (parsed != null) {
+        return DateFormat('dd MMM yyyy, hh:mm a').format(parsed);
+      }
     }
     return 'N/A';
   }

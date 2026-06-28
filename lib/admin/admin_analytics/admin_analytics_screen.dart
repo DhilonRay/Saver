@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../admin_theme.dart';
+import '../../services/supabase_service.dart';
 
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key});
@@ -10,8 +10,6 @@ class AdminAnalyticsScreen extends StatefulWidget {
 }
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   // Analytics Data
   int totalOrders = 0;
   int todayOrders = 0;
@@ -46,9 +44,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       DateTime monthStart = DateTime(now.year, now.month, 1);
 
       // Get all orders
-      QuerySnapshot allOrdersSnapshot =
-          await _firestore.collection('orders').get();
-      totalOrders = allOrdersSnapshot.size;
+      final allOrdersSnapshot =
+          await SupabaseService.client.from('orders').select();
+      totalOrders = allOrdersSnapshot.length;
 
       // Calculate revenues
       double allRevenue = 0.0;
@@ -59,26 +57,29 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       int weekCount = 0;
       int monthCount = 0;
 
-      for (var doc in allOrdersSnapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+      for (var item in allOrdersSnapshot) {
+        var data = SupabaseService.toCamelCase(item);
         if (data['status'] == 'completed') {
           double amount = (data['totalAmount'] ?? 0).toDouble();
           allRevenue += amount;
 
-          if (data['createdAt'] != null) {
-            DateTime orderDate = (data['createdAt'] as Timestamp).toDate();
+          final timeVal = data['createdAt'] ?? data['timestamp'];
+          if (timeVal != null) {
+            DateTime? orderDate = DateTime.tryParse(timeVal.toString());
 
-            if (orderDate.isAfter(todayStart)) {
-              todayRev += amount;
-              todayCount++;
-            }
-            if (orderDate.isAfter(weekStart)) {
-              weekRev += amount;
-              weekCount++;
-            }
-            if (orderDate.isAfter(monthStart)) {
-              monthRev += amount;
-              monthCount++;
+            if (orderDate != null) {
+              if (orderDate.isAfter(todayStart)) {
+                todayRev += amount;
+                todayCount++;
+              }
+              if (orderDate.isAfter(weekStart)) {
+                weekRev += amount;
+                weekCount++;
+              }
+              if (orderDate.isAfter(monthStart)) {
+                monthRev += amount;
+                monthCount++;
+              }
             }
           }
         }
@@ -93,21 +94,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       monthOrders = monthCount;
 
       // Get users stats
-      QuerySnapshot usersSnapshot = await _firestore.collection('users').get();
-      totalUsers = usersSnapshot.size;
-      activeUsers = usersSnapshot.docs
+      final usersSnapshot = await SupabaseService.client.from('users').select();
+      totalUsers = usersSnapshot.length;
+      activeUsers = usersSnapshot
           .where(
-              (doc) => (doc.data() as Map<String, dynamic>)['isActive'] ?? true)
+              (item) => (SupabaseService.toCamelCase(item))['isActive'] ?? true)
           .length;
 
       // Get partners stats
-      QuerySnapshot partnersSnapshot =
-          await _firestore.collection('partners').get();
-      totalPartners = partnersSnapshot.size;
-      activePartners = partnersSnapshot.docs
-          .where((doc) =>
-              ((doc.data() as Map<String, dynamic>)['isActive'] ?? true) &&
-              ((doc.data() as Map<String, dynamic>)['isApproved'] ?? false))
+      final partnersSnapshot =
+          await SupabaseService.client.from('partners').select();
+      totalPartners = partnersSnapshot.length;
+      activePartners = partnersSnapshot
+          .where((item) {
+            final data = SupabaseService.toCamelCase(item);
+            return (data['isActive'] ?? true) && (data['isApproved'] ?? false);
+          })
           .length;
 
       if (mounted) {

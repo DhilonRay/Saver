@@ -1,24 +1,23 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/notification_service.dart';
+import '../../services/supabase_service.dart';
 
 class PartnerOrdersController extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxString partnerId = ''.obs;
-  final RxList<QueryDocumentSnapshot> activeOrders =
-      <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> completedOrders =
-      <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> cancelledOrders =
-      <QueryDocumentSnapshot>[].obs;
+  final RxList<Map<String, dynamic>> activeOrders =
+      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> completedOrders =
+      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> cancelledOrders =
+      <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
 
-  StreamSubscription<QuerySnapshot>? _ordersSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
 
   @override
   void onInit() {
@@ -36,27 +35,27 @@ class PartnerOrdersController extends GetxController {
   }
 
   void _setupOrdersStream() {
-    _ordersSubscription = getOrdersStream().listen((snapshot) {
-      final docs = snapshot.docs;
+    _ordersSubscription = getOrdersStream().listen((list) {
+      activeOrders.value = list.where((item) {
+        final data = SupabaseService.toCamelCase(item);
+        final status = data['status'];
+        return status == 'active' ||
+            status == 'accepted' ||
+            status == 'inTransit' ||
+            status == 'in_transit' ||
+            status == 'pickup' ||
+            status == 'declined';
+      }).map((item) => SupabaseService.toCamelCase(item)).toList();
 
-      activeOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return data['status'] == 'active' ||
-            data['status'] == 'accepted' ||
-            data['status'] == 'in_transit' ||
-            data['status'] == 'pickup' ||
-            data['status'] == 'declined';
-      }).toList();
-
-      completedOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      completedOrders.value = list.where((item) {
+        final data = SupabaseService.toCamelCase(item);
         return data['status'] == 'completed';
-      }).toList();
+      }).map((item) => SupabaseService.toCamelCase(item)).toList();
 
-      cancelledOrders.value = docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      cancelledOrders.value = list.where((item) {
+        final data = SupabaseService.toCamelCase(item);
         return data['status'] == 'cancelled';
-      }).toList();
+      }).map((item) => SupabaseService.toCamelCase(item)).toList();
 
       isLoading.value = false;
     });
@@ -64,10 +63,7 @@ class PartnerOrdersController extends GetxController {
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     try {
-      await _firestore
-          .collection('orders')
-          .doc(orderId)
-          .update({'status': newStatus});
+      await SupabaseService.updateOrder(orderId, {'status': newStatus});
 
       // Send notification to user about status change
       await _sendStatusChangeNotification(orderId, newStatus);
@@ -97,18 +93,18 @@ class PartnerOrdersController extends GetxController {
       String orderId, String status) async {
     try {
       // Get order data to find userId
-      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
-      if (!orderDoc.exists) return;
-
-      final orderData = orderDoc.data();
-      final userId = orderData?['userId'];
+      final orderMap = await SupabaseService.getOrder(orderId);
+      if (orderMap == null) return;
+      final orderData = SupabaseService.toCamelCase(orderMap);
+      final userId = orderData['userId'];
       if (userId == null) return;
 
       // Get user's FCM token
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      if (!userDoc.exists) return;
+      final userMap = await SupabaseService.getUser(userId);
+      if (userMap == null) return;
+      final userData = SupabaseService.toCamelCase(userMap);
 
-      final fcmToken = userDoc.data()?['fcmToken'];
+      final fcmToken = userData['fcmToken'];
       if (fcmToken != null && fcmToken.isNotEmpty) {
         String title = 'Order Status Update';
         String body = 'Your order status has been updated to: $status';
@@ -120,6 +116,7 @@ class PartnerOrdersController extends GetxController {
             body = 'আপনার রাইড গ্রহণ করা হয়েছে। অ্যাম্বুলেন্স আসছে।';
             break;
           case 'in_transit':
+          case 'inTransit':
             title = 'অ্যাম্বুলেন্স রওনা হয়েছে';
             body = 'আপনার অ্যাম্বুলেন্স রওনা হয়েছে।';
             break;
@@ -160,22 +157,22 @@ class PartnerOrdersController extends GetxController {
 
   Future<Map<String, dynamic>?> getUserData(String userId) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      return userDoc.data();
+      final userMap = await SupabaseService.getUser(userId);
+      return userMap != null ? SupabaseService.toCamelCase(userMap) : null;
     } catch (e) {
       return null;
     }
   }
 
-  Stream<QuerySnapshot> getOrdersStream() {
+  Stream<List<Map<String, dynamic>>> getOrdersStream() {
     if (partnerId.value.isEmpty) {
       return const Stream.empty();
     }
 
-    return _firestore
-        .collection('orders')
-        .where('partnerId', isEqualTo: partnerId.value)
-        .snapshots();
+    return SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('partner_id', partnerId.value);
   }
 
   void showOrderDetails(BuildContext context, String? userId, String? userName,

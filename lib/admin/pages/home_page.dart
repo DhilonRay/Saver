@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/supabase_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -413,11 +413,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   Future<void> _loadAmbulanceLocations() async {
     try {
-      QuerySnapshot snap =
-          await FirebaseFirestore.instance.collection('partners').get();
+      final snap = await SupabaseService.client.from('partners').select();
       Set<Marker> markers = {};
-      for (var doc in snap.docs) {
-        var rawData = doc.data() as Map<String, dynamic>;
+      for (var item in snap) {
+        var rawData = SupabaseService.toCamelCase(item);
         double? lat = rawData['latitude']?.toDouble();
         double? lng = rawData['longitude']?.toDouble();
 
@@ -427,10 +426,15 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           // Check if the ambulance is truly active based on last updated location
           if (isActive) {
-            Timestamp? lastUpdated = rawData['lastUpdated'] as Timestamp?;
+            final lastUpdated = rawData['lastUpdated'];
             if (lastUpdated != null) {
-              final difference = DateTime.now().difference(lastUpdated.toDate());
-              if (difference.inMinutes > 10) {
+              final parsedDate = DateTime.tryParse(lastUpdated.toString());
+              if (parsedDate != null) {
+                final difference = DateTime.now().difference(parsedDate);
+                if (difference.inMinutes > 10) {
+                  isActive = false;
+                }
+              } else {
                 isActive = false;
               }
             } else {
@@ -460,9 +464,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
             markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
           }
 
+          final partnerId = rawData['id'] ?? rawData['uid'] ?? '';
           markers.add(
             Marker(
-              markerId: MarkerId(doc.id),
+              markerId: MarkerId(partnerId),
               position: LatLng(lat, lng),
               icon: markerIcon,
               infoWindow: InfoWindow(
@@ -470,7 +475,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 snippet:
                     '${data['driverName']} | ${isActive ? (onTrip ? 'On Trip' : 'Idle') : 'Inactive'}',
               ),
-              onTap: () => _showAmbulanceQuickInfo(doc.id, data),
+              onTap: () => _showAmbulanceQuickInfo(partnerId, data),
             ),
           );
         }
