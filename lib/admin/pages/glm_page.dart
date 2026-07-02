@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../admin_controller.dart';
 import '../admin_theme.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class GLMPage extends StatefulWidget {
   const GLMPage({super.key});
@@ -268,28 +269,12 @@ class _GLMPageState extends State<GLMPage> {
                                 );
                                 Get.back();
                                 Future.delayed(const Duration(milliseconds: 300), () {
-                                  Get.snackbar(
-                                    'Success',
-                                    'GLM Account created successfully',
-                                    backgroundColor: AdminTheme.green,
-                                    colorText: Colors.white,
-                                    snackStyle: SnackStyle.FLOATING,
-                                    margin: const EdgeInsets.all(16),
-                                    borderRadius: 12,
-                                  );
+                                  Alert.success('GLM Account created successfully');
                                 });
                               } catch (e) {
                                 Get.back();
                                 Future.delayed(const Duration(milliseconds: 300), () {
-                                  Get.snackbar(
-                                    'Error',
-                                    '$e',
-                                    backgroundColor: AdminTheme.red,
-                                    colorText: Colors.white,
-                                    snackStyle: SnackStyle.FLOATING,
-                                    margin: const EdgeInsets.all(16),
-                                    borderRadius: 12,
-                                  );
+                                  Alert.error('$e');
                                 });
                               }
                             }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/notification_service.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class PartnerOrdersController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -68,23 +69,9 @@ class PartnerOrdersController extends GetxController {
       // Send notification to user about status change
       await _sendStatusChangeNotification(orderId, newStatus);
 
-      Get.snackbar(
-        'Success',
-        'Order status updated to $newStatus',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+      Alert.success('Order status updated to $newStatus');
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to update order status: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
+      Alert.error('Failed to update order status: ${e.toString()}');
     }
   }
 
@@ -178,13 +165,7 @@ class PartnerOrdersController extends GetxController {
   void showOrderDetails(BuildContext context, String? userId, String? userName,
       String? companyName, String? orderStatus) async {
     if (userId == null) {
-      Get.snackbar(
-        'Error',
-        'User information not available.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Alert.error('User information not available.');
       return;
     }
 

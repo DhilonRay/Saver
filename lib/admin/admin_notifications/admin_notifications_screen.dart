@@ -41,7 +41,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         }
       }
       if (tokens.isEmpty) {
-        Get.snackbar('No Recipients', 'No FCM tokens found for the selected target', backgroundColor: AdminTheme.orange, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+      
         setState(() => _isSending = false); return;
       }
       await SupabaseService.client.from('admin_notifications').insert({
@@ -51,10 +51,10 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         'recipient_count': tokens.length,
         'sent_at': DateTime.now().toIso8601String(),
       });
-      Get.snackbar('Success', 'Notification sent to ${tokens.length} recipients', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    
       _titleCtrl.clear(); _msgCtrl.clear();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to send notification: $e', backgroundColor: AdminTheme.red, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+      
     } finally { setState(() => _isSending = false); }
   }
 

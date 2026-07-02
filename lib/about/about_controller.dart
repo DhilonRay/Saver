@@ -25,7 +25,7 @@ class AboutController extends GetxController {
     try {
       await launchUrl(emailUri);
     } catch (e) {
-      debugPrint('Failed to open email: $e');
+    
     }
   }
 
@@ -36,13 +36,11 @@ class AboutController extends GetxController {
 
   // Future method for app rating
   void rateApp() {
-    // TODO: Implement app store rating
-    debugPrint('Rate app tapped');
+  
   }
 
   // Future method for sharing app
   void shareApp() {
-    // TODO: Implement share functionality
-    debugPrint('Share app tapped');
+ 
   }
 }

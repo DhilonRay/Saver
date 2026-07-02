@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../admin_theme.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class AdminPartnersScreen extends StatefulWidget {
   const AdminPartnersScreen({Key? key}) : super(key: key);
@@ -104,20 +105,21 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen> {
         Row(children: [
           Expanded(child: TextButton(onPressed: () => Get.back(), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.white.withOpacity(0.08)))), child: const Text('Cancel', style: TextStyle(color: AdminTheme.textSecondary)))),
           const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(onPressed: () async { try { await fn(); } catch (e) { Get.snackbar('Error', '$e', backgroundColor: AdminTheme.red, colorText: Colors.white); } }, style: ElevatedButton.styleFrom(backgroundColor: c, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0), child: Text(act, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)))),
+          // ignore: empty_catches
+          Expanded(child: ElevatedButton(onPressed: () async { try { await fn(); } catch (e) {  }}, style: ElevatedButton.styleFrom(backgroundColor: c, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0), child: Text(act, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)))),
         ]),
       ])))));
   }
 
   void _approve(String pid, Map<String, dynamic> pd) => _confirm('Approve Partner?', 'Approve ${pd['name']} as a delivery partner?', AdminTheme.green, 'Approve', () async {
-    await SupabaseService.client.from('partners').update({'is_approved': true}).eq('id', pid); Get.back(); Get.snackbar('Success', 'Partner approved', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await SupabaseService.client.from('partners').update({'is_approved': true}).eq('id', pid); Get.back(); Alert.success('Partner approved');
   });
 
   void _toggle(String pid, Map<String, dynamic> pd) { bool ns = !(pd['isActive'] ?? true); _confirm(ns ? 'Activate?' : 'Suspend?', ns ? 'Partner can accept orders.' : 'Partner cannot accept orders.', ns ? AdminTheme.green : AdminTheme.orange, ns ? 'Activate' : 'Suspend', () async {
-    await SupabaseService.client.from('partners').update({'is_active': ns}).eq('id', pid); Get.back(); Get.snackbar('Success', 'Partner ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await SupabaseService.client.from('partners').update({'is_active': ns}).eq('id', pid); Get.back(); Alert.success('Partner ${ns ? 'activated' : 'suspended'}');
   }); }
 
   void _delete(String pid, Map<String, dynamic> pd) => _confirm('Delete Partner?', 'Permanently delete ${pd['name']}?', AdminTheme.red, 'Delete', () async {
-    await SupabaseService.client.from('partners').delete().eq('id', pid); Get.back(); Get.snackbar('Success', 'Partner deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+    await SupabaseService.client.from('partners').delete().eq('id', pid); Get.back(); Alert.success('Partner deleted');
   });
 }

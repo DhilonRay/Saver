@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/notification_service.dart';
 import '../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class RequestRideController extends GetxController {
   var isLoading = false.obs;
@@ -22,7 +22,7 @@ class RequestRideController extends GetxController {
       final driverDocMap = await SupabaseService.getPartner(driverId);
 
       if (driverDocMap == null) {
-        Get.snackbar('ত্রুটি', 'ড্রাইভার পাওয়া যায়নি');
+        Alert.error('ড্রাইভার পাওয়া যায়নি');
         return;
       }
 
@@ -30,7 +30,7 @@ class RequestRideController extends GetxController {
       final fcmToken = driverData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
-        Get.snackbar('ত্রুটি', 'ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
+        Alert.error('ড্রাইভারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
         return;
       }
 
@@ -84,12 +84,7 @@ class RequestRideController extends GetxController {
 
     } catch (e) {
       print('❌ Error sending ride request: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'রাইড রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('রাইড রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e');
     } finally {
       isLoading.value = false;
     }
@@ -118,12 +113,12 @@ class RequestRideController extends GetxController {
           );
         }
       } catch (e) {
-        Get.snackbar('ত্রুটি', 'আপনার অবস্থান পেতে সমস্যা হয়েছে');
+        Alert.error('আপনার অবস্থান পেতে সমস্যা হয়েছে');
         return;
       }
 
       if (userPosition == null) {
-        Get.snackbar('ত্রুটি', 'আপনার বর্তমান অবস্থান পাওয়া যায়নি');
+        Alert.error('আপনার বর্তমান অবস্থান পাওয়া যায়নি');
         return;
       }
 
@@ -207,31 +202,14 @@ class RequestRideController extends GetxController {
       }
 
       if (notificationsSent > 0) {
-        Get.snackbar(
-          '✅ সফল',
-          '$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে',
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade800,
-          duration: const Duration(seconds: 4),
-        );
+        Alert.success('$notificationsSent জন ড্রাইভারের কাছে রিকুয়েস্ট পাঠানো হয়েছে');
       } else {
-        Get.snackbar(
-          '⚠️ তথ্য',
-          'আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 4),
-        );
+        Alert.info('আশেপাশে কোন অনলাইন ড্রাইভার পাওয়া যায়নি');
       }
 
     } catch (e) {
       print('❌ Error sending requests to nearby drivers: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('আশেপাশের ড্রাইভারদের খুঁজে পেতে সমস্যা হয়েছে: $e');
     } finally {
       isLoading.value = false;
     }
@@ -251,7 +229,7 @@ class RequestRideController extends GetxController {
       final partnerDocMap = await SupabaseService.getPartner(partnerId);
 
       if (partnerDocMap == null) {
-        Get.snackbar('ত্রুটি', 'অ্যাম্বুলেন্স পার্টনার পাওয়া যায়নি');
+        Alert.error('অ্যাম্বুলেন্স পার্টনার পাওয়া যায়নি');
         return;
       }
 
@@ -259,7 +237,7 @@ class RequestRideController extends GetxController {
       final fcmToken = partnerData['fcmToken'] as String?;
 
       if (fcmToken == null || fcmToken.isEmpty) {
-        Get.snackbar('ত্রুটি', 'পার্টনারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
+        Alert.error('পার্টনারের নোটিফিকেশন টোকেন পাওয়া যায়নি');
         return;
       }
 
@@ -309,12 +287,7 @@ class RequestRideController extends GetxController {
 
     } catch (e) {
       print('❌ Error sending ambulance request: $e');
-      Get.snackbar(
-        'ত্রুটি',
-        'অ্যাম্বুলেন্স রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('অ্যাম্বুলেন্স রিকুয়েস্ট পাঠাতে সমস্যা হয়েছে: $e');
     } finally {
       isLoading.value = false;
     }

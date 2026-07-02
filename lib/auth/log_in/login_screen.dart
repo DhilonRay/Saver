@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:saver/auth/log_in/login_screen_controller.dart';
 import 'package:saver/auth/forgot_page/forgot_page.dart';
+import 'package:saver/components/alert.dart';
 import 'package:saver/components/constants/colors.dart';
 import 'package:saver/components/constants/images.dart';
 import 'package:saver/components/widgets/form_input.dart';
@@ -168,7 +169,7 @@ class LoginPage extends StatelessWidget {
       child: RawButtonWidget(
         backgroundColor: Colors.white,
         onTap: () {
-          Get.snackbar('Coming Soon', 'Google Login not implemented yet');
+          Alert.info('Google Login not implemented yet');
         },
         child: Padding(
           padding: const EdgeInsets.all(12.0),

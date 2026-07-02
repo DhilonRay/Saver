@@ -86,9 +86,9 @@ class HomePartnerController extends GetxController {
 
   // Location Stream and Camera Following
   StreamSubscription<Position>? _positionSubscription;
-  DateTime? _lastFirestoreUpdateTime;
-  Position? _lastFirestorePosition;
-  static const Duration _firestoreUpdateInterval = Duration(seconds: 4);
+  DateTime? _lastSupabaseUpdateTime;
+  Position? _lastSupabasePosition;
+  static const Duration _supabaseUpdateInterval = Duration(seconds: 4);
   var shouldFollowDriver = true.obs; // Camera follows ambulance by default
   bool isUserGesturing = false; // Internal flag to detect manual pan
   StreamSubscription? _activeNegotiationSubscription;
@@ -330,7 +330,7 @@ class HomePartnerController extends GetxController {
         debugPrint(
             '🔗 Download URL obtained: ${downloadUrl.substring(0, 50)}...');
 
-        // Update Firestore with the new image URL
+        // Update Supabase with the new image URL
         await SupabaseService.client.from('partners').update({
           'profile_image_url': downloadUrl,
         }).eq('id', user.uid);
@@ -514,7 +514,7 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      // Remove from Firestore
+      // Remove from Supabase
       await SupabaseService.client.from('partners').update({
         'profile_image_url': null,
       }).eq('id', user.uid);
@@ -591,7 +591,7 @@ class HomePartnerController extends GetxController {
         return false;
       }
 
-      // Update Firestore with BOTH fields to sync with Profile Page
+      // Update Supabase with BOTH fields to sync with Profile Page
       await SupabaseService.client.from('partners').update({
         'indoor_city_rate': newIndoorRate,
         'outdoor_city_rate': newOutdoorRate,
@@ -822,7 +822,7 @@ class HomePartnerController extends GetxController {
         request['id'] = reqId; // Normalize to 'id'
         Future.delayed(const Duration(milliseconds: 800), () async {
           try {
-            // Re-verify status from Firestore to ensure it's still pending
+            // Re-verify status from Supabase to ensure it's still pending
             final doc = await SupabaseService.getOrder(reqId);
 
             if (doc != null) {
@@ -1016,21 +1016,21 @@ class HomePartnerController extends GetxController {
     final now = DateTime.now();
 
     // Throttle check: Update if enough time passed (4s) OR moved significant distance (10m)
-    final timePassed = _lastFirestoreUpdateTime == null ||
-        now.difference(_lastFirestoreUpdateTime!) >= _firestoreUpdateInterval;
+    final timePassed = _lastSupabaseUpdateTime == null ||
+        now.difference(_lastSupabaseUpdateTime!) >= _supabaseUpdateInterval;
 
-    final movedSignificantly = _lastFirestorePosition == null ||
+    final movedSignificantly = _lastSupabasePosition == null ||
         Geolocator.distanceBetween(
-              _lastFirestorePosition!.latitude,
-              _lastFirestorePosition!.longitude,
+              _lastSupabasePosition!.latitude,
+              _lastSupabasePosition!.longitude,
               position.latitude,
               position.longitude,
             ) >=
             10;
 
     if (isOnline.value && (timePassed || movedSignificantly)) {
-      _lastFirestoreUpdateTime = now;
-      _lastFirestorePosition = position;
+      _lastSupabaseUpdateTime = now;
+      _lastSupabasePosition = position;
       await _updatePartnerLocation();
     }
   }
@@ -1083,7 +1083,7 @@ class HomePartnerController extends GetxController {
         ),
       );
 
-      // Update location in Firestore if online
+      // Update location in Supabase if online
       if (isOnline.value) {
         await _updatePartnerLocation();
       }
@@ -1181,7 +1181,7 @@ class HomePartnerController extends GetxController {
         ),
       );
 
-      // Update partner location in Firestore
+      // Update partner location in Supabase
       await _updatePartnerLocation();
 
       isLoadingLocation.value = false;
@@ -1324,7 +1324,7 @@ class HomePartnerController extends GetxController {
               final activeOrder = activeList.first;
               activeOrderId.value = activeOrder['id']?.toString();
               debugPrint(
-                  '🏠 HomePartner: Detected active order: ${activeOrder.id}');
+                  '🏠 HomePartner: Detected active order: ${activeOrder['id']}');
             } else {
               activeOrderId.value = null;
             }
@@ -2232,7 +2232,7 @@ class HomePartnerController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      // Update Firestore order with proposed fare in the negotiation map
+      // Update Supabase order with proposed fare in the negotiation map
       await SupabaseService.client.from('orders').update({
         'status': 'pending',
         'negotiation': {
@@ -2351,7 +2351,7 @@ class HomePartnerController extends GetxController {
     });
   }
 
-  /// Fetch request from Firestore and show bottom sheet
+  /// Fetch request from Supabase and show bottom sheet
   Future<void> _fetchAndShowRequest(String orderId) async {
     try {
       final doc = await SupabaseService.getOrder(orderId);
@@ -2534,24 +2534,21 @@ class HomePartnerController extends GetxController {
             content: Text(
                 'অফলাইনে গেলে আপনি নতুন কোন অ্যাম্বুলেন্স রিকুয়েস্ট পাবেন না।'),
             actions: [
-              Row(
-                children: [
-                      ),
-                    ),
+              TextButton(
+                onPressed: () => Navigator.of(Get.context!).pop(false),
+                child: Text('না', style: TextStyle(color: Colors.grey)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(Get.context!).pop(true),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.of(Get.context!).pop(true),
-                    style: TextButton.styleFrom(
-                      backgroundColor: Colors.orange.shade600,
-                      foregroundColor: Colors.white,
-                      minimumSize: Size(120, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    child: Text('Yes,Confirm'),
-                  ),
-                ],
+                ),
+                child: Text('হ্যাঁ, নিশ্চিত'),
               ),
             ],
           ),

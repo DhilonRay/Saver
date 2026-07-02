@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../admin_theme.dart';
 import '../../services/supabase_service.dart';
@@ -94,9 +93,7 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
               if (isActive) {
                 final lastUpdatedRaw = data['lastLocationUpdate'];
                 DateTime? lastUpdated;
-                if (lastUpdatedRaw is Timestamp) {
-                  lastUpdated = lastUpdatedRaw.toDate();
-                } else if (lastUpdatedRaw is String) {
+                if (lastUpdatedRaw is String) {
                   lastUpdated = DateTime.tryParse(lastUpdatedRaw);
                 }
                 if (lastUpdated != null) {
@@ -472,9 +469,6 @@ class _AmbulanceDetailPage extends StatelessWidget {
   }
 
   String _formatTimestamp(dynamic ts) {
-    if (ts is Timestamp) {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(ts.toDate());
-    }
     if (ts is String) {
       final parsed = DateTime.tryParse(ts);
       if (parsed != null) {

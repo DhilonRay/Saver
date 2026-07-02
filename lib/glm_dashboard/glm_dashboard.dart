@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:saver/admin/admin_theme.dart';
 import 'package:saver/auth/log_in/login_screen.dart';
 import 'package:saver/home_user/home_user.dart';
+import 'package:saver/services/supabase_service.dart';
 
 class GLMDashboard extends StatefulWidget {
   final String glmId;
@@ -16,7 +16,6 @@ class GLMDashboard extends StatefulWidget {
 }
 
 class _GLMDashboardState extends State<GLMDashboard> {
-  final FirebaseFirestore _fs = FirebaseFirestore.instance;
   Map<String, dynamic>? _glmData;
   bool _isLoading = true;
 
@@ -28,10 +27,14 @@ class _GLMDashboardState extends State<GLMDashboard> {
 
   Future<void> _loadGLMProfile() async {
     try {
-      DocumentSnapshot doc = await _fs.collection('glm_accounts').doc(widget.glmId).get();
-      if (doc.exists) {
+      final doc = await SupabaseService.client
+          .from('glm_accounts')
+          .select()
+          .eq('id', widget.glmId)
+          .maybeSingle();
+      if (doc != null) {
         setState(() {
-          _glmData = doc.data() as Map<String, dynamic>;
+          _glmData = SupabaseService.toCamelCase(doc);
           _isLoading = false;
         });
       } else {
@@ -217,16 +220,16 @@ class _GLMDashboardState extends State<GLMDashboard> {
   }
 
   Widget _buildTripHistory() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _fs
-          .collection('orders')
-          .where('glmId', isEqualTo: widget.glmId)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: SupabaseService.client
+          .from('orders')
+          .stream(primaryKey: ['id'])
+          .eq('glm_id', widget.glmId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: AdminTheme.purple));
         }
-        var trips = snapshot.data!.docs;
+        var trips = snapshot.data!;
         if (trips.isEmpty) {
           return GlassCard(
             child: Center(
@@ -244,14 +247,16 @@ class _GLMDashboardState extends State<GLMDashboard> {
           );
         }
 
+        var camelCasedTrips = trips.map((t) => SupabaseService.toCamelCase(t)).toList();
+
         // Sort locally
-        var sortedTrips = trips.toList()
+        var sortedTrips = camelCasedTrips
           ..sort((a, b) {
-            var aTime = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-            var bTime = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
-            if (aTime == null) return 1;
-            if (bTime == null) return -1;
-            return bTime.compareTo(aTime);
+            final aStr = a['createdAt'] ?? a['timestamp'];
+            final bStr = b['createdAt'] ?? b['timestamp'];
+            if (aStr == null) return 1;
+            if (bStr == null) return -1;
+            return bStr.toString().compareTo(aStr.toString());
           });
 
         return ListView.builder(
@@ -259,15 +264,18 @@ class _GLMDashboardState extends State<GLMDashboard> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sortedTrips.length,
           itemBuilder: (context, index) {
-            var data = sortedTrips[index].data() as Map<String, dynamic>;
+            var data = sortedTrips[index];
             var from = data['pickupAddress'] ?? data['pickupName'] ?? 'Pickup';
             var to = data['destinationAddress'] ?? data['destinationName'] ?? 'Destination';
             var status = (data['status'] ?? 'unknown').toString().toUpperCase();
             var fare = data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0;
             var dateStr = '';
-            if (data['timestamp'] != null) {
-              DateTime dt = (data['timestamp'] as Timestamp).toDate();
-              dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+            final timeVal = data['createdAt'] ?? data['timestamp'];
+            if (timeVal != null) {
+              DateTime? dt = DateTime.tryParse(timeVal.toString());
+              if (dt != null) {
+                dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+              }
             }
 
             Color statusColor = AdminTheme.amber;

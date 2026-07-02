@@ -52,15 +52,14 @@ class LoginController extends GetxController {
       }
       isLoadingToken.value = false;
 
-      debugPrint('FCM Token: $token');
 
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        debugPrint('FCM Token Refreshed: $newToken');
+     
         fcmToken.value = newToken;
       });
     } catch (e) {
       isLoadingToken.value = false;
-      debugPrint('Error getting FCM token: $e');
+    
     }
   }
 
@@ -103,7 +102,7 @@ class LoginController extends GetxController {
         }
       }
     } catch (e) {
-      debugPrint('GLM Account check failed: $e');
+    
     } finally {
       isLoading.value = false;
     }
@@ -123,7 +122,7 @@ class LoginController extends GetxController {
       final adminData = await SupabaseService.getAdmin(uid);
 
       if (adminData != null) {
-        debugPrint('🔑 Admin user detected - navigating to admin dashboard');
+      
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isAdminLoggedIn', true);
         Get.offAllNamed('/admin-dashboard');
@@ -134,7 +133,7 @@ class LoginController extends GetxController {
       final partnerData = await SupabaseService.getPartner(uid);
 
       if (partnerData != null) {
-        debugPrint('Navigating to HomePartnerPage (found in partners)');
+       
         _navigateToPartner();
         return;
       }
@@ -143,17 +142,16 @@ class LoginController extends GetxController {
       final driverData = await SupabaseService.getDriver(uid);
 
       if (driverData != null) {
-        debugPrint('Navigating to HomePartnerPage (found in drivers)');
+        
         _navigateToPartner();
         return;
       }
 
       // Priority 3: Default to User Role
-      debugPrint(
-          'User/Driver doc not found in partner collections, defaulting to HomePage (User)');
+    
       _navigateToUser();
     } catch (e) {
-      debugPrint('Error fetching user role: $e');
+    
       _navigateToUser();
     }
   }
@@ -209,7 +207,7 @@ class LoginController extends GetxController {
         isLoading.value = false;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isAdminLoggedIn', true);
-        debugPrint('💾 LoginController: Set isAdminLoggedIn = true successfully');
+      
         Get.offAllNamed('/admin-dashboard');
         return;
       }
@@ -231,24 +229,18 @@ class LoginController extends GetxController {
           String userRole = 'user';
           String phone = '';
 
-          // Check 'users' collection
-          DocumentSnapshot userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userCredential.user!.uid)
-              .get();
+          // Check 'users' table
+          final userDoc = await SupabaseService.getUser(userCredential.user!.uid);
 
-          if (userDoc.exists) {
-            final data = userDoc.data() as Map<String, dynamic>;
+          if (userDoc != null) {
+            final data = SupabaseService.toCamelCase(userDoc);
             userRole = data['role'] as String? ?? 'user';
             phone = data['phone'] as String? ?? '';
           } else {
-            // Check 'drivers' collection
-            DocumentSnapshot driverDoc = await FirebaseFirestore.instance
-                .collection('drivers')
-                .doc(userCredential.user!.uid)
-                .get();
-            if (driverDoc.exists) {
-              final data = driverDoc.data() as Map<String, dynamic>;
+            // Check 'drivers' table
+            final driverDoc = await SupabaseService.getDriver(userCredential.user!.uid);
+            if (driverDoc != null) {
+              final data = SupabaseService.toCamelCase(driverDoc);
               userRole = data['role'] as String? ?? 'driver';
               phone = data['phone'] as String? ?? '';
             }
@@ -296,7 +288,7 @@ class LoginController extends GetxController {
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
-      debugPrint('Email login failed: $e');
+    
       Alert.error(e.toString());
     } finally {
       isLoading.value = false;
@@ -324,19 +316,15 @@ class LoginController extends GetxController {
           .eq('phone', phone)
           .limit(1);
 
-      debugPrint('📱 Phone login: Searching for phone $phone');
-      debugPrint('📊 Found ${userResults.length} documents');
-
+      
       if (userResults.isEmpty) {
         throw 'No account found with this phone number. Please sign up first.';
       }
 
-      final userData = userResults.first as Map<String, dynamic>;
+      final userData = userResults.first;
       final email = userData['email'] as String?;
-      final userRole = userData['role'] as String?;
 
-      debugPrint('📧 Found email: $email');
-      debugPrint('🎭 User role from phone search: $userRole');
+    
 
       if (email == null || email.isEmpty) {
         throw 'Account setup incomplete. Please contact support.';
@@ -392,7 +380,7 @@ class LoginController extends GetxController {
         await _navigateBasedOnRole(userCredential.user!.uid);
       }
     } catch (e) {
-      debugPrint('Phone login failed: $e');
+ 
       Alert.error(e.toString());
     } finally {
       isLoading.value = false;

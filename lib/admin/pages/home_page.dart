@@ -484,7 +484,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         setState(() => _markers = markers);
       }
     } catch (e) {
-      debugPrint('Error loading ambulance locations: $e');
+    
     }
   }
 

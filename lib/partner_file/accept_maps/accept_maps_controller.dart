@@ -42,13 +42,13 @@ class AcceptMapsController extends GetxController {
   StreamSubscription<Position>? _positionSubscription;
 
   // Timing and performance optimization
-  Timer? _firestoreUpdateTimer;
+  Timer? _supabaseUpdateTimer;
   Timer? _cameraUpdateTimer;
   Timer? _etaUpdateTimer;
-  Position? _lastFirestorePosition;
-  DateTime? _lastFirestoreUpdateTime;
+  Position? _lastSupabasePosition;
+  DateTime? _lastSupabaseUpdateTime;
   Position? _lastCameraPosition;
-  static const Duration _firestoreUpdateInterval =
+  static const Duration _supabaseUpdateInterval =
       Duration(seconds: 4); // Update at least every 4 seconds
   static const Duration _cameraUpdateInterval =
       Duration(seconds: 8); // Camera update every 8 seconds
@@ -209,13 +209,8 @@ class AcceptMapsController extends GetxController {
             ['accepted', 'confirmed'].contains(negStatus)) {
           showSlidePanel.value = true;
         }
-      } else {
-        // No data, return to home
-        _orderSubscription?.cancel();
-        Get.offAll(() => HomePartnerPage());
-      }
-    });
-  }
+      });
+    }
 
   void _initializeDirections() {
     try {
@@ -698,8 +693,8 @@ class AcceptMapsController extends GetxController {
         // Update marker position immediately for smooth UI
         _updatePartnerMarker();
 
-        // Debounced Firestore update
-        _scheduleFirestoreUpdate(position);
+        // Debounced Supabase update
+        _scheduleSupabaseUpdate(position);
 
         // Conditional camera update
         _scheduleCameraUpdate(position);
@@ -720,26 +715,26 @@ class AcceptMapsController extends GetxController {
         duration: const Duration(seconds: 2));
   }
 
-  void _scheduleFirestoreUpdate(Position position) {
+  void _scheduleSupabaseUpdate(Position position) {
     if (requestData.value == null || !isLiveTracking.value) return;
 
     final now = DateTime.now();
     final requestId = requestData.value!['id'];
 
     // Throttle check: Update if enough time passed (4s) OR moved significant distance (10m)
-    final timePassed = _lastFirestoreUpdateTime == null ||
-        now.difference(_lastFirestoreUpdateTime!) >= _firestoreUpdateInterval;
+    final timePassed = _lastSupabaseUpdateTime == null ||
+        now.difference(_lastSupabaseUpdateTime!) >= _supabaseUpdateInterval;
 
-    final movedSignificantly = _lastFirestorePosition == null ||
-        _calculateDistance(_lastFirestorePosition!, position) >= 10;
+    final movedSignificantly = _lastSupabasePosition == null ||
+        _calculateDistance(_lastSupabasePosition!, position) >= 10;
 
     if (timePassed || movedSignificantly) {
       // Avoid overlapping updates by checking if timer is already pending
       // or just send it if it's been long enough.
       // We'll use a direct async call here but prevent hammering.
       
-      _lastFirestoreUpdateTime = now;
-      _lastFirestorePosition = position;
+      _lastSupabaseUpdateTime = now;
+      _lastSupabasePosition = position;
 
       SupabaseService.client
           .from('orders')
@@ -811,8 +806,8 @@ class AcceptMapsController extends GetxController {
     _positionSubscription = null;
 
     // Cancel any pending timers
-    _firestoreUpdateTimer?.cancel();
-    _firestoreUpdateTimer = null;
+    _supabaseUpdateTimer?.cancel();
+    _supabaseUpdateTimer = null;
     _cameraUpdateTimer?.cancel();
     _cameraUpdateTimer = null;
     _etaUpdateTimer?.cancel();
@@ -1010,26 +1005,22 @@ class AcceptMapsController extends GetxController {
       final otp = (1000 + Random().nextInt(9000)).toString();
 
       // Store OTP in order document
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
+      await SupabaseService.client
+          .from('orders')
           .update({
-        'pickupOTP': otp,
-        'otpGeneratedAt': Timestamp.now(),
-      });
+        'pickup_otp': otp,
+        'otp_generated_at': DateTime.now().toIso8601String(),
+      }).eq('id', requestId);
 
       // Update local data with the generated OTP
       requestData.value!['pickupOTP'] = otp;
-      requestData.value!['otpGeneratedAt'] = Timestamp.now();
+      requestData.value!['otpGeneratedAt'] = DateTime.now().toIso8601String();
       requestData.refresh();
 
       // Get user's FCM token
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      final userDoc = await SupabaseService.getUser(userId);
 
-      final fcmToken = userDoc.data()?['fcmToken'] as String?;
+      final fcmToken = userDoc?['fcm_token'] as String?;
 
       if (fcmToken != null && fcmToken.isNotEmpty) {
         // Send notification with OTP
@@ -1059,17 +1050,14 @@ class AcceptMapsController extends GetxController {
     try {
       // OTP SYSTEM BYPASSED FOR TEST PHASE
       /*
-      // Fetch the latest order data from Firestore to get the stored OTP
-      final orderDoc = await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(requestId)
-          .get();
+      // Fetch the latest order data from Supabase to get the stored OTP
+      final orderDoc = await SupabaseService.getOrder(requestId);
 
-      if (!orderDoc.exists) {
+      if (orderDoc == null) {
         return false;
       }
 
-      final orderData = orderDoc.data()!;
+      final orderData = SupabaseService.toCamelCase(orderDoc);
       final storedOTP = orderData['pickupOTP'];
 
       if (storedOTP == null) {
@@ -1236,7 +1224,7 @@ class AcceptMapsController extends GetxController {
   @override
   void onClose() {
     // Cancel all timers
-    _firestoreUpdateTimer?.cancel();
+    _supabaseUpdateTimer?.cancel();
     _cameraUpdateTimer?.cancel();
     _etaUpdateTimer?.cancel();
 

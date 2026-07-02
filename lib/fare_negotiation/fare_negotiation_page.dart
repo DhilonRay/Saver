@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/alert.dart';
 import 'fare_negotiation_controller.dart';
 import '../widgets/billing_breakdown_widget.dart';
 
@@ -409,12 +410,7 @@ class FareNegotiationPage extends StatelessWidget {
                 Get.back();
                 controller.sendCounterOffer(newFare);
               } else {
-                Get.snackbar(
-                  'ত্রুটি',
-                  'সঠিক ভাড়া লিখুন',
-                  backgroundColor: Colors.orange.shade100,
-                  colorText: Colors.orange.shade800,
-                );
+                Alert.info('সঠিক ভাড়া লিখুন');
               }
             },
             style: ElevatedButton.styleFrom(

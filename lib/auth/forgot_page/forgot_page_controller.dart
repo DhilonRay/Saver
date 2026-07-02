@@ -3,8 +3,9 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/supabase_service.dart';
 import 'package:saver/compo/success_dialog.dart';
+import 'package:saver/components/alert.dart';
 
 /// ResetMode — email বা phone দিয়ে reset করা যাবে
 enum ResetMode { email, phone }
@@ -67,7 +68,7 @@ class ForgotPasswordController extends GetxController {
         appVerificationDisabledForTesting: false,
       );
     } catch (e) {
-      debugPrint('Firebase initialization error: $e');
+    
     }
   }
 
@@ -106,10 +107,7 @@ class ForgotPasswordController extends GetxController {
       final remaining = cooldownSeconds.value -
           ((DateTime.now().millisecondsSinceEpoch - lastResetTime.value) ~/ 1000);
       if (remaining > 0) {
-        Get.snackbar('অপেক্ষা করুন',
-            '$remaining সেকেন্ড পর আবার try করুন',
-            backgroundColor: Colors.orange[600],
-            colorText: Colors.white);
+        Alert.info('$remaining সেকেন্ড পর আবার try করুন');
         return;
       } else {
         isCooldownActive.value = false;
@@ -123,20 +121,17 @@ class ForgotPasswordController extends GetxController {
       firstRequestTime.value = currentTime;
     }
     if (requestCount.value >= maxRequestsPerHour) {
-      Get.snackbar('Rate Limit', 'অনেকবার request করা হয়েছে। পরে আবার চেষ্টা করুন।',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.info('অনেকবার request করা হয়েছে। পরে আবার চেষ্টা করুন।');
       return;
     }
 
     if (email.isEmpty) {
-      Get.snackbar('Error', 'ইমেইল ঠিকানা লিখুন',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('ইমেইল ঠিকানা লিখুন');
       return;
     }
 
     if (!isValidEmail(email)) {
-      Get.snackbar('Error', 'সঠিক ইমেইল ঠিকানা লিখুন',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('সঠিক ইমেইল ঠিকানা লিখুন');
       return;
     }
 
@@ -182,9 +177,7 @@ class ForgotPasswordController extends GetxController {
             errorMessage = e.message ?? 'Unknown error';
         }
       }
-      Get.snackbar('Reset Failed', errorMessage,
-          backgroundColor: Colors.red[600], colorText: Colors.white,
-          snackPosition: SnackPosition.TOP);
+      Alert.error(errorMessage);
     } finally {
       isLoading.value = false;
     }
@@ -198,36 +191,31 @@ class ForgotPasswordController extends GetxController {
   Future<void> sendOtpToPhone() async {
     final phone = phoneController.text.trim();
     if (phone.isEmpty) {
-      Get.snackbar('Error', 'ফোন নম্বর লিখুন',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('ফোন নম্বর লিখুন');
       return;
     }
 
     final fullPhone = '${selectedCountryCode.value}$phone';
 
-    // Firestore-এ phone নম্বর আছে কিনা check করো
     isSendingOtp.value = true;
     try {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phone', isEqualTo: phone)
-          .limit(1)
-          .get();
+      final query = await SupabaseService.client
+          .from('users')
+          .select()
+          .eq('phone', phone)
+          .limit(1);
 
-      if (query.docs.isEmpty) {
+      if (query.isEmpty) {
         // Drivers collection-এও check করো
-        final driverQuery = await FirebaseFirestore.instance
-            .collection('drivers')
-            .where('phone', isEqualTo: phone)
-            .limit(1)
-            .get();
+        final driverQuery = await SupabaseService.client
+            .from('drivers')
+            .select()
+            .eq('phone', phone)
+            .limit(1);
 
-        if (driverQuery.docs.isEmpty) {
-          Get.snackbar(
-              '❌ Account পাওয়া যায়নি',
-              'এই ফোন নম্বরে কোনো অ্যাকাউন্ট নেই। আগে সাইনআপ করুন।',
-              backgroundColor: Colors.red[600],
-              colorText: Colors.white);
+        if (driverQuery.isEmpty) {
+          Alert.error('এই ফোন নম্বরে কোনো অ্যাকাউন্ট নেই। আগে সাইনআপ করুন।');
+          isSendingOtp.value = false;
           return;
         }
       }
@@ -238,14 +226,13 @@ class ForgotPasswordController extends GetxController {
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
           // Auto-verify (Android only)
-          debugPrint('✅ Auto verified!');
+        
           isOtpSent.value = true;
           await _applyAutoCredential(credential);
         },
         verificationFailed: (FirebaseAuthException e) {
-          debugPrint('❌ OTP failed: ${e.message}');
-          Get.snackbar('OTP পাঠানো যায়নি', e.message ?? 'Unknown error',
-              backgroundColor: Colors.red[600], colorText: Colors.white);
+        
+          Alert.error(e.message ?? 'Unknown error');
           isSendingOtp.value = false;
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -253,18 +240,15 @@ class ForgotPasswordController extends GetxController {
           isOtpSent.value = true;
           isSendingOtp.value = false;
           _startOtpCountdown();
-          Get.snackbar('📱 OTP পাঠানো হয়েছে!',
-              '$fullPhone নম্বরে একটি OTP পাঠানো হয়েছে।',
-              backgroundColor: Colors.green[600], colorText: Colors.white);
+          Alert.success('$fullPhone নম্বরে একটি OTP পাঠানো হয়েছে।');
         },
         codeAutoRetrievalTimeout: (String verificationId) {
           phoneVerificationId.value = verificationId;
         },
       );
     } catch (e) {
-      debugPrint('Send OTP error: $e');
-      Get.snackbar('Error', e.toString(),
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+    
+      Alert.error(e.toString());
     } finally {
       isSendingOtp.value = false;
     }
@@ -276,7 +260,7 @@ class ForgotPasswordController extends GetxController {
       await FirebaseAuth.instance.signInWithCredential(cred);
       isShowPasswordReset.value = true;
     } catch (e) {
-      debugPrint('Auto verify error: $e');
+   
     }
   }
 
@@ -297,8 +281,7 @@ class ForgotPasswordController extends GetxController {
   Future<void> verifyOtp() async {
     final otp = otpController.text.trim();
     if (otp.length < 6) {
-      Get.snackbar('Error', '৬ সংখ্যার OTP লিখুন',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('৬ সংখ্যার OTP লিখুন');
       return;
     }
 
@@ -315,16 +298,13 @@ class ForgotPasswordController extends GetxController {
       if (result.user != null) {
         // OTP verified! → New password enter করার UI দেখাও
         isShowPasswordReset.value = true;
-        Get.snackbar('✅ OTP Verified!',
-            'এখন নতুন password সেট করুন।',
-            backgroundColor: Colors.green[600], colorText: Colors.white);
+        Alert.success('এখন নতুন password সেট করুন।');
       }
     } on FirebaseAuthException catch (e) {
       String msg = 'OTP ভুল হয়েছে';
       if (e.code == 'invalid-verification-code') msg = 'OTP সঠিক নয়। আবার চেক করুন।';
       if (e.code == 'session-expired') msg = 'OTP মেয়াদ শেষ। আবার পাঠান।';
-      Get.snackbar('Error', msg,
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error(msg);
     } finally {
       isVerifyingOtp.value = false;
     }
@@ -336,13 +316,11 @@ class ForgotPasswordController extends GetxController {
     final confirmPass = confirmPasswordController.text.trim();
 
     if (newPass.length < 6) {
-      Get.snackbar('Error', 'Password কমপক্ষে ৬ অক্ষর হতে হবে',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('Password কমপক্ষে ৬ অক্ষর হতে হবে');
       return;
     }
     if (newPass != confirmPass) {
-      Get.snackbar('Error', 'দুটো password মিলছে না',
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error('দুটো password মিলছে না');
       return;
     }
 
@@ -371,8 +349,7 @@ class ForgotPasswordController extends GetxController {
         isShowPasswordReset.value = false;
         isOtpSent.value = false;
       }
-      Get.snackbar('Error', msg,
-          backgroundColor: Colors.red[600], colorText: Colors.white);
+      Alert.error(msg);
     } finally {
       isLoading.value = false;
     }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'partner_orders_controller.dart';
@@ -649,9 +648,6 @@ class PartnersOrdersPage extends StatelessWidget {
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
     try {
-      if (timestamp is Timestamp) {
-        return DateFormat('MMM d, h:mm a').format(timestamp.toDate());
-      }
       if (timestamp is String) {
         final parsedDate = DateTime.tryParse(timestamp);
         if (parsedDate != null) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,7 +10,6 @@ import 'dart:io';
 
 class FeedbackController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Text controllers
   final nameController = TextEditingController();
@@ -128,14 +127,13 @@ class FeedbackController extends GetxController {
       }
 
       // 1. Save to feedback collection (for records)
-      await _firestore.collection('feedback').add({
+      await SupabaseService.client.from('feedback').insert({
         'name': nameController.text.trim(),
         'email': emailController.text.trim(),
         'feedback': feedbackController.text.trim(),
         'rating': rating.value,
-        'userId': user?.uid,
-        'attachmentUrls': attachmentUrls,
-        'timestamp': FieldValue.serverTimestamp(),
+        'user_id': user?.uid,
+        'attachment_urls': attachmentUrls,
       });
 
       // 2. Open Mail App with pre-filled content (Guarantees delivery)

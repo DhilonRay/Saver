@@ -310,7 +310,8 @@ class NotificationService {
 
       // Get user data for notification content
       final userDocMap = await SupabaseService.getUser(currentUser.uid);
-      final userData = userDocMap != null ? SupabaseService.toCamelCase(userDocMap) : null;
+      final userData =
+          userDocMap != null ? SupabaseService.toCamelCase(userDocMap) : null;
       final patientName =
           requestData['patientName'] ?? userData?['name'] ?? 'রোগী';
 
@@ -679,12 +680,12 @@ class NotificationService {
       if (token != null) {
         print('📱 FCM Token obtained: ${token.substring(0, 20)}...');
 
-        // Save token to user's profile in Firestore (Try both users and drivers collections)
+        // Save token to user's profile in Supabase (Try both users and drivers tables)
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
           print('👤 Current user ID: ${currentUser.uid}');
 
-          // Try updating users collection
+          // Try updating users table
           bool updatedInUsers = false;
           try {
             await SupabaseService.updateUser(currentUser.uid, {
@@ -715,12 +716,16 @@ class NotificationService {
           String? role;
           if (updatedInUsers) {
             final userDoc = await SupabaseService.getUser(currentUser.uid);
-            role = userDoc != null ? SupabaseService.toCamelCase(userDoc)['role'] : null;
+            role = userDoc != null
+                ? SupabaseService.toCamelCase(userDoc)['role']
+                : null;
           }
 
           if (role == null && updatedInDrivers) {
             final driverDoc = await SupabaseService.getDriver(currentUser.uid);
-            role = driverDoc != null ? SupabaseService.toCamelCase(driverDoc)['role'] : null;
+            role = driverDoc != null
+                ? SupabaseService.toCamelCase(driverDoc)['role']
+                : null;
           }
 
           print('👤 User role identified: $role');
@@ -739,7 +744,7 @@ class NotificationService {
         // Listen for token refresh
         messaging.onTokenRefresh.listen((newToken) {
           print('📱 FCM Token refreshed: ${newToken.substring(0, 20)}...');
-          // Update token in Firestore when it refreshes
+          // Update token in Supabase when it refreshes
           final currentUser = FirebaseAuth.instance.currentUser;
           if (currentUser != null) {
             SupabaseService.updateUser(currentUser.uid, {
@@ -747,7 +752,7 @@ class NotificationService {
               'lastTokenUpdate': DateTime.now().toIso8601String(),
             });
 
-            // Also update partners collection if needed
+            // Also update partners table if needed
             _updatePartnerTokenIfApplicable(currentUser.uid, newToken);
           }
         });
@@ -958,11 +963,6 @@ class NotificationService {
           print('❌ Error adding foreground notification to list: $e');
         }
       }
-
-      // Handle the notification when app is in foreground
-      // Handle the notification when app is in foreground
-      // Note: We use _showLocalNotification above instead of Get.snackbar to avoid overlay errors
-      // and ensure consistent behavior with background notifications.
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -1119,15 +1119,6 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final notificationData = {
-        'title': title,
-        'message': message,
-        'type': type,
-        'timestamp': Timestamp.now(),
-        'isRead': false,
-        'data': data ?? {},
-      };
-
       await SupabaseService.client.from('partner_notifications').insert({
         'partner_id': partnerId,
         'title': title,
@@ -1198,7 +1189,7 @@ class NotificationService {
       debugPrint('📱 Title: $title');
       debugPrint('📱 Message: $message');
 
-      // Get user's FCM token from Firestore
+      // Get user's FCM token from Supabase
       final userDoc = await SupabaseService.getUser(userId);
 
       if (userDoc == null) {

@@ -191,6 +191,18 @@ class Alert {
     );
   }
 
+  static void error(String msg) {
+    Fluttertoast.showToast(
+      msg: msg.tr,
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      timeInSecForIosWeb: 3,
+      backgroundColor: AppColors.error.withOpacity(0.8),
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+  }
+
   static void confirmDelete({
     required String msg,
     required String confirmText,

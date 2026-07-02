@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class PartnerNotification {
   final String id;
@@ -200,7 +201,7 @@ class PartnerNotificationController extends GetxController {
         _saveNotificationsToLocal();
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to mark notification as read: $e');
+      Alert.error('Failed to mark notification as read: $e');
     }
   }
 
@@ -232,7 +233,7 @@ class PartnerNotificationController extends GetxController {
       unreadCount.value = 0;
       _saveNotificationsToLocal();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to mark all notifications as read: $e');
+      Alert.error('Failed to mark all notifications as read: $e');
     }
   }
 
@@ -248,7 +249,7 @@ class PartnerNotificationController extends GetxController {
       unreadCount.value = notifications.where((n) => !n.isRead).length;
       _saveNotificationsToLocal();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete notification: $e');
+      Alert.error('Failed to delete notification: $e');
     }
   }
 
@@ -262,7 +263,7 @@ class PartnerNotificationController extends GetxController {
       unreadCount.value = 0;
       _saveNotificationsToLocal();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to clear notifications: $e');
+      Alert.error('Failed to clear notifications: $e');
     }
   }
 
@@ -282,7 +283,7 @@ class PartnerNotificationController extends GetxController {
         },
       );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add test notification: $e');
+      Alert.error('Failed to add test notification: $e');
     }
   }
 }

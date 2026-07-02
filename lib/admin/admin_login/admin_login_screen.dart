@@ -79,7 +79,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         }
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isAdminLoggedIn', true);
-        debugPrint('💾 AdminLoginScreen: Set isAdminLoggedIn = true successfully');
+      
         Get.offAll(() => const AdminDashboard());
         return;
       }
@@ -110,7 +110,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       // Admin verified, navigate to dashboard
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isAdminLoggedIn', true);
-      debugPrint('💾 AdminLoginScreen (Normal): Set isAdminLoggedIn = true successfully');
+   
       Get.offAll(() => const AdminDashboard());
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found' || e.code == 'invalid-credential') {

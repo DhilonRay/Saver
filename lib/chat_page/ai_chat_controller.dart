@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../config/api_keys_secret.dart';
 
@@ -83,24 +83,26 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('ai_chat_history')
-          .orderBy('timestamp', descending: false)
-          .limit(50)
-          .get();
+      final response = await SupabaseService.client
+          .from('ai_chat_history')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: true)
+          .limit(50);
 
-      if (snapshot.docs.isNotEmpty) {
+      if (response.isNotEmpty) {
         // Clear the welcome message if we have history
         messages.clear();
 
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
+        for (var item in response) {
+          final data = SupabaseService.toCamelCase(item);
+          final createdAt = data['createdAt'] != null
+              ? DateTime.tryParse(data['createdAt'].toString())
+              : null;
           messages.add(AIChatMessage(
             text: data['text'] ?? '',
             isUser: data['isUser'] ?? false,
-            timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+            timestamp: createdAt,
           ));
 
           // Rebuild conversation history for context
@@ -111,7 +113,7 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
         }
       }
     } catch (e) {
-      debugPrint('Error loading chat history: $e');
+    
     }
   }
 
@@ -120,14 +122,10 @@ If the user asks anything outside of health or NeoSaver (like politics, general 
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('ai_chat_history')
-          .add({
+      await SupabaseService.client.from('ai_chat_history').insert({
+        'user_id': userId,
         'text': message.text,
-        'isUser': message.isUser,
-        'timestamp': FieldValue.serverTimestamp(),
+        'is_user': message.isUser,
       });
     } catch (e) {
       debugPrint('Error saving chat message: $e');
@@ -497,21 +495,14 @@ I can help with ambulance booking, first aid, and app usage. I cannot participat
               _conversationHistory.clear();
               _addWelcomeMessage();
 
-              // Clear from Firestore
+              // Clear from Supabase
               try {
                 final userId = FirebaseAuth.instance.currentUser?.uid;
                 if (userId != null) {
-                  final batch = FirebaseFirestore.instance.batch();
-                  final snapshot = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(userId)
-                      .collection('ai_chat_history')
-                      .get();
-
-                  for (var doc in snapshot.docs) {
-                    batch.delete(doc.reference);
-                  }
-                  await batch.commit();
+                  await SupabaseService.client
+                      .from('ai_chat_history')
+                      .delete()
+                      .eq('user_id', userId);
                 }
               } catch (e) {
                 debugPrint('Error clearing chat history: $e');

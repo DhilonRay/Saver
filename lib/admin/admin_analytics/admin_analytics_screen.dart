@@ -249,16 +249,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
                       // Top Partners
                       const AdminSectionHeader(title: 'Top Performing Partners', icon: Icons.emoji_events_rounded, color: AdminTheme.amber),
-                      StreamBuilder<QuerySnapshot>(
-                        stream: _firestore
-                            .collection('partners')
-                            .orderBy('completedOrders', descending: true)
-                            .limit(5)
-                            .snapshots(),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: SupabaseService.client.from('partners').stream(primaryKey: ['id']),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                          var partners = snapshot.data!.docs;
+                          var rawPartners = snapshot.data!;
+                          var partners = rawPartners
+                              .map((p) => SupabaseService.toCamelCase(p))
+                              .toList();
+                          
+                          // Sort by completedOrders descending and take top 5
+                          partners.sort((a, b) => (b['completedOrders'] ?? 0).compareTo(a['completedOrders'] ?? 0));
+                          if (partners.length > 5) {
+                            partners = partners.sublist(0, 5);
+                          }
+
                           if (partners.isEmpty) {
                             return GlassCard(
                               child: const Center(child: Text('No partner data available', style: AdminTheme.body)),
@@ -269,7 +275,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                             accentColor: AdminTheme.amber,
                             child: Column(
                               children: partners.asMap().entries.map((entry) {
-                                var partnerData = entry.value.data() as Map<String, dynamic>;
+                                var partnerData = entry.value;
                                 List<String> emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
                                 return Padding(
                                   padding: EdgeInsets.only(
@@ -307,16 +313,28 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
                       // Recent Orders
                       const AdminSectionHeader(title: 'Recent Orders', icon: Icons.receipt_long_rounded, color: AdminTheme.blue),
-                      StreamBuilder<QuerySnapshot>(
-                        stream: _firestore
-                            .collection('orders')
-                            .orderBy('createdAt', descending: true)
-                            .limit(10)
-                            .snapshots(),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: SupabaseService.client.from('orders').stream(primaryKey: ['id']),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AdminTheme.accent));
 
-                          var orders = snapshot.data!.docs;
+                          var rawOrders = snapshot.data!;
+                          var orders = rawOrders
+                              .map((o) => SupabaseService.toCamelCase(o))
+                              .toList();
+                          
+                          // Sort by createdAt descending and take top 10
+                          orders.sort((a, b) {
+                            final aStr = a['createdAt'] ?? a['timestamp'];
+                            final bStr = b['createdAt'] ?? b['timestamp'];
+                            if (aStr == null) return 1;
+                            if (bStr == null) return -1;
+                            return bStr.toString().compareTo(aStr.toString());
+                          });
+                          if (orders.length > 10) {
+                            orders = orders.sublist(0, 10);
+                          }
+
                           if (orders.isEmpty) {
                             return GlassCard(child: const Center(child: Text('No orders yet', style: AdminTheme.body)));
                           }
@@ -326,8 +344,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: orders.length,
                             itemBuilder: (context, index) {
-                              var orderData = orders[index].data() as Map<String, dynamic>;
-                              var orderId = orders[index].id;
+                              var orderData = orders[index];
+                              var orderId = orderData['id'] as String? ?? '';
                               final statusColor = _getStatusColor(orderData['status'] ?? 'pending');
 
                               return Padding(

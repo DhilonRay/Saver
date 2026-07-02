@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/alert.dart';
 import 'admin_helper.dart';
 
 /// One-time setup screen to create the first admin user
@@ -36,18 +37,10 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     setState(() => _isCreating = true);
 
     try {
-      String adminUid = await AdminHelper.createAdminUser(
+      await AdminHelper.createAdminUser(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         name: _nameController.text.trim(),
-      );
-
-      Get.snackbar(
-        'Success!',
-        'Admin user created successfully!\nUID: ${adminUid.substring(0, 8)}...',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
 
       // Clear fields
@@ -55,12 +48,8 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
       _emailController.clear();
       _passwordController.clear();
     } catch (e) {
-      Get.snackbar(
-        'Error',
+      Alert.info(
         'Failed to create admin: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
     } finally {
       setState(() => _isCreating = false);
@@ -307,11 +296,8 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
       List<Map<String, dynamic>> admins = await AdminHelper.getAllAdmins();
 
       if (admins.isEmpty) {
-        Get.snackbar(
-          'No Admins',
+        Alert.info(
           'No admin users found in the system',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
         );
         return;
       }
@@ -365,11 +351,8 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
         ),
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
+      Alert.info(
         'Failed to fetch admins: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
       );
     }
   }

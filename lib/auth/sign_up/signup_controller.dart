@@ -65,7 +65,7 @@ class SignUpController extends GetxController {
     try {
       await Firebase.initializeApp();
     } catch (e) {
-      debugPrint('Firebase initialization error: $e');
+   
     }
   }
 
@@ -137,7 +137,7 @@ class SignUpController extends GetxController {
       final uploadTask = await ref.putFile(file);
       return await uploadTask.ref.getDownloadURL();
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+    
       return null;
     }
   }
@@ -262,9 +262,6 @@ class SignUpController extends GetxController {
         await SupabaseService.upsertUser(uid, userData);
       }
 
-      debugPrint('User registered with role: ${selectedRole.value}');
-      debugPrint('User data saved to Supabase: ${userCredential.user!.uid}');
-
       // Format phone number
       String rawPhone = phoneController.text.trim();
       String formattedPhone = rawPhone;
@@ -297,7 +294,7 @@ class SignUpController extends GetxController {
         }
       });
     } catch (e) {
-      debugPrint('Registration error: $e');
+  
       _showErrorSnackbar('Registration Failed', e.toString());
     } finally {
       isLoading.value = false;
@@ -393,9 +390,9 @@ class SignUpController extends GetxController {
         'target': 'admin',
         'recipientCount': 1,
       });
-      debugPrint('✅ Admin notification sent');
+    
     } catch (e) {
-      debugPrint('❌ Failed to send admin notification: $e');
+      
     }
    }
 
@@ -440,8 +437,7 @@ class SignUpController extends GetxController {
         ),
       );
     } else {
-      // Fallback for extreme cases
-      debugPrint('Context null, could not show snackbar: $title - $message');
+   
     }
   }
 }

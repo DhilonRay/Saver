@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:saver/admin/admin_helper.dart';
 import 'package:saver/admin/admin_login/admin_login_screen.dart';
+import 'package:saver/components/alert.dart';
 
 /// Super Easy Admin Creation Screen
 ///
@@ -45,12 +46,8 @@ class _EasyAdminCreatorState extends State<EasyAdminCreator> {
       // Show success dialog
       _showSuccessDialog(adminUid);
     } catch (e) {
-      Get.snackbar(
-        'Error',
+      Alert.info(
         'Failed to create admin: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
     } finally {
       setState(() => _isCreating = false);

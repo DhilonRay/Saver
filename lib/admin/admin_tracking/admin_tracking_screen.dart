@@ -141,7 +141,8 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
       try {
         var loc = od['deliveryLocation'] as Map<String, dynamic>;
         await _mapController!.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: LatLng(loc['latitude'] ?? 23.8103, loc['longitude'] ?? 90.4125), zoom: 15)));
-      } catch (e) { debugPrint('AdminTracking: animateCamera failed: $e'); }
+      // ignore: empty_catches
+      } catch (e) {}
     }
   }
 

@@ -3,8 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../home_user/home_user.dart';
-
+import 'package:saver/components/alert.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_webservice/directions.dart' as directions;
@@ -864,7 +863,7 @@ class UserTrackingController extends GetxController {
         debugPrint('Could not launch $uri');
       }
     } else {
-      Get.snackbar('Error', 'ফোন নম্বর পাওয়া যায়নি');
+      Alert.error('ফোন নম্বর পাওয়া যায়নি');
     }
   }
 

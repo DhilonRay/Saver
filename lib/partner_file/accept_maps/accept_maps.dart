@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/alert.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'accept_maps_controller.dart';
@@ -627,7 +628,7 @@ class AcceptMapsPage extends StatelessWidget {
                           onPressed = () async {
                             final success = await controller.confirmPickupOTP('');
                             if (success) {
-                              Get.snackbar('✅ সফল', 'পিকআপ সফলভাবে নিশ্চিত হয়েছে!', backgroundColor: Colors.green.shade50, colorText: Colors.green.shade800);
+                              Alert.success('পিকআপ সফলভাবে নিশ্চিত হয়েছে!');
                             }
                           };
                           debugPrint(
@@ -648,7 +649,7 @@ class AcceptMapsPage extends StatelessWidget {
                           onPressed = () async {
                             final success = await controller.confirmPickupOTP('');
                             if (success) {
-                              Get.snackbar('✅ সফল', 'পিকআপ সফলভাবে নিশ্চিত হয়েছে!', backgroundColor: Colors.green.shade50, colorText: Colors.green.shade800);
+                              Alert.success('পিকআপ সফলভাবে নিশ্চিত হয়েছে!');
                             }
                           };
                           debugPrint('Button: Picked Up (is tracking)');

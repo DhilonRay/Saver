@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:saver/components/alert.dart';
 
 class EmailVerificationController extends GetxController {
   var isEmailVerified = false.obs;
@@ -46,19 +47,12 @@ class EmailVerificationController extends GetxController {
         _onVerificationSuccess();
       }
     } catch (e) {
-      debugPrint('Verification check error: $e');
+  
     }
   }
 
   void _onVerificationSuccess() {
-    Get.snackbar(
-      '✅ Email Verified!',
-      'আপনার অ্যাকাউন্ট সফলভাবে verify হয়েছে।',
-      backgroundColor: Colors.green[600],
-      colorText: Colors.white,
-      snackPosition: SnackPosition.TOP,
-      duration: const Duration(seconds: 2),
-    );
+    Alert.success('আপনার অ্যাকাউন্ট সফলভাবে verify হয়েছে।');
     // ২ সেকেন্ড পর navigate করবে — caller screen handle করবে
   }
 
@@ -72,24 +66,12 @@ class EmailVerificationController extends GetxController {
 
       await user.sendEmailVerification();
 
-      Get.snackbar(
-        '📧 Email পাঠানো হয়েছে!',
-        'আপনার ইমেইল চেক করুন।',
-        backgroundColor: Colors.blue[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-      );
+      Alert.success('আপনার ইমেইল চেক করুন।');
 
       // Cooldown শুরু করো
       _startCooldown();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Email পাঠাতে সমস্যা হয়েছে: $e',
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-      );
+      Alert.error('Email পাঠাতে সমস্যা হয়েছে: $e');
     } finally {
       isResending.value = false;
     }

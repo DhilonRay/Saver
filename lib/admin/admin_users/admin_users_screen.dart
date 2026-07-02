@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../admin_theme.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({Key? key}) : super(key: key);
@@ -121,14 +122,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     bool ns = !(ud['isActive'] ?? true);
     _confirmDialog(ns ? 'Activate User?' : 'Suspend User?', ns ? 'User will be able to use the app.' : 'User will not be able to access the app.', ns ? AdminTheme.green : AdminTheme.orange, ns ? 'Activate' : 'Suspend', () async {
       await SupabaseService.client.from('users').update({'is_active': ns}).eq('id', uid);
-      Get.back(); Get.snackbar('Success', 'User ${ns ? 'activated' : 'suspended'}', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+      Get.back(); Alert.success('User ${ns ? 'activated' : 'suspended'}');
     });
   }
 
   Future<void> _deleteUser(String uid, Map<String, dynamic> ud) async {
     _confirmDialog('Delete User?', 'Permanently delete ${ud['name']}? This cannot be undone.', AdminTheme.red, 'Delete', () async {
       await SupabaseService.client.from('users').delete().eq('id', uid);
-      Get.back(); Get.snackbar('Success', 'User deleted', backgroundColor: AdminTheme.green, colorText: Colors.white, snackStyle: SnackStyle.FLOATING, margin: const EdgeInsets.all(16), borderRadius: 12);
+      Get.back(); Alert.success('User deleted');
     });
   }
 

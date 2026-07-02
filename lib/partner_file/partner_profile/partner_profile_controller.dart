@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp; // Keep Timestamp for type checks
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -12,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:saver/compo/success_dialog.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class PartnerProfileController extends GetxController {
   var isLoading = true.obs;
@@ -202,7 +202,7 @@ class PartnerProfileController extends GetxController {
       }
     } catch (e) {
       print('❌ Error saving changes: $e');
-      Get.snackbar('Error', 'Failed to update profile: $e');
+      Alert.error('Failed to update profile: $e');
     }
   }
 
@@ -227,7 +227,7 @@ class PartnerProfileController extends GetxController {
           message: 'Your profile picture has been updated successfully!',
         );
       } catch (e) {
-        Get.snackbar('Error', 'Failed to upload image: $e');
+        Alert.error('Failed to upload image: $e');
       }
     }
   }
@@ -253,27 +253,15 @@ class PartnerProfileController extends GetxController {
       }
 
       if (status.isDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Photo library access is required to select images. Please grant permission when prompted.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
         );
         return;
       }
 
       if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Photo library access is permanently denied. Please enable it in app settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          mainButton: TextButton(
-            onPressed: () {
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
         );
         return;
       }
@@ -296,10 +284,8 @@ class PartnerProfileController extends GetxController {
       }
     } catch (e) {
       print('❌ Error picking image from gallery: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to pick image from gallery. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -311,11 +297,8 @@ class PartnerProfileController extends GetxController {
       // Request camera permission first
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Camera access is required to take photos. Please grant permission in settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
         );
         return;
       }
@@ -338,10 +321,8 @@ class PartnerProfileController extends GetxController {
       }
     } catch (e) {
       print('❌ Error taking photo: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to take photo. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -354,11 +335,8 @@ class PartnerProfileController extends GetxController {
       // Check network connectivity first
       final isConnected = await _isConnected();
       if (!isConnected) {
-        Get.snackbar(
-          'No Internet',
+        Alert.info(
           'Please check your internet connection and try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
         );
         return;
       }
@@ -424,15 +402,8 @@ class PartnerProfileController extends GetxController {
         errorMessage =
             'Network error. Please check your connection and try again.';
         // Offer retry option for network errors
-        Get.snackbar(
-          'Upload Failed',
-          'Network error occurred. Tap to retry.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          onTap: (snack) {
-            print('🔄 User tapped retry for network error');
-            _retryUpload(imageFile);
-          },
+        Alert.error(
+          'Network error occurred. Please try again.',
         );
         return; // Don't show the default error snackbar
       } else if (e.toString().contains('permission') ||
@@ -444,11 +415,8 @@ class PartnerProfileController extends GetxController {
         return; // Don't show error snackbar for cancelled uploads
       }
 
-      Get.snackbar(
-        'Error',
+      Alert.error(
         errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
       );
     } finally {
       isUploadingImage.value = false;
@@ -612,10 +580,8 @@ class PartnerProfileController extends GetxController {
       );
     } catch (e) {
       print('❌ Error removing profile image: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to remove profile image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -627,13 +593,8 @@ class PartnerProfileController extends GetxController {
     final fileSize = await file.length();
     if (fileSize > maxFileSizeBytes) {
       final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-      Get.snackbar(
-        'File Too Large',
+      Alert.info(
         'Image size ($fileSizeMB MB) exceeds 10MB limit. Please choose a smaller image or take a new photo.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade900,
-        duration: const Duration(seconds: 5),
       );
       return false;
     }
@@ -656,25 +617,15 @@ class PartnerProfileController extends GetxController {
       }
 
       if (status.isDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Photo library access is required to select images.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
         );
         return;
       }
 
       if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Photo library access is permanently denied. Please enable it in app settings.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
-          mainButton: TextButton(
-            onPressed: () => openAppSettings(),
-            child: const Text('Open Settings'),
-          ),
         );
         return;
       }
@@ -710,10 +661,8 @@ class PartnerProfileController extends GetxController {
       }
     } catch (e) {
       print('❌ Error picking ambulance image: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to pick image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -724,11 +673,8 @@ class PartnerProfileController extends GetxController {
 
       final status = await Permission.camera.request();
       if (status.isDenied || status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
+        Alert.info(
           'Camera access is required to take photos.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 5),
         );
         return;
       }
@@ -764,10 +710,8 @@ class PartnerProfileController extends GetxController {
       }
     } catch (e) {
       print('❌ Error capturing ambulance image: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to take photo. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -812,11 +756,8 @@ class PartnerProfileController extends GetxController {
 
       final isConnected = await _isConnected();
       if (!isConnected) {
-        Get.snackbar(
-          'No Internet',
+        Alert.info(
           'Please check your internet connection and try again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
         );
         return;
       }
@@ -884,13 +825,8 @@ class PartnerProfileController extends GetxController {
         errorMessage = 'Storage path not found. Please try again.';
       }
 
-      Get.snackbar(
-        'Upload Failed',
+      Alert.error(
         errorMessage,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 5),
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade900,
       );
     } finally {
       isUploadingAmbulanceImage.value = false;
@@ -1004,10 +940,8 @@ class PartnerProfileController extends GetxController {
       );
     } catch (e) {
       print('❌ Error removing ambulance image: $e');
-      Get.snackbar(
-        'Error',
+      Alert.error(
         'Failed to remove ambulance image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }

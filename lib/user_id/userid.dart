@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'user_id_controller.dart';
@@ -193,9 +192,7 @@ class UserIdPage extends StatelessWidget {
                           'Created At',
                           controller.userData.value?['createdAt'] != null
                               ? DateFormat('d MMM yyyy . h:mm a').format(
-                                  (controller.userData.value!['createdAt']
-                                          as Timestamp)
-                                      .toDate())
+                                  DateTime.parse(controller.userData.value!['createdAt'].toString()))
                               : 'N/A',
                           false,
                           null,

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../user_id/userid.dart';
 import '../../services/supabase_service.dart';
+import 'package:saver/components/alert.dart';
 
 class AmbulanceServiceController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -27,12 +28,7 @@ class AmbulanceServiceController extends GetxController {
       final partners = await SupabaseService.getAllPartners();
       ambulancePartners.value = partners.map((p) => SupabaseService.toCamelCase(p)).toList();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to load ambulance partners: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Failed to load ambulance partners: $e');
     } finally {
       isLoading.value = false;
     }
@@ -40,23 +36,13 @@ class AmbulanceServiceController extends GetxController {
 
   Future<void> copyToClipboard(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
-    Get.snackbar(
-      'Success',
-      'Phone number copied!',
-      backgroundColor: Colors.green.shade100,
-      colorText: Colors.green.shade800,
-    );
+    Alert.success('Phone number copied!');
   }
 
   Future<void> startAirAmbulanceChat(String partnerId, String companyName) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) {
-      Get.snackbar(
-        'Authentication Required',
-        'You need to be logged in to place an order.',
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade800,
-      );
+      Alert.info('You need to be logged in to place an order.');
       return;
     }
 
@@ -152,13 +138,7 @@ class AmbulanceServiceController extends GetxController {
       );
 
       if (existingRequests.isNotEmpty) {
-        Get.snackbar(
-          'Request Already Pending',
-          'You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 5),
-        );
+        Alert.info('You already have a pending ambulance request to this partner. Please wait for them to accept or decline before submitting a new request.');
         return;
       }
 
@@ -197,20 +177,7 @@ class AmbulanceServiceController extends GetxController {
 
       // Check if essential information is missing and show warning
       if (userData['name'] == null || userData['phone'] == null || userData['address'] == null) {
-        Get.snackbar(
-          'Profile Incomplete',
-          'Please update your profile with complete information (name, phone, address) for better service.',
-          backgroundColor: Colors.orange.shade100,
-          colorText: Colors.orange.shade800,
-          duration: const Duration(seconds: 4),
-          mainButton: TextButton(
-            onPressed: () {
-              // Navigate to user profile page
-              Get.to(() => UserIdPage());
-            },
-            child: const Text('Update Profile', style: TextStyle(color: Colors.blue)),
-          ),
-        );
+        Alert.info('Please update your profile with complete information (name, phone, address) for better service.');
       }
 
       // Create the order
@@ -242,25 +209,14 @@ class AmbulanceServiceController extends GetxController {
 
       final orderId = await SupabaseService.createOrder(orderData);
 
-      Get.snackbar(
-        'Order Placed',
-        'Ambulance request sent to $companyName. Waiting for response.',
-        backgroundColor: Colors.green.shade100,
-        colorText: Colors.green.shade800,
-        duration: const Duration(seconds: 4),
-      );
+      Alert.success('Ambulance request sent to $companyName. Waiting for response.');
 
       // Trigger notification to nearby drivers
       orderData['orderId'] = orderId;
       await notifyNearbyDrivers(orderId, orderData);
 
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to place order: $e',
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade800,
-      );
+      Alert.error('Failed to place order: $e');
     } finally {
       isLoading.value = false;
     }
