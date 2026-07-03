@@ -16,8 +16,8 @@ class ReviewsPage extends StatelessWidget {
           const Text('User Reviews & Ratings', style: AdminTheme.heading1),
           const SizedBox(height: 16),
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: SupabaseService.client.from('order_reviews').stream(primaryKey: ['id']),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _loadReviews(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -31,21 +31,7 @@ class ReviewsPage extends StatelessWidget {
                   );
                 }
 
-                final rawReviews = snapshot.data ?? [];
-                var reviews = rawReviews.map((item) => SupabaseService.toCamelCase(item)).toList();
-                reviews.sort((a, b) {
-                  try {
-                    final aTStr = a['timestamp'];
-                    final bTStr = b['timestamp'];
-                    if (aTStr == null) return 1;
-                    if (bTStr == null) return -1;
-                    final aT = DateTime.tryParse(aTStr.toString());
-                    final bT = DateTime.tryParse(bTStr.toString());
-                    if (aT == null) return 1;
-                    if (bT == null) return -1;
-                    return bT.compareTo(aT);
-                  } catch (_) { return 0; }
-                });
+                final reviews = snapshot.data ?? [];
 
                 if (reviews.isEmpty) {
                   return const Center(
@@ -57,18 +43,24 @@ class ReviewsPage extends StatelessWidget {
                   itemCount: reviews.length,
                   itemBuilder: (context, index) {
                     final data = reviews[index];
-                    
-                    final driverRating = data['driverRating'] ?? 0;
-                    final companyRating = data['companyRating'] ?? 0;
-                    final complaint = data['complaint'] ?? '';
-                    final companyName = data['companyName'] ?? 'Unknown Company';
-                    
+                    final isFeedback = data['recordType'] == 'feedback';
+                    final title = data['title'] ?? (isFeedback ? 'User Feedback' : 'Company Review');
+                    final details = data['details'] ?? '';
+                    final ratingValue = data['ratingValue'] ?? 0;
+                    final driverRating = isFeedback ? null : data['driverRating'] ?? 0;
+                    final companyRating = isFeedback ? null : data['companyRating'] ?? 0;
+                    final companyName = isFeedback
+                        ? (data['name'] ?? data['email'] ?? 'User Feedback')
+                        : (data['companyName'] ?? 'Unknown Company');
+                    final email = data['email'];
+
                     DateTime? date;
-                    if (data['timestamp'] != null) {
-                      date = DateTime.tryParse(data['timestamp'].toString());
+                    final timestampValue = data['submittedAt'] ?? data['timestamp'] ?? data['createdAt'];
+                    if (timestampValue != null) {
+                      date = DateTime.tryParse(timestampValue.toString());
                     }
-                    
-                    final dateString = date != null 
+
+                    final dateString = date != null
                         ? DateFormat('dd MMM yyyy, hh:mm a').format(date)
                         : 'Unknown date';
 
@@ -93,12 +85,23 @@ class ReviewsPage extends StatelessWidget {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              _buildRatingChip('Driver', driverRating),
-                              const SizedBox(width: 12),
-                              _buildRatingChip('Company', companyRating),
+                              if (isFeedback) ...[
+                                _buildRatingChip('Rating', ratingValue),
+                              ] else ...[
+                                _buildRatingChip('Driver', driverRating),
+                                const SizedBox(width: 12),
+                                _buildRatingChip('Company', companyRating),
+                              ],
                             ],
                           ),
-                          if (complaint.toString().trim().isNotEmpty) ...[
+                          if (email != null && email.toString().trim().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Email: $email',
+                              style: AdminTheme.bodySmall.copyWith(color: AdminTheme.textSecondary),
+                            ),
+                          ],
+                          if (details.toString().trim().isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -114,7 +117,7 @@ class ReviewsPage extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      complaint,
+                                      details,
                                       style: AdminTheme.bodySmall.copyWith(color: AdminTheme.textPrimary),
                                     ),
                                   ),
@@ -133,6 +136,47 @@ class ReviewsPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadReviews() async {
+    final feedbackRows = await SupabaseService.getAllFeedback();
+    final reviewRows = await SupabaseService.getAllOrderReviews();
+
+    final normalizedFeedbacks = feedbackRows.map((item) {
+      final data = SupabaseService.toCamelCase(item);
+      return {
+        ...data,
+        'recordType': 'feedback',
+        'title': data['name'] ?? 'User Feedback',
+        'details': data['feedback'] ?? '',
+        'ratingValue': data['rating'] ?? 0,
+        'submittedAt': data['createdAt'],
+      };
+    }).toList();
+
+    final normalizedReviews = reviewRows.map((item) {
+      final data = SupabaseService.normalizeOrderReview(item);
+      return {
+        ...data,
+        'recordType': 'order_review',
+        'title': data['companyName'] ?? 'Company Review',
+        'details': data['complaint'] ?? data['review'] ?? '',
+        'ratingValue': ((data['driverRating'] ?? 0) + (data['companyRating'] ?? 0)) / 2,
+        'submittedAt': data['timestamp'] ?? data['createdAt'],
+      };
+    }).toList();
+
+    final all = [...normalizedFeedbacks, ...normalizedReviews];
+    all.sort((a, b) {
+      final aTs = a['submittedAt'];
+      final bTs = b['submittedAt'];
+      final aDate = aTs != null ? DateTime.tryParse(aTs.toString()) : null;
+      final bDate = bTs != null ? DateTime.tryParse(bTs.toString()) : null;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+    return all;
   }
 
   Widget _buildRatingChip(String label, dynamic rating) {

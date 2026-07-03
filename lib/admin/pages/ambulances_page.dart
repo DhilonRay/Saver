@@ -74,7 +74,7 @@ class _AmbulancesPageState extends State<AmbulancesPage> {
                 'nationalId': rawData['nationalId'] ?? 'N/A',
                 'referenceId': rawData['referenceId'] ?? 'N/A',
                 'lastAddress': rawData['coverageArea'] ?? rawData['address'] ?? 'N/A',
-                'lastLocationUpdate': rawData['lastUpdated'],
+                'lastLocationUpdate': rawData['lastLocationUpdate'] ?? rawData['lastUpdated'],
                 'isActive': rawData['isOnline'] ?? false,
                 'onTrip': rawData['onTrip'] ?? false,
                 'isApproved': rawData['isApproved'] ?? false,

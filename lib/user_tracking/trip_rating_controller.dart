@@ -38,16 +38,17 @@ class TripRatingController extends GetxController {
       final orderId = orderData['id'] ?? orderData['orderId'];
       final partnerId = orderData['partnerId'];
 
-      await SupabaseService.client.from('order_reviews').insert({
-        'order_id': orderId,
-        'user_id': user?.uid,
-        'partner_id': partnerId,
-        'company_name': orderData['companyName'] ?? 'Unknown Company',
-        'driver_rating': driverRating.value,
-        'company_rating': companyRating.value,
-        'complaint': complaintController.text.trim(),
-        'timestamp': DateTime.now().toIso8601String(),
-      });
+      await SupabaseService.addOrderReview(
+        SupabaseService.buildOrderReviewPayload(
+          orderId: orderId,
+          userId: user?.uid,
+          partnerId: partnerId,
+          companyName: orderData['companyName'] ?? 'Unknown Company',
+          driverRating: driverRating.value,
+          companyRating: companyRating.value,
+          complaint: complaintController.text.trim(),
+        ),
+      );
 
       // Update the order document to mark as reviewed (optional but good)
       if (orderId != null) {

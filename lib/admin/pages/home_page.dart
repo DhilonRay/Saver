@@ -426,7 +426,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           // Check if the ambulance is truly active based on last updated location
           if (isActive) {
-            final lastUpdated = rawData['lastUpdated'];
+            final lastUpdated = rawData['lastLocationUpdate'] ?? rawData['lastUpdated'];
             if (lastUpdated != null) {
               final parsedDate = DateTime.tryParse(lastUpdated.toString());
               if (parsedDate != null) {

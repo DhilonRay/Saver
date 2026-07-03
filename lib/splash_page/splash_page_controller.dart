@@ -171,7 +171,7 @@ class SplashPageController {
                 return bTime.compareTo(aTime);
               });
 
-              final orderData = Map<String, dynamic>.from(docs.first);
+              final orderData = SupabaseService.toCamelCase(docs.first);
 
               final fare = (orderData['fare'] as num?)?.toInt() ??
                   (orderData['final_fare'] as num?)?.toInt() ??

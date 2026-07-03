@@ -68,7 +68,7 @@ class RequestRideController extends GetxController {
       // Save request to Supabase first
       final requestId = requestData['requestId'] as String;
       await SupabaseService.client.from('ride_requests').upsert({
-        ...SupabaseService.toSnakeCase(requestData),
+        ...SupabaseService.toSnakeCase(requestData, table: 'ride_requests'),
         'id': requestId,
       });
 
@@ -182,7 +182,7 @@ class RequestRideController extends GetxController {
               // Save request to Supabase
               final requestId2 = requestData['requestId'] as String;
               await SupabaseService.client.from('ride_requests').upsert({
-                ...SupabaseService.toSnakeCase(requestData),
+                ...SupabaseService.toSnakeCase(requestData, table: 'ride_requests'),
                 'id': requestId2,
               });
 
@@ -271,7 +271,7 @@ class RequestRideController extends GetxController {
       // Save request to Supabase
       final orderId = requestData['orderId'] as String;
       await SupabaseService.client.from('orders').upsert({
-        ...SupabaseService.toSnakeCase(requestData),
+        ...SupabaseService.toSnakeCase(requestData, table: 'orders'),
         'id': orderId,
       });
 

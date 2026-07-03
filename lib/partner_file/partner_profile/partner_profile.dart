@@ -602,7 +602,7 @@ class PartnerProfilePage extends StatelessWidget {
                                   isReadOnly: true),
                             if (personal['createdAt'] != null)
                               _buildInfoPill(Icons.calendar_today, 'Created At',
-                                  _formatDate(personal['createdAt'].toDate()),
+                                  _formatDate(personal['createdAt']),
                                   isReadOnly: true),
                           ],
                         ),
@@ -761,10 +761,12 @@ class PartnerProfilePage extends StatelessWidget {
                               }),
                             if (partner['createdAt'] != null)
                               _buildInfoPill(Icons.person, 'Created At',
-                                  _formatDate(partner['createdAt'].toDate())),
-                            if (partner['lastUpdated'] != null)
+                                  _formatDate(partner['createdAt'])),
+                            if (partner['lastLocationUpdate'] != null ||
+                                partner['lastUpdated'] != null)
                               _buildInfoPill(Icons.person, 'Last Updated',
-                                  _formatDate(partner['lastUpdated'].toDate())),
+                                  _formatDate(partner['lastLocationUpdate'] ??
+                                      partner['lastUpdated'])),
                           ],
                         ),
                       ],
@@ -872,8 +874,29 @@ class PartnerProfilePage extends StatelessWidget {
   }
 
   // Helper method to format dates in user-friendly format
-  String _formatDate(DateTime date) {
-    return DateFormat('d MMMM yyyy, hh:mm:ss a').format(date);
+  String _formatDate(dynamic value) {
+    if (value == null) return 'N/A';
+
+    if (value is DateTime) {
+      return DateFormat('d MMMM yyyy, hh:mm:ss a').format(value);
+    }
+
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) {
+        return DateFormat('d MMMM yyyy, hh:mm:ss a').format(parsed);
+      }
+      return value;
+    }
+
+    try {
+      final date = value.toDate();
+      if (date is DateTime) {
+        return DateFormat('d MMMM yyyy, hh:mm:ss a').format(date);
+      }
+    } catch (_) {}
+
+    return value.toString();
   }
 
   Widget _buildInfoPill(IconData icon, String label, String value,

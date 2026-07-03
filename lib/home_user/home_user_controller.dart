@@ -91,7 +91,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
   var destinationQuery = ''.obs;
 
   // Ambulance visibility control
-  var showAmbulances = false.obs; // Hide ambulances by default
+  var showAmbulances = true.obs; // Show ambulances by default
 
   // User name
   var userName = 'NeoSaver'.obs;
@@ -228,7 +228,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           if (latitude != null && longitude != null && isOnline && isRecentlyActive) {
             // Create a custom ambulance data object to pass to details
             final ambulanceData = {
-              'id': data['id'],
+              'id': data['id'] ?? data['uid'],
               'name': driverName,
               'driverName': driverName,
               'companyName': companyName,
@@ -246,7 +246,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
             // Add a compact representation to the list visible in drawer
             onlineList.add({
-              'id': data['id'],
+              'id': data['id'] ?? data['uid'],
               'name': driverName,
               'driverName': driverName,
               'companyName': companyName,
@@ -264,7 +264,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
 
             markers.add(
               Marker(
-                markerId: MarkerId('ambulance_${data['id']}'),
+                markerId: MarkerId('ambulance_${data['id'] ?? data['uid']}'),
                 position: LatLng(latitude, longitude),
                 infoWindow: InfoWindow(
                   title: '$companyName (Online)',
@@ -3037,12 +3037,15 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  String? _previousListenStatus;
+
   void listenForRequestUpdates(String orderId) {
     // Cancel any existing subscription
     _orderSubscription?.cancel();
 
     // Set current tracking order ID
     currentTrackingOrderId.value = orderId;
+    _previousListenStatus = null; // Reset for new order
 
     // Listen for order updates
     _orderSubscription = SupabaseService.client
@@ -3053,6 +3056,9 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       if (list.isNotEmpty) {
         final data = SupabaseService.toCamelCase(list.first);
         final status = data?['orderStatus'] ?? data?['status'];
+
+        if (status == _previousListenStatus) return; // Ignore updates if status hasn't changed
+        _previousListenStatus = status;
 
         // Handle status updates
         if (status == 'fare_proposed') {
@@ -4297,7 +4303,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
     destinationQuery.value = '';
     placeSuggestions.clear();
     _selectedPlaceName = null;
-    showAmbulances.value = false;
+    showAmbulances.value = true;
 
     // Re-add current location marker if available
     if (currentPosition.value != null) {
@@ -4309,6 +4315,11 @@ class HomeController extends GetxController with WidgetsBindingObserver {
           icon: currentLocationIcon,
         ),
       );
+    }
+
+    // Re-add nearby markers if we show ambulances
+    if (showAmbulances.value) {
+      _addNearbyMarkers();
     }
   }
 
@@ -4611,7 +4622,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       // Save request to Supabase
       final requestId = requestData['requestId'] as String;
       await SupabaseService.client.from('ride_requests').upsert({
-        ...SupabaseService.toSnakeCase(requestData),
+        ...SupabaseService.toSnakeCase(requestData, table: 'ride_requests'),
         'user_id': currentUser.uid,
         'created_at': DateTime.now().toIso8601String(),
         'id': requestId,
@@ -4671,7 +4682,7 @@ class HomeController extends GetxController with WidgetsBindingObserver {
       // Save request to Supabase
       final requestId2 = requestData['requestId'] as String;
       await SupabaseService.client.from('ride_requests').upsert({
-        ...SupabaseService.toSnakeCase(requestData),
+        ...SupabaseService.toSnakeCase(requestData, table: 'ride_requests'),
         'user_id': currentUser.uid,
         'created_at': DateTime.now().toIso8601String(),
         'id': requestId2,

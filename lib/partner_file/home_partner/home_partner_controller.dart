@@ -1212,24 +1212,31 @@ class HomePartnerController extends GetxController {
         await SupabaseService.client.from('partners').update({
           'latitude': currentPosition.value!.latitude,
           'longitude': currentPosition.value!.longitude,
-          'last_updated': DateTime.now().toIso8601String(),
+          'last_location_update': DateTime.now().toUtc().toIso8601String(),
           'is_online': isOnline.value,
         }).eq('id', user.uid);
 
-        // Also update active order tracking if exists
+        // Update live tracking location in the orders table (if active order exists)
         if (activeOrderId.value != null && isOnline.value) {
-          await SupabaseService.client.from('orders').update({
-            'partner_live_location': {
-              'latitude': currentPosition.value!.latitude,
-              'longitude': currentPosition.value!.longitude,
-              'timestamp': DateTime.now().toIso8601String(),
-            },
-          }).eq('id', activeOrderId.value!);
-          debugPrint(
-              '🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
+          try {
+            await SupabaseService.client.from('orders').update({
+              'partner_live_location': {
+                'latitude': currentPosition.value!.latitude,
+                'longitude': currentPosition.value!.longitude,
+                'timestamp': DateTime.now().toUtc().toIso8601String(),
+              },
+            }).eq('id', activeOrderId.value!);
+            debugPrint(
+                '🏠 HomePartner: Updated active order location: ${activeOrderId.value}');
+          } catch (locationError) {
+            // Column may not exist yet in DB - run SQL: ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_live_location JSONB;
+            debugPrint('⚠️ partner_live_location update skipped: $locationError');
+          }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('❌ Error updating partner location: $e');
+    }
   }
 
   void _listenForRequests() {
@@ -1313,11 +1320,11 @@ class HomePartnerController extends GetxController {
       _activeOrdersSubscription = SupabaseService.client
           .from('orders')
           .stream(primaryKey: ['id'])
-          .eq('accepted_by', user.uid)
+          .eq('partner_id', user.uid)
           .listen((dataList) {
             final activeList = dataList.where((item) {
               final status = item['status']?.toString().toLowerCase();
-              return status == 'accepted' || status == 'in_transit' || status == 'pickup' || status == 'to_destination';
+              return status == 'accepted' || status == 'in_transit' || status == 'pickup' || status == 'to_destination' || status == 'pending';
             }).toList();
 
             if (activeList.isNotEmpty) {
@@ -1947,7 +1954,7 @@ class HomePartnerController extends GetxController {
             status == 'confirmed' ||
             negotiationStatus == 'confirmed' ||
             negotiationStatus == 'accepted') {
-          _handleRideConfirmed(requestId!, rawData);
+          _handleRideConfirmed(requestId!, data);
         }
       }
     }, onError: (e) {
@@ -2056,7 +2063,7 @@ class HomePartnerController extends GetxController {
 
       final updateData = {
         'status': 'accepted',
-        'accepted_by': user.uid,
+        'partner_id': user.uid,
         'accepted_at': DateTime.now().toIso8601String(),
         'negotiation': {
           'status': 'confirmed',
@@ -2127,7 +2134,7 @@ class HomePartnerController extends GetxController {
       // Fetch the updated request data from Supabase
       final updatedDoc = await SupabaseService.getOrder(requestId);
 
-      final updatedRequest = {'id': requestId, ...updatedDoc!};
+      final updatedRequest = {'id': requestId, ...SupabaseService.toCamelCase(updatedDoc ?? {})};
       debugPrint('✅ Updated request status: ${updatedRequest['status']}');
 
       // Send notification to user
@@ -2244,6 +2251,7 @@ class HomePartnerController extends GetxController {
           'updatedAt': DateTime.now().toIso8601String(),
         },
         'driver_name': partnerName.value,
+        'driver_id': user.uid,
       }).eq('id', requestId);
 
       // Add to interacted list so it doesn't show in the pending list until user counters
@@ -2563,7 +2571,7 @@ class HomePartnerController extends GetxController {
       // Update in Supabase
       await SupabaseService.client.from('partners').update({
         'is_online': isOnline.value,
-        'last_status_update': DateTime.now().toIso8601String(),
+        'last_location_update': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', user.uid);
 
       debugPrint(
@@ -2587,7 +2595,7 @@ class HomePartnerController extends GetxController {
 
       await SupabaseService.client.from('partners').update({
         'is_online': true,
-        'last_status_update': DateTime.now().toIso8601String(),
+        'last_location_update': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', user.uid);
       debugPrint('✅ Initial online status loaded as ONLINE: true');
     } catch (e) {

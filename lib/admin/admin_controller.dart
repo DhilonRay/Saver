@@ -47,7 +47,7 @@ class AdminController extends GetxController {
       final tenMinsAgo = DateTime.now().subtract(const Duration(minutes: 10));
       for (var item in ambSnap) {
         final data = SupabaseService.toCamelCase(item);
-        final lastUpdated = data['lastUpdated'];
+        final lastUpdated = data['lastLocationUpdate'] ?? data['lastUpdated'];
         if (lastUpdated != null) {
           final date = DateTime.tryParse(lastUpdated.toString());
           if (date != null && date.isAfter(tenMinsAgo)) {
@@ -65,7 +65,8 @@ class AdminController extends GetxController {
       final tripsSnap = await SupabaseService.client
           .from('orders')
           .select()
-          .gte('timestamp', todayStart.toIso8601String());
+          .eq('status', 'completed')
+          .gte('completed_at', todayStart.toIso8601String());
       totalTripsToday.value = tripsSnap.length;
 
       // Total users
@@ -88,10 +89,11 @@ class AdminController extends GetxController {
       
       for (var item in allTrips) {
         final data = SupabaseService.toCamelCase(item);
-        double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
+        final fareValue = data['finalFare'] ?? data['fare'] ?? data['userFare'] ?? data['partnerFare'] ?? 0;
+        final fare = double.tryParse(fareValue?.toString() ?? '0') ?? 0;
         revTotal += fare;
         
-        final ts = data['timestamp'];
+        final ts = data['completedAt'] ?? data['timestamp'] ?? data['createdAt'];
         if (ts != null) {
           DateTime? date = DateTime.tryParse(ts.toString());
           if (date != null) {
@@ -179,14 +181,13 @@ class AdminController extends GetxController {
     for (var item in allCompleted) {
       final data = SupabaseService.toCamelCase(item);
       // Filter by date locally to avoid composite index requirement
-      if (data['timestamp'] != null) {
-        DateTime? tripDate = DateTime.tryParse(data['timestamp'].toString());
-        if (tripDate != null && tripDate.isBefore(start)) continue;
-      }
-      double fare = (data['fareAmount'] ?? data['finalFare'] ?? data['confirmedFare'] ?? data['fare'] ?? 0).toDouble();
-      revenue += fare;
-      tripCount++;
-
+        final tripTimestamp = data['completedAt'] ?? data['timestamp'] ?? data['createdAt'];
+        if (tripTimestamp != null) {
+          DateTime? tripDate = DateTime.tryParse(tripTimestamp.toString());
+          if (tripDate != null && tripDate.isBefore(start)) continue;
+        }
+        final fareValue = data['finalFare'] ?? data['fare'] ?? data['userFare'] ?? data['partnerFare'] ?? 0;
+        final fare = double.tryParse(fareValue?.toString() ?? '0') ?? 0;
       String ambName = data['ambulanceName'] ?? data['driverName'] ?? data['companyName'] ?? 'Unknown';
       ambulanceEarnings[ambName] = (ambulanceEarnings[ambName] ?? 0) + fare;
     }

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   accepted_terms BOOLEAN DEFAULT true,
   profile_image_url TEXT,
   fcm_token TEXT,
+  last_token_update TIMESTAMPTZ,
   is_active BOOLEAN DEFAULT true,
   last_login TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -40,10 +41,11 @@ CREATE TABLE IF NOT EXISTS drivers (
   ambulance_image_url TEXT,
   nid_image_url TEXT,
   registration_papers_image_url TEXT,
+  fcm_token TEXT,
+  last_token_update TIMESTAMPTZ,
   is_approved BOOLEAN DEFAULT true,
   is_online BOOLEAN DEFAULT false,
   company_name TEXT,
-  fcm_token TEXT,
   last_login TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -55,11 +57,24 @@ CREATE TABLE IF NOT EXISTS partners (
   role TEXT DEFAULT 'driver',
   name TEXT,
   phone TEXT,
+  profile_image_url TEXT,
+  ambulance_image_url TEXT,
+  ambulance_type TEXT,
+  vehicle_number TEXT,
+  license_number TEXT,
+  company_name TEXT,
+  contact TEXT,
+  coverage_area TEXT,
+  indoor_city_rate DOUBLE PRECISION,
+  outdoor_city_rate DOUBLE PRECISION,
+  service_rate DOUBLE PRECISION,
+  rates_last_updated TIMESTAMPTZ,
   is_online BOOLEAN DEFAULT false,
   is_approved BOOLEAN DEFAULT true,
   is_active BOOLEAN DEFAULT true,
   data_ref TEXT,
   fcm_token TEXT,
+  last_token_update TIMESTAMPTZ,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   current_address TEXT,
@@ -67,6 +82,20 @@ CREATE TABLE IF NOT EXISTS partners (
   last_location_update TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure new partner profile fields exist for existing schemas
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS ambulance_image_url TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS ambulance_type TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS vehicle_number TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS license_number TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS contact TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS coverage_area TEXT;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS indoor_city_rate DOUBLE PRECISION;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS outdoor_city_rate DOUBLE PRECISION;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS service_rate DOUBLE PRECISION;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS rates_last_updated TIMESTAMPTZ;
 
 -- 4. ORDERS TABLE
 CREATE TABLE IF NOT EXISTS orders (
@@ -135,8 +164,24 @@ CREATE TABLE IF NOT EXISTS order_reviews (
   order_id TEXT,
   user_id TEXT,
   partner_id TEXT,
+  company_name TEXT,
+  driver_rating DOUBLE PRECISION,
+  company_rating DOUBLE PRECISION,
+  complaint TEXT,
+  timestamp TIMESTAMPTZ,
   rating DOUBLE PRECISION,
   review TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT,
+  name TEXT,
+  email TEXT,
+  feedback TEXT,
+  rating INTEGER,
+  attachment_urls JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -237,6 +282,10 @@ CREATE TABLE IF NOT EXISTS partner_notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_token_update TIMESTAMPTZ;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS last_token_update TIMESTAMPTZ;
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS last_token_update TIMESTAMPTZ;
+
 -- =============================================
 -- INDEXES for better query performance
 -- =============================================
@@ -254,12 +303,29 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient_id ON notification_lo
 -- =============================================
 -- ENABLE REALTIME for tables that need live updates
 -- =============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE partners;
-ALTER PUBLICATION supabase_realtime ADD TABLE ride_requests;
-ALTER PUBLICATION supabase_realtime ADD TABLE user_notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE partner_notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE admin_alerts;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'orders') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'partners') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.partners;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'ride_requests') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.ride_requests;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'user_notifications') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.user_notifications;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'partner_notifications') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.partner_notifications;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'admin_alerts') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_alerts;
+    END IF;
+  END IF;
+END $$;
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS) - Basic policies
@@ -271,6 +337,7 @@ ALTER TABLE partners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ride_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE glm_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
@@ -281,17 +348,79 @@ ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE partner_notifications ENABLE ROW LEVEL SECURITY;
 
 -- Allow all access with anon key (you can restrict later for production)
-CREATE POLICY "Allow all access" ON users FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON drivers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON partners FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON orders FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON ride_requests FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON order_reviews FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON admins FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON glm_accounts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON notification_logs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON pending_notifications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON admin_alerts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON user_notifications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access" ON partner_notifications FOR ALL USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'users' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON users FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'drivers' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON drivers FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON partners FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'orders' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON orders FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ride_requests' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON ride_requests FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'order_reviews' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON order_reviews FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'feedback' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON feedback FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'admins' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON admins FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'glm_accounts' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON glm_accounts FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'notification_logs' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON notification_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'pending_notifications' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON pending_notifications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'admin_notifications' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'admin_alerts' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON admin_alerts FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'user_notifications' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON user_notifications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'partner_notifications' AND policyname = 'Allow all access') THEN
+    CREATE POLICY "Allow all access" ON partner_notifications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- =============================================
+-- PATCH: Add ALL missing columns to orders table
+-- Run this in Supabase Dashboard > SQL Editor
+-- =============================================
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_live_location JSONB;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_location JSONB;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_latitude DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_longitude DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_latitude DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_longitude DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS destination_address TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS patient_name TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_address TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS urgency TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS negotiation JSONB;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_name TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_id TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS fare_amount DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_fare DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS phone TEXT;
+
+-- IMPORTANT: Reload PostgREST schema cache after adding columns
+NOTIFY pgrst, 'reload schema';

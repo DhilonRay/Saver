@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
@@ -203,7 +204,13 @@ class SupabaseService {
 
   static Future<String> createOrder(Map<String, dynamic> data) async {
     try {
-      data = _convertToSnakeCase(data);
+      // Auto-generate an ID if not provided (orders table has no default)
+      if (!data.containsKey('id') && !data.containsKey('uid')) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final random = (timestamp % 100000).toString().padLeft(5, '0');
+        data['id'] = '${timestamp}_$random';
+      }
+      data = _convertToSnakeCase(data, table: 'orders');
       final response =
           await client.from('orders').insert(data).select('id').single();
       return response['id'] as String;
@@ -217,7 +224,7 @@ class SupabaseService {
       String orderId, Map<String, dynamic> data) async {
     try {
       data['id'] = orderId;
-      data = _convertToSnakeCase(data);
+      data = _convertToSnakeCase(data, table: 'orders');
       await client.from('orders').upsert(data);
     } catch (e) {
       debugPrint('SupabaseService.upsertOrder error: $e');
@@ -228,7 +235,7 @@ class SupabaseService {
   static Future<void> updateOrder(
       String orderId, Map<String, dynamic> data) async {
     try {
-      data = _convertToSnakeCase(data);
+      data = _convertToSnakeCase(data, table: 'orders');
       await client.from('orders').update(data).eq('id', orderId);
     } catch (e) {
       debugPrint('SupabaseService.updateOrder error: $e');
@@ -360,6 +367,79 @@ class SupabaseService {
     }
   }
 
+  static Map<String, dynamic> buildOrderReviewPayload({
+    Object? orderId,
+    Object? userId,
+    Object? partnerId,
+    required String companyName,
+    required int driverRating,
+    required int companyRating,
+    required String complaint,
+    DateTime? timestamp,
+  }) {
+    final reviewTimestamp = timestamp ?? DateTime.now();
+    final averageRating = ((driverRating + companyRating) / 2).toDouble();
+
+    return {
+      'order_id': orderId,
+      'user_id': userId,
+      'partner_id': partnerId,
+      'rating': averageRating,
+      'review': jsonEncode({
+        'driverRating': driverRating,
+        'companyRating': companyRating,
+        'complaint': complaint.trim(),
+        'companyName': companyName,
+        'timestamp': reviewTimestamp.toIso8601String(),
+      }),
+    };
+  }
+
+  static Map<String, dynamic> normalizeOrderReview(Map<String, dynamic> item) {
+    final normalized = toCamelCase(item);
+    final rawReview = normalized['review'];
+
+    if (rawReview is String && rawReview.trim().isNotEmpty) {
+      final trimmedReview = rawReview.trim();
+      if (trimmedReview.startsWith('{')) {
+        try {
+          final decoded = jsonDecode(trimmedReview);
+          if (decoded is Map<String, dynamic>) {
+            final merged = <String, dynamic>{...normalized};
+            decoded.forEach((key, value) {
+              merged[key] = value;
+            });
+
+            if (merged['complaint'] == null || merged['complaint'].toString().trim().isEmpty) {
+              merged['complaint'] = normalized['complaint'] ?? '';
+            }
+            if (merged['companyName'] == null || merged['companyName'].toString().trim().isEmpty) {
+              merged['companyName'] = 'Unknown Company';
+            }
+            if (merged['timestamp'] == null) {
+              merged['timestamp'] = normalized['timestamp'] ?? normalized['createdAt'];
+            }
+            if (merged['createdAt'] == null) {
+              merged['createdAt'] = normalized['createdAt'] ?? normalized['timestamp'];
+            }
+            return merged;
+          }
+        } catch (e) {
+          debugPrint('SupabaseService.normalizeOrderReview decode error: $e');
+        }
+      }
+    }
+
+    if (normalized['complaint'] == null || normalized['complaint'].toString().trim().isEmpty) {
+      normalized['complaint'] = rawReview is String ? rawReview : '';
+    }
+    if (normalized['timestamp'] == null) {
+      normalized['timestamp'] = normalized['createdAt'];
+    }
+
+    return normalized;
+  }
+
   static Future<List<Map<String, dynamic>>> getAllOrderReviews() async {
     try {
       final response = await client
@@ -377,6 +457,23 @@ class SupabaseService {
     return client
         .from('order_reviews')
         .stream(primaryKey: ['id']);
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllFeedback() async {
+    try {
+      final response = await client
+          .from('feedback')
+          .select()
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('SupabaseService.getAllFeedback error: $e');
+      return [];
+    }
+  }
+
+  static Stream<List<Map<String, dynamic>>> streamFeedback() {
+    return client.from('feedback').stream(primaryKey: ['id']);
   }
 
   // =============================================
@@ -789,7 +886,7 @@ class SupabaseService {
   // =============================================
 
   /// Convert camelCase keys to snake_case for Supabase
-  static Map<String, dynamic> _convertToSnakeCase(Map<String, dynamic> data) {
+  static Map<String, dynamic> _convertToSnakeCase(Map<String, dynamic> data, {String? table}) {
     final Map<String, dynamic> converted = {};
     data.forEach((key, value) {
       final snakeKey = _camelToSnake(key);
@@ -823,7 +920,60 @@ class SupabaseService {
     // Remove Firestore-specific keys that don't exist in Supabase
     converted.remove('data_ref');
 
+    if (table != null) {
+      return _filterTableColumns(table, converted);
+    }
+
     return converted;
+  }
+
+  static Map<String, dynamic> _filterTableColumns(String table, Map<String, dynamic> data) {
+    if (table == 'orders') {
+      const allowed = {
+        'id', 'user_id', 'glm_id', 'pickup_otp', 'otp_generated_at', 'partner_id',
+        'user_name', 'user_phone', 'partner_name', 'partner_phone', 'company_name',
+        'pickup_address', 'destination_address', 'pickup_latitude', 'pickup_longitude',
+        'destination_latitude', 'destination_longitude', 'status', 'type', 'urgency',
+        'notes', 'fare', 'initial_fare', 'counter_fare', 'final_fare', 'user_fare',
+        'partner_fare', 'distance_km', 'duration_mins', 'fare_status', 'payment_method',
+        'rating', 'review', 'is_rated', 'accepted_at', 'picked_up_at', 'completed_at',
+        'cancelled_at', 'created_at', 'updated_at', 'extra_data',
+        'negotiation', 'partner_live_location', 'partner_location', 'patient_name', 'email', 'driver_name',
+        'driver_id', 'phone', 'blood_group', 'patient_age', 'detailed_address',
+        'current_condition', 'medical_history', 'allergies'
+      };
+      
+      final Map<String, dynamic> filtered = {};
+      final Map<String, dynamic> extraData = Map<String, dynamic>.from(data['extra_data'] ?? {});
+      
+      data.forEach((key, value) {
+        if (allowed.contains(key)) {
+          filtered[key] = value;
+        } else {
+          extraData[key] = value;
+        }
+      });
+      
+      if (extraData.isNotEmpty) {
+        filtered['extra_data'] = extraData;
+      }
+      return filtered;
+    } else if (table == 'ride_requests') {
+      const allowed = {
+        'id', 'request_id', 'user_id', 'user_name', 'user_phone', 'driver_id',
+        'pickup_address', 'destination_address', 'pickup_latitude', 'pickup_longitude',
+        'notes', 'urgency', 'status', 'created_at'
+      };
+      
+      final Map<String, dynamic> filtered = {};
+      data.forEach((key, value) {
+        if (allowed.contains(key)) {
+          filtered[key] = value;
+        }
+      });
+      return filtered;
+    }
+    return data;
   }
 
   /// Convert a camelCase string to snake_case
@@ -862,6 +1012,10 @@ class SupabaseService {
       'pickupLongitude': 'pickup_longitude',
       'destinationLatitude': 'destination_latitude',
       'destinationLongitude': 'destination_longitude',
+      'pickupLat': 'pickup_latitude',
+      'pickupLng': 'pickup_longitude',
+      'destinationLat': 'destination_latitude',
+      'destinationLng': 'destination_longitude',
       'initialFare': 'initial_fare',
       'counterFare': 'counter_fare',
       'finalFare': 'final_fare',
@@ -900,8 +1054,8 @@ class SupabaseService {
     );
   }
 
-  static Map<String, dynamic> toSnakeCase(Map<String, dynamic> data) =>
-      _convertToSnakeCase(data);
+  static Map<String, dynamic> toSnakeCase(Map<String, dynamic> data, {String? table}) =>
+      _convertToSnakeCase(data, table: table);
 
   /// Convert snake_case Supabase data back to camelCase for app compatibility
   static Map<String, dynamic> toCamelCase(Map<String, dynamic> data) {
@@ -910,11 +1064,46 @@ class SupabaseService {
       final camelKey = _snakeToCamel(key);
       converted[camelKey] = value;
     });
+
+    // Always ensure BOTH 'id' and 'uid' are available so code using either key works.
+    // The _snakeToCamel maps 'id' -> 'uid', so we also copy the raw 'id' value back.
+    if (data.containsKey('id')) {
+      converted['id'] = data['id'];
+      converted['uid'] = data['id']; // alias
+    }
+
+    // Reconstruct flat lat/lng columns into nested location maps and short keys for Firestore compatibility
+    if (data.containsKey('pickup_latitude') && data['pickup_latitude'] != null) {
+      final lat = data['pickup_latitude'];
+      final lng = data['pickup_longitude'];
+      converted['pickupLat'] = lat;
+      converted['pickupLng'] = lng;
+      converted['pickupLocation'] = {
+        'latitude': lat,
+        'longitude': lng,
+      };
+      converted['userLocation'] = {
+        'latitude': lat,
+        'longitude': lng,
+      };
+    }
+    if (data.containsKey('destination_latitude') && data['destination_latitude'] != null) {
+      final lat = data['destination_latitude'];
+      final lng = data['destination_longitude'];
+      converted['destinationLat'] = lat;
+      converted['destinationLng'] = lng;
+      converted['destinationLocation'] = {
+        'latitude': lat,
+        'longitude': lng,
+      };
+    }
+
     return converted;
   }
 
   static String _snakeToCamel(String input) {
-    if (input == 'id') return 'uid';
+    // Note: 'id' is intentionally NOT remapped here anymore; toCamelCase handles both 'id' and 'uid' explicitly.
+    if (input == 'id') return 'id'; // keep as 'id', toCamelCase adds 'uid' alias separately
     final parts = input.split('_');
     if (parts.length == 1) return input;
     return parts[0] +

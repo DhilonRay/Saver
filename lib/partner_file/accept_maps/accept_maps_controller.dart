@@ -194,9 +194,17 @@ class AcceptMapsController extends GetxController {
         return;
       }
 
-      requestData.value = {'id': orderId, ...rawData};
+      requestData.value = {'id': orderId, ...data};
 
-      final updatedFare = _extractFare(rawData);
+      // Ensure userPosition is updated if it was missing initially
+      if (userPosition.value == null && data['pickupLat'] != null && data['pickupLng'] != null) {
+        userPosition.value = LatLng((data['pickupLat'] as num).toDouble(), (data['pickupLng'] as num).toDouble());
+        _updateMarkers();
+        _createRoutePolyline();
+        calculateETA();
+      }
+
+      final updatedFare = _extractFare(data);
         if (updatedFare != null && updatedFare > 0) {
           serviceRate.value = updatedFare;
         }
@@ -1071,7 +1079,6 @@ class AcceptMapsController extends GetxController {
             .from('orders')
             .update({
           'status': 'pickup',
-          'pickup_confirmed_at': DateTime.now().toIso8601String(),
         }).eq('id', requestId);
 
         // Update local data
@@ -1108,7 +1115,6 @@ class AcceptMapsController extends GetxController {
           .from('orders')
           .update({
         'status': 'to_destination',
-        'destination_started_at': DateTime.now().toIso8601String(),
       }).eq('id', requestId);
 
       // Update local data

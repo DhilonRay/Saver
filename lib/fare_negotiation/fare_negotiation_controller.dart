@@ -84,39 +84,30 @@ class FareNegotiationController extends GetxController {
       negotiationStatus.value = status;
       counterBy.value = counterByValue;
 
-      // If user sent a counter offer
-      if (counterByValue == 'user') {
-        isWaitingForDriver.value = true;
-        statusMessage.value = 'ড্রাইভার প্রতিক্রিয়ার অপেক্ষায়...';
-      }
-
-      // If driver sent a counter offer
-      if (counterByValue == 'driver' && counterFareValue > 0) {
-        currentFare.value = counterFareValue;
-        counterFare.value = counterFareValue;
-        isWaitingForDriver.value = false;
-        statusMessage.value = 'ড্রাইভার নতুন ভাড়া প্রস্তাব করেছে';
-      }
-
-      // If driver accepted user's offer but user hasn't seen it yet
-      if (driverAccepted && !userAccepted) {
-        isWaitingForDriver.value = false;
-        statusMessage.value = 'ড্রাইভার আপনার অফার গ্রহণ করেছে! নিশ্চিত করুন।';
-      }
-
       // If driver rejected
       if (status == 'rejected' || data['status'] == 'cancelled' || data['status'] == 'declined') {
         isWaitingForDriver.value = false;
         statusMessage.value = 'ড্রাইভার ভাড়া প্রত্যাখ্যান করেছে (Ride Cancelled)';
         negotiationStatus.value = 'rejected';
       }
-
       // If both accepted → Trip Confirmed → Go to Tracking
-      if (driverAccepted && userAccepted && !_hasNavigated) {
+      else if (driverAccepted && userAccepted && !_hasNavigated) {
         _hasNavigated = true;
         negotiationStatus.value = 'confirmed';
         statusMessage.value = 'ট্রিপ নিশ্চিত হয়েছে! ট্র্যাকিং পেজে যাচ্ছে...';
         _navigateToTracking(data);
+      }
+      // If user sent a counter offer
+      else if (counterByValue == 'user') {
+        isWaitingForDriver.value = true;
+        statusMessage.value = 'ড্রাইভার প্রতিক্রিয়ার অপেক্ষায়...';
+      }
+      // If driver sent a counter offer
+      else if (counterByValue == 'driver' && counterFareValue > 0) {
+        currentFare.value = counterFareValue;
+        counterFare.value = counterFareValue;
+        isWaitingForDriver.value = false;
+        statusMessage.value = 'ড্রাইভার নতুন ভাড়া প্রস্তাব করেছে';
       }
     });
   }

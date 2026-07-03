@@ -306,130 +306,136 @@ class AcceptMapsPage extends StatelessWidget {
 
                       SizedBox(height: 12),
 
-                      // Patient name (prominent)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person,
-                            color: primaryGreen,
-                            size: 18,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              controller.requestData.value?['patientName'] ??
-                                  'Patient',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      SizedBox(height: 8),
-
-                      // Phone and location in compact rows
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            color: Colors.grey.shade600,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              controller.requestData.value?['phone'] ??
-                                  'No phone',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      SizedBox(height: 6),
-
-                      Row(
+                      // Patient and Location Info (Wrapped in Obx for live updates)
+                      Obx(() => Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              controller.formatAddress(controller
-                                  .requestData.value?['pickupAddress']),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
-                                height: 1.3,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // Destination information
-                      if (controller.requestData.value?['destinationAddress'] !=
-                              null &&
-                          (controller.requestData.value?['destinationAddress']
-                                  as String)
-                              .isNotEmpty) ...[
-                        SizedBox(height: 8),
-                        Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.purple.shade200, width: 1),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          // Patient name (prominent)
+                          Row(
                             children: [
                               Icon(
-                                Icons.flag,
-                                color: Colors.purple.shade600,
-                                size: 16,
+                                Icons.person,
+                                color: primaryGreen,
+                                size: 18,
                               ),
                               SizedBox(width: 8),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'গন্তব্য',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.purple.shade800,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      controller.requestData
-                                              .value?['destinationAddress'] ??
-                                          '',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.purple.shade700,
-                                        height: 1.3,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
+                                child: Text(
+                                  controller.requestData.value?['patientName'] ??
+                                      'Patient',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+
+                          SizedBox(height: 8),
+
+                          // Phone and location in compact rows
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.phone,
+                                color: Colors.grey.shade600,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  controller.requestData.value?['phone'] ??
+                                      'No phone',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          SizedBox(height: 6),
+
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  controller.formatAddress(controller
+                                      .requestData.value?['pickupAddress']),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                    height: 1.3,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Destination information
+                          if (controller.requestData.value?['destinationAddress'] !=
+                                  null &&
+                              (controller.requestData.value?['destinationAddress']
+                                      as String)
+                                  .isNotEmpty) ...[
+                            SizedBox(height: 8),
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: Colors.purple.shade200, width: 1),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.flag,
+                                    color: Colors.purple.shade600,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'গন্তব্য',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.purple.shade800,
+                                          ),
+                                        ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          controller.requestData
+                                                  .value?['destinationAddress'] ??
+                                              '',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.purple.shade700,
+                                            height: 1.3,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      )),
 
                       // ETA information
                       SizedBox(height: 8),
@@ -522,7 +528,7 @@ class AcceptMapsPage extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Service Charge',
+                                        'Total Fare (with 5%)',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
@@ -531,7 +537,7 @@ class AcceptMapsPage extends StatelessWidget {
                                       ),
                                       SizedBox(height: 2),
                                       Text(
-                                        '৳${controller.serviceRate.value}',
+                                        '৳${(controller.serviceRate.value * 1.05).toStringAsFixed(0)}',
                                         style: TextStyle(
                                           fontSize: 14,
                                           color: Colors.green.shade700,
@@ -820,7 +826,7 @@ class AcceptMapsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '৳${controller.serviceRate.value.toStringAsFixed(0)}',
+                      '৳${(controller.serviceRate.value * 1.05).toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -873,7 +879,7 @@ class AcceptMapsPage extends StatelessWidget {
                       onPressed: () {
                         Get.back();
                         controller.completeRide(
-                          fareAmount: controller.serviceRate.value.toDouble(),
+                          fareAmount: controller.serviceRate.value * 1.05,
                         );
                       },
                       style: ElevatedButton.styleFrom(
